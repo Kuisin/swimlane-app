@@ -1,0 +1,56 @@
+@kai-swimlane
+
+/title/
+Sample text
+
+/role/
+
+<role01>
+text-color: blue;
+icon: sample-01.svg;
+
+<role02>
+label: 山田さん
+text-color: #000000;
+background-color: #ffffff;
+
+/block/
+
+<block01>
+background-color: #ffe0b3;
+text-color: #6b2a00;
+border-color: #aa5500;
+shape: hex;
+icon: #zap;
+
+<block02>
+background-color: #d1fae5;
+text-color: #064e3b;
+border-color: #047857;
+shape: subroutine;
+icon: #circle-check;
+
+<block03>
+background-color: #fee2e2;
+text-color: #7f1d1d;
+border-color: #b91c1c;
+shape: cloud;
+icon: #alert-triangle;
+
+/line/
+
+role02: ここに手続きを入れる;
+role02: ここに次のステップ; <block02>
+role01: システム呼び出し; <block01>
+
+if (検品) than (成功)
+　role01: 成功しました; <block02>
+elseif (失敗)
+　role02: エラー処理; <block03>
+else
+　:;
+endif
+
+role02: 完了通知;
+
+@end
