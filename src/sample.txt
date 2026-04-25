@@ -46,9 +46,7 @@ role01: システム呼び出し; <block01>
 if (検品) than (成功)
 　role01: 成功しました; <block02>
 elseif (失敗)
-　role02: エラー処理; <block03>
-else
-　:;
+　role01: エラー処理; <block03>
 endif
 
 role02: 完了通知;
