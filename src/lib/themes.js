@@ -1,4 +1,17 @@
 export const THEMES = {
+  basic: {
+    name: "Basic",
+    bg: "#ffffff",
+    grid: "#e5e7eb",
+    stroke: "#334155",
+    title: "#0f172a",
+    laneText: "#0f172a",
+    laneFills: ["#dbeafe", "#dcfce7", "#fef3c7", "#fee2e2", "#e9d5ff"],
+    boxBg: "#f8fafc",
+    boxText: "#0f172a",
+    branch: "#2563eb",
+    branchBg: "#eff6ff",
+  },
   washi: {
     name: "和紙 Washi",
     bg: "#f5f1e8",

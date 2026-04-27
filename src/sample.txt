@@ -5,6 +5,11 @@ Sample text
 
 /role/
 
+<role00>
+label: 区分
+text-color: #444444;
+background-color: #f5f5f4;
+
 <role01>
 text-color: blue;
 icon: sample-01.svg;
@@ -39,16 +44,23 @@ icon: #alert-triangle;
 
 /line/
 
-role02: ここに手続きを入れる;
-role02: ここに次のステップ; <block02>
-role01: システム呼び出し; <block01>
+[role00: ---]
+skip;
+
+[role02: ここに手続きを入れる]
+label: Step name;
+desc: 左カラムに表示される説明;
+
+[role02: ここに次のステップ] <block02>
+
+[role01: システム呼び出し] <block01>
 
 if (検品) than (成功)
-　role01: 成功しました; <block02>
+[role01: 成功しました] <block02>
 elseif (失敗)
-　role01: エラー処理; <block03>
+[role01: エラー処理] <block03>
 endif
 
-role02: 完了通知;
+[role02: 完了通知]
 
 @end

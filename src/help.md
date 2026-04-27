@@ -56,28 +56,37 @@ icon: 🔥;
 
 # 付きで Lucide アイコン名を指定(例: #check, #star, #mail, #lock, #zap, #circle-check, #alert-triangle, #database, #cloud, #settings, #user, #file-text, #send, #rocket, #shield-check など 100+ 種)。# 無しは絵文字・文字としてそのまま表示。
 
-## ステップ + ブロック適用
+## ステップ
+
+1 行目にレーンと本文。`[roleId: 本文]`。行末に `<blockId>` を付けると `/block/` のデザインが当たります。
+
+次の行以降（必ず直後のステップにだけ効く）:
+
+- `label: 名前;` — 左カラム用の表示名
+- `desc: 説明;` — 左カラム用の小さめ説明
+- `skip;` — 段階番号を付けない（見出し用）
 
 ```
-role01: 処理内容; <block01>
-role02: 確認する;
-```
+[role02: ここに手続きを入れる]
+label: Step name;
+desc: 左カラムに表示される説明;
 
-行末に <blockId> を付けるとそのデザインが適用されます。
+[role02: ここに次のステップ] <block02>
+```
 
 ## 分岐(split & merge)
 
 ```
 if (条件) than (成功)
-　role01: 成功処理; <block02>
+[role01: 成功処理] <block02>
 elseif (失敗)
-　role02: エラー; <block03>
+[role02: エラー] <block03>
 else
-　:;
+:;
 endif
 ```
 
-if〜endif で分岐。各ブランチにもブロックを使えます。:; は空ステップ。
+if〜endif で分岐。各ステップ行は上記と同じく `[roleId: 本文]` 形式。`:;` は空ステップ。
 
 ## コメント
 

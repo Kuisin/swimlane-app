@@ -10,7 +10,7 @@ import { HelpModal } from "./components/help-modal";
 
 export default function App() {
   const [src, setSrc] = useState(SAMPLE);
-  const [themeKey, setThemeKey] = useState("washi");
+  const [themeKey, setThemeKey] = useState("basic");
   const [showHelp, setShowHelp] = useState(false);
 
   const theme = THEMES[themeKey];

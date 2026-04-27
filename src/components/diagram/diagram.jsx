@@ -1,4 +1,5 @@
 import { truncate } from "../../lib/utils";
+import { buildStepRowDisplayInfo } from "../../lib/parser";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
 
@@ -7,7 +8,8 @@ export function Diagram({ model, theme }) {
   const minLaneW = 220;
   const maxLaneW = 360;
   const nodeW = 188;
-  const sidePad = 40;
+  const xPad = 40;
+  const leftGutter = 300;
   const topPad = title ? 72 : 32;
   const headerH = 72;
   const rowH = 80;
@@ -21,6 +23,7 @@ export function Diagram({ model, theme }) {
   const frames = [];
   const frameStack = [];
   const laneIndexById = new Map(lanes.map((lane, idx) => [lane.id, idx]));
+  const stepRowDisplay = buildStepRowDisplayInfo(rows);
 
   function estimateTextWidth(text, base = 28) {
     if (!text) return base;
@@ -93,17 +96,17 @@ export function Diagram({ model, theme }) {
     return Math.max(minLaneW, Math.min(maxLaneW, contentWidth));
   });
   const laneOffsets = [];
-  let laneCursor = sidePad;
+  let laneCursor = xPad + leftGutter;
   laneWidths.forEach((w, idx) => {
     laneOffsets[idx] = laneCursor;
     laneCursor += w;
   });
 
-  const width = laneCursor + sidePad;
+  const width = laneCursor + xPad;
   const baseBottomPadding = 50;
 
   const laneIndex = (id) => laneIndexById.get(id) ?? -1;
-  const laneX = (i) => laneOffsets[i] ?? sidePad;
+  const laneX = (i) => laneOffsets[i] ?? xPad + leftGutter;
   const laneCenter = (i) => laneX(i) + (laneWidths[i] ?? minLaneW) / 2;
   const laneWidth = (i) => laneWidths[i] ?? minLaneW;
 
@@ -241,6 +244,8 @@ export function Diagram({ model, theme }) {
     ? endTerminal.y + terminalRadius + 16
     : 0;
   const height = Math.max(y + baseBottomPadding, endTerminalBottom);
+  const leftGutterBodyH = Math.max(0, height - (headerH + 24) - 20 + 24);
+  const leftGutterBodyBottomY = headerH + leftGutterBodyH;
 
   return (
     <svg
@@ -281,13 +286,6 @@ export function Diagram({ model, theme }) {
         </pattern>
       </defs>
 
-      <rect
-        width={width}
-        height={height}
-        fill="url(#gridp)"
-        opacity="0.5"
-      />
-
       {title && (
         <text
           x={width / 2}
@@ -302,6 +300,84 @@ export function Diagram({ model, theme }) {
           {title}
         </text>
       )}
+
+      <rect
+        width={width}
+        height={height}
+        fill="url(#gridp)"
+        opacity="0.5"
+      />
+
+      {/* left gutter (bottom border: 1.2px solid theme.stroke) */}
+      <rect
+        x={xPad}
+        y={topPad}
+        width={leftGutter}
+        height={headerH}
+        fill="white"
+        opacity="0.9"
+      />
+      <line
+        x1={xPad}
+        x2={xPad + leftGutter}
+        y1={topPad + headerH}
+        y2={topPad + headerH}
+        stroke={theme.stroke}
+        strokeWidth="1.2"
+        vectorEffect="non-scaling-stroke"
+      />
+
+      <rect
+        x={xPad}
+        y={headerH}
+        width={leftGutter}
+        height={leftGutterBodyH}
+        fill="none"
+        stroke={theme.stroke}
+        strokeWidth="1.2"
+      />
+
+      {rows.map((r, i) => {
+        if (r.kind !== "step" || r.empty || !r.role) return null;
+        if (r.skipIndex) return null;
+        const yRow = rowMeta[i]?.y;
+        if (yRow == null) return null;
+        const d = stepRowDisplay.get(i);
+        const titleText = (r.name || r.text || "").trim();
+        const hasNum = d && !d.skipped && d.displayIndex != null;
+        const prefix = hasNum ? `${d.displayIndex}. ` : "";
+        if (!titleText && !r.description) return null;
+        return (
+          <g key={`step-left-${i}`}>
+            {titleText && (
+              <text
+                x={12 + xPad}
+                y={yRow + 30}
+                fill={theme.title}
+                fontFamily="'Noto Sans JP',sans-serif"
+                fontSize="12"
+                fontWeight="600"
+              >
+                {prefix}
+                {truncate(titleText, 28)}
+              </text>
+            )}
+            {r.description && (
+              <text
+                x={12 + xPad}
+                y={titleText ? yRow + 50 : yRow + 30}
+                fill={theme.laneText || theme.title}
+                opacity="0.78"
+                fontFamily="'Noto Sans JP',sans-serif"
+                fontSize="10"
+                fontWeight="400"
+              >
+                {truncate(r.description, 36)}
+              </text>
+            )}
+          </g>
+        );
+      })}
 
       {/* Swimlane columns and lane headers */}
       {lanes.map((lane, i) => {
@@ -384,6 +460,15 @@ export function Diagram({ model, theme }) {
                 {lane.id}
               </text>
             )}
+            <line
+              x1={x}
+              x2={x + currentLaneW}
+              y1={topPad + headerH}
+              y2={topPad + headerH}
+              stroke={theme.stroke}
+              strokeWidth="1.2"
+              vectorEffect="non-scaling-stroke"
+            />
           </g>
         );
       })}

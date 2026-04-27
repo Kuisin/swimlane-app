@@ -1,3 +1,27 @@
+/** Unescape so `&lt;block01&gt;` and similar are parsed like `<block01>`. */
+export function unescapeDslLine(line) {
+  return line
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"');
+}
+
+/** 出現順の表示番号。skipIndex の行は件数に含めず番号なし。 */
+export function buildStepRowDisplayInfo(rows) {
+  const out = new Map();
+  let index = 1;
+  rows.forEach((r, i) => {
+    if (r.kind !== "step" || r.empty || !r.role) return;
+    if (r.skipIndex) {
+      out.set(i, { skipped: true });
+      return;
+    }
+    out.set(i, { displayIndex: index++ });
+  });
+  return out;
+}
+
 export function parseDSL(src) {
   const allLines = src.split(/\r?\n/);
   const errors = [];
@@ -101,12 +125,15 @@ export function parseDSL(src) {
   const rows = [];
   const stack = [];
   let branchCounter = 0;
+  let lastRealStepIndex = -1;
+  let autoIdCounter = 0;
 
   for (const { text, line } of sections.line) {
-    const t = text.trim();
-    if (!t) continue;
+    if (!text.trim()) continue;
+    const u = unescapeDslLine(text.trim());
+    if (!u) continue;
 
-    let m = t.match(/^if\s*\((.+?)\)\s*than\s*\((.+?)\)$/i);
+    let m = u.match(/^if\s*\((.+?)\)\s*than\s*\((.+?)\)$/i);
     if (m) {
       branchCounter++;
       const id = branchCounter;
@@ -120,7 +147,7 @@ export function parseDSL(src) {
       });
       continue;
     }
-    m = t.match(/^elseif\s*\((.+?)\)$/i);
+    m = u.match(/^elseif\s*\((.+?)\)$/i);
     if (m) {
       const top = stack[stack.length - 1];
       if (!top) {
@@ -135,7 +162,7 @@ export function parseDSL(src) {
       });
       continue;
     }
-    if (/^else$/i.test(t)) {
+    if (/^else$/i.test(u)) {
       const top = stack[stack.length - 1];
       if (!top) {
         errors.push({ line, text, msg: "else without if" });
@@ -149,7 +176,7 @@ export function parseDSL(src) {
       });
       continue;
     }
-    if (/^endif$/i.test(t)) {
+    if (/^endif$/i.test(u)) {
       const top = stack.pop();
       if (!top) {
         errors.push({ line, text, msg: "endif without if" });
@@ -159,43 +186,94 @@ export function parseDSL(src) {
       continue;
     }
 
-    if (/^:\s*;?$/.test(t)) {
+    if (/^:\s*;?$/.test(u)) {
       rows.push({
         kind: "step",
         role: null,
         text: "",
         depth: stack.length,
         empty: true,
+        stepId: null,
       });
       continue;
     }
 
-    let blockRef = null;
-    let body = t;
-    const blockMatch = body.match(/<([A-Za-z0-9_\-]+)>\s*;?\s*$/);
-    if (blockMatch) {
-      blockRef = blockMatch[1];
-      body = body.slice(0, blockMatch.index).trim().replace(/;$/, "").trim();
-    }
-
-    m = body.match(/^([A-Za-z0-9_\-]+)\s*:\s*(.+?);?\s*$/);
+    m = u.match(/^label:\s*(.+?);?\s*$/);
     if (m) {
-      const role = m[1].trim();
-      const txt = m[2].trim().replace(/;$/, "");
-      if (!roles[role]) roles[role] = { id: role };
-      rows.push({ kind: "step", role, text: txt, depth: stack.length, blockRef });
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "label: has no preceding step" });
+        continue;
+      }
+      const pr = rows[lastRealStepIndex];
+      pr.name = m[1].trim().replace(/;$/, "");
       continue;
     }
+    m = u.match(/^desc:\s*(.+?);?\s*$/);
+    if (m) {
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "desc: has no preceding step" });
+        continue;
+      }
+      const pr = rows[lastRealStepIndex];
+      pr.description = m[1].trim().replace(/;$/, "");
+      continue;
+    }
+    if (/^skip;?\s*$/i.test(u)) {
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "skip has no preceding step" });
+        continue;
+      }
+      rows[lastRealStepIndex].skipIndex = true;
+      continue;
+    }
+
+    let blockRef = null;
+    let work = u;
+    const blockAtEnd = u.match(/<([A-Za-z0-9_\-]+)>\s*;?\s*$/);
+    if (blockAtEnd) {
+      blockRef = blockAtEnd[1];
+      work = u.slice(0, blockAtEnd.index).trim();
+    }
+
+    m = work.match(
+      /^\[([A-Za-z0-9_\-]+)\s*:\s*([\s\S]+?)\]\s*;?\s*$/,
+    );
+    if (m) {
+      const role = m[1].trim();
+      const txt = m[2].trim();
+      if (!roles[role]) roles[role] = { id: role };
+      const stepId = blockRef || `step-${++autoIdCounter}`;
+      rows.push({
+        kind: "step",
+        role,
+        text: txt,
+        depth: stack.length,
+        blockRef: blockRef || null,
+        stepId,
+      });
+      lastRealStepIndex = rows.length - 1;
+      continue;
+    }
+
+    if (/^[A-Za-z0-9_\-]+\s*:\s*\S/.test(work)) {
+      errors.push({
+        line,
+        text,
+        msg: "step lines must use [roleId: text] (optional <block> at end of line)",
+      });
+      continue;
+    }
+
     errors.push({ line, text, msg: "unrecognized line" });
   }
 
   const seen = new Set();
   const ordered = [];
-  for (const { text } of sections.role) {
-    const m = text.trim().match(/^<([^>]+)>$/);
-    if (m && !seen.has(m[1])) {
-      seen.add(m[1]);
-      ordered.push(m[1]);
+  for (const { text: roleLine } of sections.role) {
+    const m2 = roleLine.trim().match(/^<([^>]+)>$/);
+    if (m2 && !seen.has(m2[1])) {
+      seen.add(m2[1]);
+      ordered.push(m2[1]);
     }
   }
   for (const r of rows) {

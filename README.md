@@ -37,6 +37,7 @@ npm run preview
   - `blocks` (reusable block styles)
   - `errors`
 - Supports branch syntax: `if (...) than (...)`, `elseif (...)`, `else`, `endif`.
+- Step lines use bracket form: `[roleId: text]` with optional `<blockId>` at end; optional `label:`, `desc:`, `skip;` on following lines.
 - Supports empty step marker: `:;`
 
 ### Diagram rendering (core)
