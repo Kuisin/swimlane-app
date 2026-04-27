@@ -39,12 +39,13 @@ export function parseDSL(src) {
       lanes: [],
       rows: [],
       blocks: {},
+      props: {},
       errors: [{ line: 1, text: "", msg: "@kai-swimlane marker not found" }],
     };
   }
 
   const lines = allLines.slice(startIdx + 1, endIdx);
-  const sections = { title: [], role: [], block: [], line: [] };
+  const sections = { title: [], role: [], block: [], prop: [], line: [] };
   let current = null;
 
   for (let i = 0; i < lines.length; i++) {
@@ -52,7 +53,7 @@ export function parseDSL(src) {
     const t = raw.trim();
     if (!t) continue;
     if (t.startsWith("***") || t.startsWith("@")) continue;
-    const sec = t.match(/^\/(title|role|option|block|line)\/$/);
+    const sec = t.match(/^\/(title|role|option|block|prop|line)\/$/);
     if (sec) {
       current = sec[1] === "option" ? "role" : sec[1];
       continue;
@@ -118,6 +119,32 @@ export function parseDSL(src) {
           label: "label",
         };
         if (map[key]) blocks[active][map[key]] = val;
+      }
+    }
+  }
+
+  const props = {};
+  {
+    let active = null;
+    for (const { text } of sections.prop) {
+      const t = text.trim();
+      if (!t) continue;
+      const m = t.match(/^<([^>]+)>$/);
+      if (m) {
+        active = m[1].trim();
+        if (!props[active])
+          props[active] = { id: active, label: active, side: "right" };
+        continue;
+      }
+      const kv = t.match(/^([a-zA-Z\-]+)\s*:\s*(.+?);?$/);
+      if (kv && active) {
+        const key = kv[1].toLowerCase();
+        const val = kv[2].trim().replace(/;$/, "");
+        if (key === "label") props[active].label = val;
+        if (key === "side") {
+          const side = val.toLowerCase();
+          props[active].side = side === "left" ? "left" : "right";
+        }
       }
     }
   }
@@ -226,6 +253,22 @@ export function parseDSL(src) {
       rows[lastRealStepIndex].skipIndex = true;
       continue;
     }
+    m = u.match(/^props:\s*(.+?);?\s*$/i);
+    if (m) {
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "props: has no preceding step" });
+        continue;
+      }
+      const ids = m[1]
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      rows[lastRealStepIndex].props = ids;
+      ids.forEach((id) => {
+        if (!props[id]) props[id] = { id, label: id, side: "right" };
+      });
+      continue;
+    }
 
     let blockRef = null;
     let work = u;
@@ -290,5 +333,5 @@ export function parseDSL(src) {
     icon: (roles[id] && roles[id].icon) || null,
   }));
 
-  return { title, lanes, rows, blocks, errors };
+  return { title, lanes, rows, blocks, props, errors };
 }

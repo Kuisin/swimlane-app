@@ -4,6 +4,7 @@
 /title/
 /role/
 /block/
+/prop/
 /line/
 ```
 
@@ -45,6 +46,21 @@ icon: #zap;
 
 再利用可能なステップのスタイル定義。shape: rect / rounded / hex / ellipse / cloud / note / subroutine。
 
+## プロップ(再利用ドキュメント)
+
+```
+/prop/
+<A>
+label: 申請書
+side: right;
+
+<B>
+label: 承認ログ
+side: left;
+```
+
+ステップに紐づける再利用可能なドキュメント定義。`label` は表示名、`side` は `left` / `right`（省略時 `right`）。
+
 ## アイコン (icon)
 
 ```
@@ -65,13 +81,16 @@ icon: 🔥;
 - `label: 名前;` — 左カラム用の表示名
 - `desc: 説明;` — 左カラム用の小さめ説明
 - `skip;` — 段階番号を付けない（見出し用）
+- `props: A,B,C;` — `/prop/` のドキュメントをステップ下部の左右に表示
 
 ```
 [role02: ここに手続きを入れる]
 label: Step name;
 desc: 左カラムに表示される説明;
+props: A,B;
 
 [role02: ここに次のステップ] <block02>
+props: C;
 ```
 
 ## 分岐(split & merge)

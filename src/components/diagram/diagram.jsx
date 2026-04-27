@@ -4,7 +4,7 @@ import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
 
 export function Diagram({ model, theme }) {
-  const { title, lanes, rows, blocks = {} } = model;
+  const { title, lanes, rows, blocks = {}, props = {} } = model;
   const minLaneW = 220;
   const maxLaneW = 360;
   const nodeW = 188;
@@ -13,6 +13,7 @@ export function Diagram({ model, theme }) {
   const topPad = title ? 72 : 32;
   const headerH = 72;
   const rowH = 80;
+  const propRowExtraH = 0;
   const diamondH = 90;
   const mergeH = 60;
   const decisionYOffset = -15;
@@ -24,6 +25,29 @@ export function Diagram({ model, theme }) {
   const frameStack = [];
   const laneIndexById = new Map(lanes.map((lane, idx) => [lane.id, idx]));
   const stepRowDisplay = buildStepRowDisplayInfo(rows);
+  const stepRowHeightByIndex = new Map();
+
+  function stepPropCounts(row) {
+    const acc = { left: 0, right: 0 };
+    (row?.props || []).forEach((propId) => {
+      const side = props[propId]?.side === "left" ? "left" : "right";
+      acc[side] += 1;
+    });
+    return acc;
+  }
+
+  function stepRowHeight(row) {
+    if (!row || row.kind !== "step" || row.empty) return rowH;
+    const counts = stepPropCounts(row);
+    const maxPropsPerSide = Math.max(counts.left, counts.right);
+    return rowH + Math.max(0, maxPropsPerSide - 1) * propRowExtraH;
+  }
+
+  function rowCenterY(rowIndex) {
+    const yRow = rowMeta[rowIndex]?.y ?? 0;
+    const h = stepRowHeightByIndex.get(rowIndex) || rowH;
+    return yRow + h / 2;
+  }
 
   function estimateTextWidth(text, base = 28) {
     if (!text) return base;
@@ -55,12 +79,14 @@ export function Diagram({ model, theme }) {
       rowMeta[i] = { y, kind: "merge" };
       y += mergeH;
     } else if (r.kind === "step") {
+      const h = stepRowHeight(r);
+      stepRowHeightByIndex.set(i, h);
       rowMeta[i] = { y, kind: "step" };
       frameStack.forEach((frame) => {
         const lastCase = frame.cases[frame.cases.length - 1];
         if (lastCase) lastCase.rowIndices.push(i);
       });
-      y += rowH;
+      y += h;
     }
   });
 
@@ -193,6 +219,16 @@ export function Diagram({ model, theme }) {
     const offset = stepOffsetByIndex.get(stepIdx) || 0;
     return baseX + offset;
   }
+  function splitPropsBySide(propIds) {
+    const left = [];
+    const right = [];
+    (propIds || []).forEach((propId) => {
+      const prop = props[propId] || { id: propId, label: propId, side: "right" };
+      if (prop.side === "left") left.push(prop);
+      else right.push(prop);
+    });
+    return { left, right };
+  }
 
   for (let i = 1; i < stepRows.length; i++) {
     const prev = stepRows[i - 1];
@@ -213,11 +249,13 @@ export function Diagram({ model, theme }) {
     if (fromIdx < 0 || toIdx < 0) continue;
     const fromX = nodeCenterX(prev.i, prev.r.role);
     const toX = nodeCenterX(cur.i, cur.r.role);
+    const prevCy = rowCenterY(prev.i);
+    const curCy = rowCenterY(cur.i);
     connectors.push({
       fromX,
       toX,
-      y1: prev.y + rowH / 2 + 22,
-      y2: cur.y + rowH / 2 - 22,
+      y1: prevCy + 22,
+      y2: curCy - 22,
       key: `c-${i}`,
     });
   }
@@ -229,15 +267,15 @@ export function Diagram({ model, theme }) {
   const startTerminal = hasStartTerminal
     ? {
         x: nodeCenterX(firstStep.i, firstStep.r.role),
-        y: firstStep.y + rowH / 2 - 22 - terminalGap,
-        targetY: firstStep.y + rowH / 2 - 22,
+        y: rowCenterY(firstStep.i) - 22 - terminalGap,
+        targetY: rowCenterY(firstStep.i) - 22,
       }
     : null;
   const endTerminal = hasEndTerminal
     ? {
         x: nodeCenterX(lastStep.i, lastStep.r.role),
-        y: lastStep.y + rowH / 2 + 22 + terminalGap,
-        sourceY: lastStep.y + rowH / 2 + 22,
+        y: rowCenterY(lastStep.i) + 22 + terminalGap,
+        sourceY: rowCenterY(lastStep.i) + 22,
       }
     : null;
   const endTerminalBottom = endTerminal
@@ -520,7 +558,7 @@ export function Diagram({ model, theme }) {
               let caseLaneWidth = minLaneW;
               if (firstStepIdx != null) {
                 const sy = rowMeta[firstStepIdx]?.y;
-                targetY = sy + rowH / 2 - 22;
+                targetY = rowCenterY(firstStepIdx) - 22;
                 const r = rows[firstStepIdx];
                 if (r.role) {
                   const li = laneIndex(r.role);
@@ -576,11 +614,11 @@ export function Diagram({ model, theme }) {
                 const sy = rowMeta[lastStepIdx]?.y;
                 if (r.empty) {
                   fromX = c.x;
-                  fromY = sy + rowH / 2 + 8;
+                  fromY = rowCenterY(lastStepIdx) + 8;
                 } else {
                   const li = laneIndex(r.role);
                   fromX = li >= 0 ? nodeCenterX(lastStepIdx, r.role) : c.x;
-                  fromY = sy + rowH / 2 + 22;
+                  fromY = rowCenterY(lastStepIdx) + 22;
                 }
               } else {
                 fromX = c.x;
@@ -726,7 +764,7 @@ export function Diagram({ model, theme }) {
           const r = rows[prevStepIdx];
           const li = laneIndex(r.role);
           const sx = li >= 0 ? nodeCenterX(prevStepIdx, r.role) : dCx;
-          const sy = rowMeta[prevStepIdx].y + rowH / 2 + 22;
+          const sy = rowCenterY(prevStepIdx) + 22;
           const bend = (sy + dTopY) / 2;
           const d =
             sx === dCx
@@ -747,7 +785,7 @@ export function Diagram({ model, theme }) {
           const r = rows[nextStepIdx];
           const li = laneIndex(r.role);
           const tx = li >= 0 ? nodeCenterX(nextStepIdx, r.role) : mCx;
-          const ty = rowMeta[nextStepIdx].y + rowH / 2 - 22;
+          const ty = rowCenterY(nextStepIdx) - 22;
           const bend = (mBotY + ty) / 2;
           const d =
             tx === mCx
@@ -777,7 +815,7 @@ export function Diagram({ model, theme }) {
             <circle
               key={`step-${i}`}
               cx={width / 2}
-              cy={yRow + rowH / 2}
+              cy={rowCenterY(i)}
               r="5"
               fill={theme.stroke}
               opacity="0.35"
@@ -789,7 +827,7 @@ export function Diagram({ model, theme }) {
         const lane = lanes[idx];
         const block = r.blockRef ? blocks[r.blockRef] : null;
         const cx = nodeCenterX(i, r.role);
-        const cy = yRow + rowH / 2;
+        const cy = rowCenterY(i);
         const boxW = nodeW;
         const boxH = 44;
 
@@ -799,6 +837,11 @@ export function Diagram({ model, theme }) {
         const stroke = (block && block.borderColor) || theme.stroke;
         const shape = (block && block.shape) || "rounded";
         const blockIcon = block && block.icon;
+        const { left: leftProps, right: rightProps } = splitPropsBySide(r.props);
+        const docW = 65;
+        const docH = 40;
+        const docGap = 8;
+        const docY = cy + boxH / 2 - 8;
 
         return (
           <g key={`step-${i}`}>
@@ -857,6 +900,67 @@ export function Diagram({ model, theme }) {
                 {shape.toUpperCase()}
               </text>
             )}
+            {[...leftProps].reverse().map((prop, docIdx) => {
+              const x = cx - boxW / 2 + 50 - docW + docIdx * docGap;
+              const y = docY + docIdx * 18;
+              return (
+                <g key={`prop-left-${i}-${prop.id}`}>
+                  <path
+                    d={`M ${x} ${y} H ${x + docW - 8} L ${x + docW} ${y + 8} V ${y + docH} H ${x} Z`}
+                    fill={theme.bg}
+                    stroke={theme.stroke}
+                    strokeWidth="1.1"
+                  />
+                  <path
+                    d={`M ${x + docW - 8} ${y} V ${y + 8} H ${x + docW}`}
+                    fill="none"
+                    stroke={theme.stroke}
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={x + docW / 2 - 2}
+                    y={y + 12}
+                    textAnchor="middle"
+                    fontFamily="'JetBrains Mono',monospace"
+                    fontSize="9"
+                    fill={theme.title}
+                  >
+                    {truncate(prop.label || prop.id, 9)}
+                  </text>
+                </g>
+              );
+            })}
+            {rightProps.map((prop, docIdx) => {
+              const x = cx + boxW / 2 - 50 + docIdx * docGap;
+              const y = docY + docIdx * 18;
+
+              return (
+                <g key={`prop-right-${i}-${prop.id}`}>
+                  <path
+                    d={`M ${x} ${y} H ${x + docW - 8} L ${x + docW} ${y + 8} V ${y + docH} H ${x} Z`}
+                    fill={theme.bg}
+                    stroke={theme.stroke}
+                    strokeWidth="1.1"
+                  />
+                  <path
+                    d={`M ${x + docW - 8} ${y} V ${y + 8} H ${x + docW}`}
+                    fill="none"
+                    stroke={theme.stroke}
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={x + docW / 2 - 2}
+                    y={y + 12}
+                    textAnchor="middle"
+                    fontFamily="'JetBrains Mono',monospace"
+                    fontSize="9"
+                    fill={theme.title}
+                  >
+                    {truncate(prop.label || prop.id, 9)}
+                  </text>
+                </g>
+              );
+            })}
           </g>
         );
       })}
@@ -876,7 +980,7 @@ export function Diagram({ model, theme }) {
           let targetX = c.x;
           if (firstStepIdx != null) {
             const sy = rowMeta[firstStepIdx]?.y;
-            targetY = sy + rowH / 2 - 22;
+            targetY = rowCenterY(firstStepIdx) - 22;
             const r = rows[firstStepIdx];
             if (r.role) {
               const li = laneIndex(r.role);
