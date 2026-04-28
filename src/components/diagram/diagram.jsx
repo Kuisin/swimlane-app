@@ -13,7 +13,8 @@ export function Diagram({ model, theme }) {
   const topPad = title ? 72 : 32;
   const headerH = 72;
   const rowH = 80;
-  const propRowExtraH = 0;
+  /** Extra row height per stacked prop (matches docIdx * 18 below the step). */
+  const propRowExtraH = 18;
   const diamondH = 90;
   const mergeH = 60;
   const decisionYOffset = -15;
@@ -463,15 +464,6 @@ export function Diagram({ model, theme }) {
               fill={bg}
               opacity="0.9"
             />
-            <rect
-              x={x}
-              y={topPad}
-              width={currentLaneW}
-              height={height - topPad - 20}
-              fill="none"
-              stroke={theme.stroke}
-              strokeWidth="1.2"
-            />
             {lane.icon && (
               <g>
                 <circle
@@ -521,11 +513,13 @@ export function Diagram({ model, theme }) {
               </text>
             )}
             <line
+              style={{ color: "red" }}
               x1={x}
               x2={x + currentLaneW}
               y1={topPad + headerH}
               y2={topPad + headerH}
               stroke={theme.stroke}
+              // stroke="#FF0000"
               strokeWidth="1.2"
               vectorEffect="non-scaling-stroke"
             />
@@ -544,6 +538,20 @@ export function Diagram({ model, theme }) {
           strokeWidth="1"
           vectorEffect="non-scaling-stroke"
           opacity="0.95"
+        />
+      ))}
+
+      {/* Lane debug outline: after row dividers so red stroke paints on top (SVG order). */}
+      {lanes.map((lane, i) => (
+        <rect
+          key={`lane-debug-outline-${lane.id ?? i}`}
+          x={laneX(i)}
+          y={topPad}
+          width={laneWidth(i)}
+          height={height - topPad - 20}
+          fill="none"
+          stroke={theme.stroke}
+          strokeWidth="1.2"
         />
       ))}
 
