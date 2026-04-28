@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SAMPLE from "./sample.txt?raw";
 import HELP_MD from "./help.md?raw";
+import DEFAULT_TAB_TEMPLATE from "./default-tab-template.txt?raw";
 import { parseDSL } from "./lib/parser";
 import { THEMES } from "./lib/themes";
 import { Diagram } from "./components/diagram/diagram";
@@ -9,20 +10,6 @@ import { Toolbar } from "./components/toolbar";
 import { HelpModal } from "./components/help-modal";
 
 const STORAGE_KEY = "swimlane-editor-state-v1";
-const DEFAULT_TAB_TEMPLATE = `@kai-swimlane
-/title/
-New Document
-
-/role/
-
-/block/
-
-/prop/
-
-/line/
-
-@end
-`;
 
 function createDocument(id, name, src) {
   return { id, name, src, savedSrc: src };
@@ -191,11 +178,6 @@ export default function App() {
       <Toolbar
         themeKey={themeKey}
         onThemeChange={setThemeKey}
-        theme={theme}
-        modelTitle={model.title}
-        src={src}
-        hasUnsavedChanges={hasUnsavedChanges}
-        onSave={saveDocuments}
         onShowHelp={() => setShowHelp(true)}
       />
 
@@ -254,12 +236,20 @@ export default function App() {
             })}
             <button
               onClick={addDocumentTab}
-              className="shrink-0 text-xs font-mono px-2.5 py-1.5 rounded-sm border border-stone-700 text-stone-300 hover:text-stone-100 hover:border-stone-500"
+              className="shrink-0 text-xs font-mono px-2 py-1 rounded bg-stone-700 text-stone-300 hover:text-stone-100 hover:bg-stone-500"
             >
               + Tab
             </button>
           </div>
-          <EditorPanel src={src} onChange={updateActiveDocumentSrc} model={model} />
+          <EditorPanel
+            src={src}
+            onChange={updateActiveDocumentSrc}
+            model={model}
+            modelTitle={model.title}
+            themeBg={theme.bg}
+            hasUnsavedChanges={hasUnsavedChanges}
+            onSave={saveDocuments}
+          />
         </div>
       </div>
 

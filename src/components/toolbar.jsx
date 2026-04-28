@@ -1,26 +1,11 @@
-import { useState } from "react";
-import { Download, Copy, Check, BookOpen, Save } from "lucide-react";
+import { BookOpen, ChevronDown } from "lucide-react";
 import { THEMES } from "../lib/themes";
-import { downloadSVG, downloadPNG } from "../lib/export";
 
 export function Toolbar({
   themeKey,
   onThemeChange,
-  theme,
-  modelTitle,
-  src,
-  hasUnsavedChanges,
-  onSave,
   onShowHelp,
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyDSL = async () => {
-    await navigator.clipboard.writeText(src);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   return (
     <header className="border-b border-stone-300 bg-stone-50">
       <div className="max-w-[1600px] mx-auto px-6 py-5 flex items-center justify-between flex-wrap gap-4">
@@ -34,21 +19,26 @@ export function Toolbar({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex border border-stone-300 rounded-sm overflow-hidden">
-            {Object.entries(THEMES).map(([key, t]) => (
-              <button
-                key={key}
-                onClick={() => onThemeChange(key)}
-                className={`font-jp text-xs px-3 py-2 transition ${
-                  themeKey === key
-                    ? "bg-stone-900 text-stone-50"
-                    : "bg-stone-50 text-stone-700 hover:bg-stone-200"
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
+          <details className="relative">
+            <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition">
+              テーマ: {THEMES[themeKey]?.name || "Theme"} <ChevronDown size={13} />
+            </summary>
+            <div className="absolute right-0 mt-1 min-w-36 rounded-sm border border-stone-300 bg-stone-50 shadow-lg overflow-hidden z-10">
+              {Object.entries(THEMES).map(([key, t]) => (
+                <button
+                  key={key}
+                  onClick={() => onThemeChange(key)}
+                  className={`w-full text-left font-jp text-xs px-3 py-2 transition ${
+                    themeKey === key
+                      ? "bg-stone-900 text-stone-50"
+                      : "bg-stone-50 text-stone-700 hover:bg-stone-200"
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </details>
 
           <button
             onClick={onShowHelp}
@@ -57,38 +47,6 @@ export function Toolbar({
             <BookOpen size={14} /> 構文
           </button>
 
-          <button
-            onClick={copyDSL}
-            className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200 transition"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}{" "}
-            {copied ? "済" : "コピー"}
-          </button>
-
-          <button
-            onClick={onSave}
-            className={`flex items-center gap-1.5 text-xs font-jp px-3 py-2 border rounded-sm transition ${
-              hasUnsavedChanges
-                ? "border-amber-500 text-amber-700 bg-amber-50 hover:bg-amber-100"
-                : "border-stone-300 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            <Save size={14} /> {hasUnsavedChanges ? "保存*" : "保存"}
-          </button>
-
-          <button
-            onClick={() => downloadSVG(modelTitle)}
-            className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200 transition"
-          >
-            <Download size={14} /> SVG
-          </button>
-
-          <button
-            onClick={() => downloadPNG(modelTitle, theme.bg)}
-            className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 bg-stone-900 text-stone-50 rounded-sm hover:bg-stone-700 transition"
-          >
-            <Download size={14} /> PNG
-          </button>
         </div>
       </div>
     </header>

@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, X } from "lucide-react";
 import { parseHelpMd } from "../lib/utils";
 
 function HelpSection({ title, code, desc }) {
@@ -14,7 +15,14 @@ function HelpSection({ title, code, desc }) {
 }
 
 export function HelpModal({ helpMd, onClose }) {
+  const [copied, setCopied] = useState(false);
   const sections = parseHelpMd(helpMd);
+
+  async function copyRuleAsMarkdown() {
+    await navigator.clipboard.writeText(helpMd);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <div
@@ -26,7 +34,16 @@ export function HelpModal({ helpMd, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-300">
-          <h2 className="font-display text-xl font-bold">構文ガイド</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="font-display text-xl font-bold">構文ガイド</h2>
+            <button
+              onClick={copyRuleAsMarkdown}
+              className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? "コピー済み" : "AI用MDをコピー"}
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="text-stone-500 hover:text-stone-900"
