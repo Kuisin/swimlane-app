@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Copy, Check, BookOpen } from "lucide-react";
+import { Download, Copy, Check, BookOpen, Save } from "lucide-react";
 import { THEMES } from "../lib/themes";
 import { downloadSVG, downloadPNG } from "../lib/export";
 
@@ -9,6 +9,8 @@ export function Toolbar({
   theme,
   modelTitle,
   src,
+  hasUnsavedChanges,
+  onSave,
   onShowHelp,
 }) {
   const [copied, setCopied] = useState(false);
@@ -61,6 +63,17 @@ export function Toolbar({
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}{" "}
             {copied ? "済" : "コピー"}
+          </button>
+
+          <button
+            onClick={onSave}
+            className={`flex items-center gap-1.5 text-xs font-jp px-3 py-2 border rounded-sm transition ${
+              hasUnsavedChanges
+                ? "border-amber-500 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                : "border-stone-300 text-stone-600 hover:bg-stone-200"
+            }`}
+          >
+            <Save size={14} /> {hasUnsavedChanges ? "保存*" : "保存"}
           </button>
 
           <button
