@@ -285,6 +285,28 @@ export function Diagram({ model, theme }) {
   const leftGutterBodyH = Math.max(0, height - (headerH + 24) - 20 + 24);
   const leftGutterBodyBottomY = headerH + leftGutterBodyH;
 
+  let lastStepRowIndex = -1;
+  for (let idx = rows.length - 1; idx >= 0; idx--) {
+    const row = rows[idx];
+    if (row.kind === "step" && !row.empty && row.role) {
+      lastStepRowIndex = idx;
+      break;
+    }
+  }
+  const stepRowDividerYs = [];
+  if (lanes.length > 0 && lastStepRowIndex >= 0) {
+    rows.forEach((row, i) => {
+      if (row.kind !== "step" || row.empty || !row.role || i === lastStepRowIndex)
+        return;
+      const meta = rowMeta[i];
+      if (meta == null) return;
+      stepRowDividerYs.push(meta.y + stepRowHeight(row));
+    });
+  }
+  const swimlaneDividerX1 = xPad;
+  const swimlaneDividerX2 =
+    lanes.length > 0 ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1) : 0;
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -510,6 +532,20 @@ export function Diagram({ model, theme }) {
           </g>
         );
       })}
+
+      {stepRowDividerYs.map((yLine, di) => (
+        <line
+          key={`step-row-div-${di}`}
+          x1={swimlaneDividerX1}
+          y1={yLine}
+          x2={swimlaneDividerX2}
+          y2={yLine}
+          stroke={theme.grid}
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+          opacity="0.95"
+        />
+      ))}
 
       {/* Branch core: decision diamond (if) and merge diamond (endif) */}
       {frames.map((f) => {
