@@ -1,6 +1,6 @@
 @kai-swimlane
 /title/
-New Document
+新規ファイル
 
 /role/
 

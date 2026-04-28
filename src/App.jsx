@@ -8,6 +8,7 @@ import { Diagram } from "./components/diagram/diagram";
 import { EditorPanel } from "./components/editor-panel";
 import { Toolbar } from "./components/toolbar";
 import { HelpModal } from "./components/help-modal";
+import { FileListModal } from "./components/file-list-modal";
 
 const STORAGE_KEY = "swimlane-editor-state-v1";
 
@@ -37,9 +38,11 @@ function extractTitleFromSource(src) {
 
 export default function App() {
   const [documents, setDocuments] = useState([createDocument("doc-1", "Document 1", SAMPLE)]);
+  const [openDocumentIds, setOpenDocumentIds] = useState(["doc-1"]);
   const [activeDocumentId, setActiveDocumentId] = useState("doc-1");
   const [themeKey, setThemeKey] = useState("basic");
   const [showHelp, setShowHelp] = useState(false);
+  const [showFileList, setShowFileList] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -66,7 +69,20 @@ export default function App() {
           })
         );
         setDocuments(restoredDocuments);
-        setActiveDocumentId(parsed.activeDocumentId || restoredDocuments[0].id);
+        const restoredIds = restoredDocuments.map((document) => document.id);
+        const restoredOpenIds =
+          Array.isArray(parsed.openDocumentIds) && parsed.openDocumentIds.length > 0
+            ? parsed.openDocumentIds.filter((id) => restoredIds.includes(id))
+            : restoredIds;
+        const normalizedOpenIds =
+          restoredOpenIds.length > 0 ? restoredOpenIds : [restoredDocuments[0].id];
+
+        setOpenDocumentIds(normalizedOpenIds);
+        setActiveDocumentId(
+          normalizedOpenIds.includes(parsed.activeDocumentId)
+            ? parsed.activeDocumentId
+            : normalizedOpenIds[0]
+        );
       }
       if (typeof parsed.themeKey === "string" && THEMES[parsed.themeKey]) {
         setThemeKey(parsed.themeKey);
@@ -78,8 +94,11 @@ export default function App() {
     }
   }, []);
 
+  const openDocuments = openDocumentIds
+    .map((id) => documents.find((document) => document.id === id))
+    .filter(Boolean);
   const activeDocument =
-    documents.find((document) => document.id === activeDocumentId) || documents[0];
+    documents.find((document) => document.id === activeDocumentId) || openDocuments[0];
   const src = activeDocument?.src || "";
 
   const theme = THEMES[themeKey];
@@ -96,11 +115,12 @@ export default function App() {
         src,
         savedSrc,
       })),
+      openDocumentIds,
       activeDocumentId,
       themeKey,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [documents, activeDocumentId, themeKey, isHydrated]);
+  }, [documents, openDocumentIds, activeDocumentId, themeKey, isHydrated]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -135,10 +155,28 @@ export default function App() {
     const name = createNextDocumentName(documents);
     const newDocument = createDocument(id, name, DEFAULT_TAB_TEMPLATE);
     setDocuments((currentDocuments) => [...currentDocuments, newDocument]);
+    setOpenDocumentIds((currentOpenIds) => [...currentOpenIds, id]);
     setActiveDocumentId(id);
   }
 
   function closeDocumentTab(documentId) {
+    setOpenDocumentIds((currentOpenIds) => {
+      if (!currentOpenIds.includes(documentId)) return currentOpenIds;
+      if (currentOpenIds.length === 1) return currentOpenIds;
+
+      const closingIndex = currentOpenIds.findIndex((id) => id === documentId);
+      const nextOpenIds = currentOpenIds.filter((id) => id !== documentId);
+
+      if (documentId === activeDocumentId) {
+        const nextIndex = Math.max(0, closingIndex - 1);
+        setActiveDocumentId(nextOpenIds[nextIndex] || nextOpenIds[0]);
+      }
+
+      return nextOpenIds;
+    });
+  }
+
+  function deleteDocumentFromStorage(documentId) {
     setDocuments((currentDocuments) => {
       if (currentDocuments.length === 1) {
         const blankDocument = createDocument(
@@ -146,20 +184,24 @@ export default function App() {
           "Document 1",
           DEFAULT_TAB_TEMPLATE
         );
+        setOpenDocumentIds([blankDocument.id]);
         setActiveDocumentId(blankDocument.id);
         return [blankDocument];
       }
 
-      const closingIndex = currentDocuments.findIndex(
-        (document) => document.id === documentId
-      );
       const nextDocuments = currentDocuments.filter(
         (document) => document.id !== documentId
       );
+      const nextDocumentIds = nextDocuments.map((document) => document.id);
+
+      setOpenDocumentIds((currentOpenIds) => {
+        const filteredOpenIds = currentOpenIds.filter((id) => id !== documentId);
+        if (filteredOpenIds.length > 0) return filteredOpenIds;
+        return [nextDocumentIds[0]];
+      });
 
       if (documentId === activeDocumentId) {
-        const nextIndex = Math.max(0, closingIndex - 1);
-        setActiveDocumentId(nextDocuments[nextIndex].id);
+        setActiveDocumentId(nextDocumentIds[0]);
       }
 
       return nextDocuments;
@@ -178,6 +220,7 @@ export default function App() {
       <Toolbar
         themeKey={themeKey}
         onThemeChange={setThemeKey}
+        onShowFileList={() => setShowFileList(true)}
         onShowHelp={() => setShowHelp(true)}
       />
 
@@ -197,7 +240,7 @@ export default function App() {
 
         <div className="border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)]">
           <div className="px-4 pt-3 border-b border-stone-700/60 flex items-center gap-2 overflow-x-auto">
-            {documents.map((document) => {
+            {openDocuments.map((document) => {
               const isActive = document.id === activeDocumentId;
               const isDirty = document.src !== document.savedSrc;
               const documentTitle =
@@ -255,6 +298,23 @@ export default function App() {
 
       {showHelp && (
         <HelpModal helpMd={HELP_MD} onClose={() => setShowHelp(false)} />
+      )}
+      {showFileList && (
+        <FileListModal
+          documents={documents}
+          activeDocumentId={activeDocumentId}
+          onSelectDocument={(documentId) => {
+            setOpenDocumentIds((currentOpenIds) =>
+              currentOpenIds.includes(documentId)
+                ? currentOpenIds
+                : [...currentOpenIds, documentId]
+            );
+            setActiveDocumentId(documentId);
+            setShowFileList(false);
+          }}
+          onDeleteDocument={deleteDocumentFromStorage}
+          onClose={() => setShowFileList(false)}
+        />
       )}
     </div>
   );
