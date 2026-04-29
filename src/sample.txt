@@ -48,18 +48,28 @@ icon: #alert-triangle;
 <A>
 label: 経費申請書
 side: right;
+title: 会社所定フォーマットの申請書;
+max-chars: 8;
 
 <B>
 label: 承認ログ
 side: left;
+background-color: #f1f5f9;
+border-color: #94a3b8;
+text-color: #0f172a;
+title: 誰がいつ承認・差し戻ししたかの記録;
 
 <C>
 label: 通知メール
 side: right;
+background-color: #eff6ff;
+border-color: #3b82f6;
+text-color: #1e3a8a;
 
 <D>
 label: 領収書
 side: left;
+hint: 金額・日付が読める画像またはPDF;
 
 /line/
 

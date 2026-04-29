@@ -254,6 +254,44 @@ export function Diagram({ model, theme }) {
     return { left, right };
   }
 
+  function renderPropDocChip(prop, x, y) {
+    const fill = prop.bg || theme.bg;
+    const strokeCol = prop.borderColor || theme.stroke;
+    const labelColor = prop.textColor || theme.title;
+    const maxLen =
+      typeof prop.maxChars === "number" && prop.maxChars > 0
+        ? prop.maxChars
+        : 9;
+    const tip = prop.title || prop.label || prop.id;
+    return (
+      <>
+        <title>{tip}</title>
+        <path
+          d={`M ${x} ${y} H ${x + docW - 8} L ${x + docW} ${y + 8} V ${y + docH} H ${x} Z`}
+          fill={fill}
+          stroke={strokeCol}
+          strokeWidth="1.1"
+        />
+        <path
+          d={`M ${x + docW - 8} ${y} V ${y + 8} H ${x + docW}`}
+          fill="none"
+          stroke={strokeCol}
+          strokeWidth="1"
+        />
+        <text
+          x={x + docW / 2 - 2}
+          y={y + 12}
+          textAnchor="middle"
+          fontFamily="'JetBrains Mono',monospace"
+          fontSize="9"
+          fill={labelColor}
+        >
+          {truncate(prop.label || prop.id, maxLen)}
+        </text>
+      </>
+    );
+  }
+
   for (let i = 1; i < stepRows.length; i++) {
     const prev = stepRows[i - 1];
     const cur = stepRows[i];
@@ -969,59 +1007,16 @@ export function Diagram({ model, theme }) {
               const y = docY + docIdx * docGapY;
               return (
                 <g key={`prop-left-${i}-${prop.id}`}>
-                  <path
-                    d={`M ${x} ${y} H ${x + docW - 8} L ${x + docW} ${y + 8} V ${y + docH} H ${x} Z`}
-                    fill={theme.bg}
-                    stroke={theme.stroke}
-                    strokeWidth="1.1"
-                  />
-                  <path
-                    d={`M ${x + docW - 8} ${y} V ${y + 8} H ${x + docW}`}
-                    fill="none"
-                    stroke={theme.stroke}
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={x + docW / 2 - 2}
-                    y={y + 12}
-                    textAnchor="middle"
-                    fontFamily="'JetBrains Mono',monospace"
-                    fontSize="9"
-                    fill={theme.title}
-                  >
-                    {truncate(prop.label || prop.id, 9)}
-                  </text>
+                  {renderPropDocChip(prop, x, y)}
                 </g>
               );
             })}
             {rightProps.map((prop, docIdx) => {
               const x = cx + boxW / 2 - 60 + docIdx * docGapX;
               const y = docY + docIdx * docGapY;
-
               return (
                 <g key={`prop-right-${i}-${prop.id}`}>
-                  <path
-                    d={`M ${x} ${y} H ${x + docW - 8} L ${x + docW} ${y + 8} V ${y + docH} H ${x} Z`}
-                    fill={theme.bg}
-                    stroke={theme.stroke}
-                    strokeWidth="1.1"
-                  />
-                  <path
-                    d={`M ${x + docW - 8} ${y} V ${y + 8} H ${x + docW}`}
-                    fill="none"
-                    stroke={theme.stroke}
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={x + docW / 2 - 2}
-                    y={y + 12}
-                    textAnchor="middle"
-                    fontFamily="'JetBrains Mono',monospace"
-                    fontSize="9"
-                    fill={theme.title}
-                  >
-                    {truncate(prop.label || prop.id, 9)}
-                  </text>
+                  {renderPropDocChip(prop, x, y)}
                 </g>
               );
             })}

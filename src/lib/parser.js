@@ -140,11 +140,25 @@ export function parseDSL(src) {
       if (kv && active) {
         const key = kv[1].toLowerCase();
         const val = kv[2].trim().replace(/;$/, "");
-        if (key === "label") props[active].label = val;
-        if (key === "side") {
+        const propMap = {
+          label: "label",
+          side: "side",
+          "background-color": "bg",
+          "border-color": "borderColor",
+          "text-color": "textColor",
+          title: "title",
+          hint: "title",
+          "max-chars": "maxChars",
+        };
+        const field = propMap[key];
+        if (field === "label") props[active].label = val;
+        else if (field === "side") {
           const side = val.toLowerCase();
           props[active].side = side === "left" ? "left" : "right";
-        }
+        } else if (field === "maxChars") {
+          const n = parseInt(val, 10);
+          if (!Number.isNaN(n) && n > 0) props[active].maxChars = n;
+        } else if (field) props[active][field] = val;
       }
     }
   }

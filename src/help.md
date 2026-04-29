@@ -17,7 +17,7 @@
 /line/
 ```
 
-4つのセクションに分けて記述します。
+5つのセクションに分けて記述します。
 
 ## タイトル
 
@@ -66,9 +66,22 @@ side: right;
 <B>
 label: 承認ログ
 side: left;
+background-color: #f1f5f9;
+border-color: #64748b;
+text-color: #0f172a;
+title: 監査用に保存される承認履歴;
+max-chars: 10;
 ```
 
-ステップに紐づける再利用可能なドキュメント定義。`label` は表示名、`side` は `left` / `right`（省略時 `right`）。
+ステップに紐づける再利用可能なドキュメント定義。
+
+- `label` — チップに表示する短い名前
+- `side` — `left` / `right`（省略時 `right`）
+- `background-color` — チップの塗り
+- `border-color` — チップの枠線
+- `text-color` — ラベル文字色
+- `title` または `hint` — ホバー時の説明（SVG の `<title>`。未指定時は `label` などにフォールバック）
+- `max-chars` — 表示名の最大文字数（正の整数。省略時は 9）
 
 ## アイコン (icon)
 
