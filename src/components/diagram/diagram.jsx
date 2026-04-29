@@ -27,6 +27,15 @@ export function Diagram({ model, theme }) {
   const mergeH = 60;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
+  /** Previous step → if: horizontal elbow closer to the diamond (below the step block), not mid-gap. */
+  const branchIncomingToIfBias = 0.82;
+  /** Decision → first step in case: horizontal elbow just above the block, not tight under the diamond. */
+  function branchFanOutBendY(startY, targetY, hasFirstStep) {
+    if (!hasFirstStep) return startY + branchCaseBendYOffset;
+    const run = targetY - startY;
+    if (run <= 0) return startY + branchCaseBendYOffset;
+    return Math.max(startY + branchCaseBendYOffset, startY + run * 0.82);
+  }
 
   const rowMeta = [];
   let y = topPad + headerH + 24;
@@ -358,11 +367,24 @@ export function Diagram({ model, theme }) {
   const stepRowDividerYs = [];
   if (lanes.length > 0 && lastStepRowIndex >= 0) {
     rows.forEach((row, i) => {
+      if (row.kind === "branchEnd") {
+        const meta = rowMeta[i];
+        if (meta != null) stepRowDividerYs.push(meta.y + mergeH);
+        return;
+      }
       if (row.kind !== "step" || row.empty || !row.role || i === lastStepRowIndex)
         return;
       const meta = rowMeta[i];
       if (meta == null) return;
-      stepRowDividerYs.push(meta.y + stepRowHeight(row));
+
+      const next = rows[i + 1];
+      let yLine = meta.y + stepRowHeight(row);
+      /** If the next row is the if (decision), draw the swimlane line under the diamond, not above it. */
+      if (next?.kind === "branchStart") {
+        const branchMeta = rowMeta[i + 1];
+        if (branchMeta != null) yLine = branchMeta.y + diamondH;
+      }
+      stepRowDividerYs.push(yLine);
     });
   }
   const swimlaneDividerX1 = xPad;
