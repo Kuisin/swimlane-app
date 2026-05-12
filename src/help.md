@@ -32,6 +32,7 @@ Sample text
 
 ```
 /role/
+
 <role01>
 label: 営業
 text-color: #0066cc;
@@ -45,6 +46,7 @@ icon: sample.svg;
 
 ```
 /block/
+
 <block01>
 background-color: #ffe0b3;
 text-color: #6b2a00;
@@ -59,11 +61,12 @@ icon: #zap;
 
 ```
 /prop/
-<A>
+
+<RQ>
 label: 申請書
 side: right;
 
-<B>
+<LG>
 label: 承認ログ
 side: left;
 background-color: #f1f5f9;
@@ -92,7 +95,7 @@ icon: ★;
 icon: 🔥;
 ```
 
-# 付きで Lucide アイコン名を指定(例: #check, #star, #mail, #lock, #zap, #circle-check, #alert-triangle, #database, #cloud, #settings, #user, #file-text, #send, #rocket, #shield-check など 100+ 種)。# 無しは絵文字・文字としてそのまま表示。
+`#` 付きで [Lucide アイコン名](https://lucide.dev/icons/) を指定(例: `#check`, `#star`, `#mail`, `#lock`, `#zap`, `#circle-check`, `#alert-triangle`, `#database`, `#cloud`, `#settings`, `#user`, `#file-text`, `#send`, `#rocket`, `#shield-check` など 100+ 種)。`#` 無しは絵文字・文字としてそのまま表示。
 
 ## ステップ
 
@@ -117,13 +120,21 @@ props: C;
 
 ## 分岐(split & merge)
 
+分岐内の行は必須ではありませんが、可読性のため先頭に半角スペース2つのインデントを推奨します。
+
 ```
-if (条件) than (成功)
-[role01: 成功処理] <block02>
-elseif (失敗)
-[role02: エラー] <block03>
+if (条件) is (成功 ) than #blue
+  [role01: 成功処理] <block02>
+elseif (失敗) than #gray
+  [role02: エラー] <block03>
+endif
+
+if (○○有無) is (あり) than
+  [role01: 成功処理] <block02>
+elseif (なし) than
+  [role02: エラー] <block03>
 endif
 ```
 
-if〜endif で分岐。各ステップ行は上記と同じく `[roleId: 本文]` 形式。`:;` は空ステップ。
-
+if〜endif で分岐。各ステップ行は上記と同じく `[roleId: 本文]` 形式。`than` の後ろに `#色名` を付けると条件ブロック色を指定できます。
+色指定がない場合は現在のテーマ既定色を使います。使える色：blue, green, red, orange, purple, gray, black

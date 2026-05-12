@@ -174,7 +174,7 @@ export function parseDSL(src) {
     const u = unescapeDslLine(text.trim());
     if (!u) continue;
 
-    let m = u.match(/^if\s*\((.+?)\)\s*than\s*\((.+?)\)$/i);
+    let m = u.match(/^if\s*\((.+?)\)\s*is\s*\((.+?)\)\s*than(?:\s+#([A-Za-z]+))?$/i);
     if (m) {
       branchCounter++;
       const id = branchCounter;
@@ -183,12 +183,13 @@ export function parseDSL(src) {
         kind: "branchStart",
         cond: m[1].trim(),
         firstCase: m[2].trim(),
+        branchColor: m[3] ? m[3].trim().toLowerCase() : null,
         id,
         depth: stack.length - 1,
       });
       continue;
     }
-    m = u.match(/^elseif\s*\((.+?)\)$/i);
+    m = u.match(/^elseif\s*\((.+?)\)\s*than(?:\s+#([A-Za-z]+))?$/i);
     if (m) {
       const top = stack[stack.length - 1];
       if (!top) {
@@ -198,6 +199,7 @@ export function parseDSL(src) {
       rows.push({
         kind: "branchCase",
         label: m[1].trim(),
+        branchColor: m[2] ? m[2].trim().toLowerCase() : null,
         id: top.id,
         depth: top.depth,
       });

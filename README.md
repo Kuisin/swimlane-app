@@ -36,7 +36,9 @@ npm run preview
   - `rows` (steps + branch markers)
   - `blocks` (reusable block styles)
   - `errors`
-- Supports branch syntax: `if (...) than (...)`, `elseif (...)`, `else`, `endif`.
+- Supports branch syntax: `if (...) is (...) than [#color]`, `elseif (...) than [#color]`, `else`, `endif`.
+- When `#color` is omitted, branch condition blocks keep the current theme defaults.
+- Branch body indentation is optional, but two leading spaces are recommended for readability.
 - Step lines use bracket form: `[roleId: text]` with optional `<blockId>` at end; optional `label:`, `desc:`, `skip;` on following lines.
 - Supports empty step marker: `:;`
 
@@ -134,10 +136,10 @@ icon: #alert-triangle;
 
 /line/
 sales: Receive order;
-if (In stock?) than (yes)
-ops: Pack item;
-elseif (no)
-ops: Backorder; <warn>
+if (stock) is (yes) than #blue
+  ops: Pack item;
+elseif (hold) than #gray
+  ops: Backorder; <warn>
 else
 :;
 endif

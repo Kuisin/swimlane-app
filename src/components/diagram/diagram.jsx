@@ -3,6 +3,16 @@ import { buildStepRowDisplayInfo } from "../../lib/parser";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
 
+const BRANCH_COLOR_STYLES = {
+  blue: { stroke: "#2563eb", bg: "#dbeafe" },
+  green: { stroke: "#15803d", bg: "#dcfce7" },
+  red: { stroke: "#b91c1c", bg: "#fee2e2" },
+  orange: { stroke: "#c2410c", bg: "#ffedd5" },
+  purple: { stroke: "#7e22ce", bg: "#f3e8ff" },
+  gray: { stroke: "#374151", bg: "#f3f4f6" },
+  black: { stroke: "#111827", bg: "#e5e7eb" },
+};
+
 export function Diagram({ model, theme }) {
   const { title, lanes, rows, blocks = {}, props = {} } = model;
   const minLaneW = 220;
@@ -23,19 +33,13 @@ export function Diagram({ model, theme }) {
   const propRowExtraHBase = 20;
   const propRowExtraHPerProps = docGapY;
 
+  const caseSpread = 100;
+
   const diamondH = 90;
   const mergeH = 60;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   /** Previous step → if: horizontal elbow closer to the diamond (below the step block), not mid-gap. */
-  const branchIncomingToIfBias = 0.82;
-  /** Decision → first step in case: horizontal elbow just above the block, not tight under the diamond. */
-  function branchFanOutBendY(startY, targetY, hasFirstStep) {
-    if (!hasFirstStep) return startY + branchCaseBendYOffset;
-    const run = targetY - startY;
-    if (run <= 0) return startY + branchCaseBendYOffset;
-    return Math.max(startY + branchCaseBendYOffset, startY + run * 0.82);
-  }
 
   const rowMeta = [];
   let y = topPad + headerH + 24;
@@ -44,6 +48,12 @@ export function Diagram({ model, theme }) {
   const laneIndexById = new Map(lanes.map((lane, idx) => [lane.id, idx]));
   const stepRowDisplay = buildStepRowDisplayInfo(rows);
   const stepRowHeightByIndex = new Map();
+
+  function resolveBranchStyle(colorKey) {
+    const custom = colorKey ? BRANCH_COLOR_STYLES[colorKey] : null;
+    if (!custom) return { stroke: theme.branch, bg: theme.branchBg };
+    return custom;
+  }
 
   function stepPropCounts(row) {
     const acc = { left: 0, right: 0 };
@@ -96,7 +106,8 @@ export function Diagram({ model, theme }) {
         depth: r.depth,
         cond: r.cond,
         yDecision: y,
-        cases: [{ label: r.firstCase, rowIndices: [] }],
+        decisionColor: r.branchColor || null,
+        cases: [{ label: r.firstCase, color: r.branchColor || null, rowIndices: [] }],
       };
       frameStack.push(f);
       frames.push(f);
@@ -104,7 +115,7 @@ export function Diagram({ model, theme }) {
       y += diamondH;
     } else if (r.kind === "branchCase") {
       const f = frameStack[frameStack.length - 1];
-      if (f) f.cases.push({ label: r.label, rowIndices: [] });
+      if (f) f.cases.push({ label: r.label, color: r.branchColor || null, rowIndices: [] });
       rowMeta[i] = { y, kind: "case" };
     } else if (r.kind === "branchEnd") {
       const f = frameStack.pop();
@@ -123,7 +134,6 @@ export function Diagram({ model, theme }) {
     }
   });
 
-  const caseSpread = 70;
   const maxCasesPerLane = new Map();
   frames.forEach((f) => {
     const counts = new Map();
@@ -238,9 +248,20 @@ export function Diagram({ model, theme }) {
     f.cases.forEach((c) => {
       const offset = c.offset || 0;
       if (!offset) return;
+      const firstStepIdx = c.rowIndices.find((stepIdx) => {
+        const row = rows[stepIdx];
+        return row?.kind === "step" && !row.empty && row.role;
+      });
+      const caseRoleId = firstStepIdx != null ? rows[firstStepIdx]?.role : null;
       c.rowIndices.forEach((stepIdx) => {
         const row = rows[stepIdx];
-        if (row?.kind === "step" && !row.empty && row.role)
+        if (
+          row?.kind === "step" &&
+          !row.empty &&
+          row.role &&
+          caseRoleId &&
+          row.role === caseRoleId
+        )
           stepOffsetByIndex.set(stepIdx, offset);
       });
     });
@@ -332,9 +353,32 @@ export function Diagram({ model, theme }) {
   }
 
   const firstStep = stepRows[0];
-  const lastStep = stepRows[stepRows.length - 1];
+  const frameById = new Map(frames.map((f) => [f.id, f]));
+  function endTerminalAnchor() {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i];
+      if (row.kind === "step" && !row.empty && row.role) {
+        return {
+          x: nodeCenterX(i, row.role),
+          sourceY: stepBlockCenterY(i) + 22,
+        };
+      }
+      if (row.kind === "branchEnd") {
+        const frame = frameById.get(row.id);
+        if (!frame) continue;
+        const mergeCenterX = frame.cases[0]?.x ?? width / 2;
+        const mergeBottomY = frame.yMerge + mergeH / 2 + 14;
+        return {
+          x: mergeCenterX,
+          sourceY: mergeBottomY,
+        };
+      }
+    }
+    return null;
+  }
+  const lastAnchor = endTerminalAnchor();
   const hasStartTerminal = Boolean(firstStep && laneIndex(firstStep.r.role) >= 0);
-  const hasEndTerminal = Boolean(lastStep && laneIndex(lastStep.r.role) >= 0);
+  const hasEndTerminal = Boolean(lastAnchor);
   const startTerminal = hasStartTerminal
     ? {
         x: nodeCenterX(firstStep.i, firstStep.r.role),
@@ -342,11 +386,11 @@ export function Diagram({ model, theme }) {
         targetY: stepBlockCenterY(firstStep.i) - 22,
       }
     : null;
-  const endTerminal = hasEndTerminal
+  const endTerminal = hasEndTerminal && lastAnchor
     ? {
-        x: nodeCenterX(lastStep.i, lastStep.r.role),
-        y: stepBlockCenterY(lastStep.i) + 22 + terminalGap,
-        sourceY: stepBlockCenterY(lastStep.i) + 22,
+        x: lastAnchor.x,
+        y: lastAnchor.sourceY + terminalGap,
+        sourceY: lastAnchor.sourceY,
       }
     : null;
   const endTerminalBottom = endTerminal
@@ -379,6 +423,8 @@ export function Diagram({ model, theme }) {
 
       const next = rows[i + 1];
       let yLine = meta.y + stepRowHeight(row);
+      if (next?.kind === "step" && next.skipIndex) return;
+
       /** If the next row is the if (decision), draw the swimlane line under the diamond, not above it. */
       if (next?.kind === "branchStart") {
         const branchMeta = rowMeta[i + 1];
@@ -646,6 +692,7 @@ export function Diagram({ model, theme }) {
         const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
         const dW = Math.max(140, (f.cond.length + 4) * 9);
         const dH = 50;
+        const decisionStyle = resolveBranchStyle(f.decisionColor);
 
         const mCx = dCx;
         const mCy = f.yMerge + mergeH / 2;
@@ -702,7 +749,7 @@ export function Diagram({ model, theme }) {
               const startY = dCy + dH / 2;
               const sideOffset = c.offset || 0;
               const bendY = startY + branchCaseBendYOffset;
-              const sideX = targetX + sideOffset;
+              const sideX = targetX;
               const laneSafeMin = targetX - caseLaneWidth / 2 + 16;
               const laneSafeMax = targetX + caseLaneWidth / 2 - 16;
               const clampedSideX = Math.max(laneSafeMin, Math.min(laneSafeMax, sideX));
@@ -711,7 +758,7 @@ export function Diagram({ model, theme }) {
                   ? `M ${startX} ${startY} L ${startX} ${bendY} L ${clampedSideX} ${bendY} L ${clampedSideX} ${targetY}`
                   : targetX === startX
                     ? `M ${startX} ${startY} L ${targetX} ${targetY}`
-                    : `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${targetY}`;
+                    : `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${bendY + branchCaseBendYOffset}`;
 
               return (
                 <g key={`case-${f.id}-${ci}`}>
@@ -755,10 +802,10 @@ export function Diagram({ model, theme }) {
               const toY = mCy - mH / 2;
               const bendY2 = toY - 14;
               const sideOffset = c.offset || 0;
-              const viaX = sideOffset !== 0 ? fromX + sideOffset : fromX;
+              const viaX = fromX;
               const d =
                 sideOffset !== 0
-                  ? `M ${fromX} ${fromY} L ${viaX} ${fromY} L ${viaX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
+                  ? `M ${viaX} ${fromY} L ${viaX} ${fromY} L ${viaX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
                   : fromX === toX
                     ? `M ${fromX} ${fromY} L ${toX} ${toY}`
                     : `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`;
@@ -1075,10 +1122,10 @@ export function Diagram({ model, theme }) {
 
           const startY = dCy + dH / 2;
           const bendY = startY + branchCaseBendYOffset;
-          const sideOffset = c.offset || 0;
-          const labelX = sideOffset !== 0 ? targetX + sideOffset : targetX;
+          const labelX = targetX;
           const labelY = bendY + 18;
           const labelW = (c.label.length + 2) * 8.5;
+          const caseStyle = resolveBranchStyle(c.color);
 
           return (
             <g key={`case-label-overlay-${f.id}-${ci}`}>
@@ -1088,9 +1135,9 @@ export function Diagram({ model, theme }) {
                 width={labelW}
                 height={20}
                 rx="3"
-                fill={theme.bg}
-                fillOpacity="0.9"
-                stroke={theme.branch}
+                fill={caseStyle.bg}
+                fillOpacity="0.8"
+                stroke={caseStyle.stroke}
                 strokeWidth="0.9"
               />
               <text
@@ -1100,7 +1147,7 @@ export function Diagram({ model, theme }) {
                 fontSize="11"
                 fontWeight="600"
                 fontFamily="'Noto Sans JP',sans-serif"
-                fill={theme.branch}
+                fill={caseStyle.stroke}
               >
                 {c.label}
               </text>
