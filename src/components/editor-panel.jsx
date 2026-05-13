@@ -25,9 +25,9 @@ export function EditorPanel({
     <div className="flex flex-col min-h-0 h-full">
       <div className="px-4 py-2 border-b border-stone-700/60 flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-4 min-w-0">
-          <span className="font-mono text-xs text-stone-400 tracking-wider uppercase">
+          {/* <span className="font-mono text-xs text-stone-400 tracking-wider uppercase">
             editor
-          </span>
+          </span> */}
           <div className="flex items-center gap-1 font-mono text-[10px] text-stone-500">
             <span>{model.lanes.length} roles</span>
             <span className="text-stone-700">·</span>

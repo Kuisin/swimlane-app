@@ -1,4 +1,4 @@
-import { truncate } from "../../lib/utils";
+import { truncate, wrapTextToDisplayColumns } from "../../lib/utils";
 import { buildStepRowDisplayInfo } from "../../lib/parser";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
@@ -13,7 +13,7 @@ const BRANCH_COLOR_STYLES = {
   black: { stroke: "#111827", bg: "#e5e7eb" },
 };
 
-export function Diagram({ model, theme }) {
+export function Diagram({ model, theme, showStepBlockCaptions = true }) {
   const { title, lanes, rows, blocks = {}, props = {} } = model;
   const minLaneW = 220;
   const maxLaneW = 360;
@@ -32,6 +32,10 @@ export function Diagram({ model, theme }) {
 
   const propRowExtraHBase = 20;
   const propRowExtraHPerProps = docGapY;
+
+  /** Left-gutter description: line metrics (fontSize 10). */
+  const descriptionLineHeight = 14;
+  const descriptionBottomPad = 10;
 
   const caseSpread = 100;
 
@@ -64,16 +68,33 @@ export function Diagram({ model, theme }) {
     return acc;
   }
 
+  /** Extra height so the left-gutter description fits; compare after props have extended the row. */
+  function stepDescriptionExtraHeight(row, heightWithProps) {
+    const desc = (row?.description || "").trim();
+    if (!desc) return 0;
+    const titleText = (row.name || row.text || "").trim();
+    const lines = wrapTextToDisplayColumns(desc, 28);
+    if (lines.length === 0) return 0;
+    const descStartOffset = titleText ? 40 : 20;
+    const extent =
+      descStartOffset +
+      lines.length * descriptionLineHeight +
+      descriptionBottomPad;
+    return Math.max(0, extent - heightWithProps);
+  }
+
   function stepRowHeight(row) {
     if (!row || row.kind !== "step" || row.empty) return rowH;
     const counts = stepPropCounts(row);
     const maxPropsPerSide = Math.max(counts.left, counts.right);
-    
-    // console.log(row.props, Math.max(0, maxPropsPerSide));
-    // console.log(rowH);
-    // console.log(rowH + Math.max(0, maxPropsPerSide) * propRowExtraHPerProps);
 
-    return rowH + ( maxPropsPerSide > 0 && propRowExtraHBase) + Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
+    const propExtra =
+      (maxPropsPerSide > 0 && propRowExtraHBase) +
+      Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
+    const heightWithProps = rowH + propExtra;
+    const descExtra = stepDescriptionExtraHeight(row, heightWithProps);
+
+    return heightWithProps + descExtra;
   }
 
   function rowCenterY(rowIndex) {
@@ -161,8 +182,9 @@ export function Diagram({ model, theme }) {
     }, 0);
     const caseCount = maxCasesPerLane.get(lane.id) || 0;
     const branchWidth = caseCount > 1 ? minLaneW + (caseCount - 1) * caseSpread : minLaneW;
-    const contentWidth = Math.max(headerWidth, maxStepWidth, branchWidth);
-    return Math.max(minLaneW, Math.min(maxLaneW, contentWidth));
+    // Cap label/step width but never shrink below branch fan-out (else multi-case if clips nodes and elbows).
+    const textPart = Math.max(minLaneW, headerWidth, maxStepWidth);
+    return Math.max(Math.min(maxLaneW, textPart), branchWidth);
   });
   const laneOffsets = [];
   let laneCursor = xPad + leftGutter;
@@ -422,7 +444,7 @@ export function Diagram({ model, theme }) {
       if (meta == null) return;
 
       const next = rows[i + 1];
-      let yLine = meta.y + stepRowHeight(row);
+      let yLine = meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row));
       if (next?.kind === "step" && next.skipIndex) return;
 
       /** If the next row is the if (decision), draw the swimlane line under the diamond, not above it. */
@@ -552,19 +574,32 @@ export function Diagram({ model, theme }) {
                 {truncate(titleText, 28)}
               </text>
             )}
-            {r.description && (
-              <text
-                x={12 + xPad}
-                y={titleText ? yRow + 50 : yRow + 30}
-                fill={theme.laneText || theme.title}
-                opacity="0.78"
-                fontFamily="'Noto Sans JP',sans-serif"
-                fontSize="10"
-                fontWeight="400"
-              >
-                {truncate(r.description, 36)}
-              </text>
-            )}
+            {r.description?.trim() && (() => {
+              const descLines = wrapTextToDisplayColumns(
+                r.description.trim(),
+                28
+              );
+              const descY = titleText ? yRow + 50 : yRow + 30;
+              const descX = 12 + xPad;
+              return (
+                <text
+                  x={descX}
+                  y={descY}
+                  fill={theme.laneText || theme.title}
+                  opacity="0.78"
+                  fontFamily="'Noto Sans JP',sans-serif"
+                  fontSize="10"
+                  fontWeight="400"
+                >
+                  <tspan>{descLines[0]}</tspan>
+                  {descLines.slice(1).map((ln, li) => (
+                    <tspan key={li} x={descX} dy={descriptionLineHeight}>
+                      {ln}
+                    </tspan>
+                  ))}
+                </text>
+              );
+            })()}
           </g>
         );
       })}
@@ -1046,7 +1081,7 @@ export function Diagram({ model, theme }) {
             >
               {truncate(r.text, blockIcon ? 18 : 22)}
             </text>
-            {r.blockRef && (
+            {showStepBlockCaptions && r.blockRef && (
               <text
                 x={cx + boxW / 2 - 4}
                 y={cy - boxH / 2 - 5}
@@ -1058,7 +1093,7 @@ export function Diagram({ model, theme }) {
                 {r.blockRef}
               </text>
             )}
-            {shape && (
+            {showStepBlockCaptions && shape && (
               <text
                 x={cx - boxW / 2 + 4}
                 y={cy - boxH / 2 - 5}
@@ -1066,7 +1101,6 @@ export function Diagram({ model, theme }) {
                 fontSize="8"
                 fontFamily="'JetBrains Mono',monospace"
                 opacity="0.45"
-                capitalize
               >
                 {shape.toUpperCase()}
               </text>

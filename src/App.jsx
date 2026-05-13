@@ -41,6 +41,7 @@ export default function App() {
   const [openDocumentIds, setOpenDocumentIds] = useState(["doc-1"]);
   const [activeDocumentId, setActiveDocumentId] = useState("doc-1");
   const [themeKey, setThemeKey] = useState("basic");
+  const [showStepBlockCaptions, setShowStepBlockCaptions] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -87,6 +88,9 @@ export default function App() {
       if (typeof parsed.themeKey === "string" && THEMES[parsed.themeKey]) {
         setThemeKey(parsed.themeKey);
       }
+      if (typeof parsed.showStepBlockCaptions === "boolean") {
+        setShowStepBlockCaptions(parsed.showStepBlockCaptions);
+      }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     } finally {
@@ -118,9 +122,10 @@ export default function App() {
       openDocumentIds,
       activeDocumentId,
       themeKey,
+      showStepBlockCaptions,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [documents, openDocumentIds, activeDocumentId, themeKey, isHydrated]);
+  }, [documents, openDocumentIds, activeDocumentId, themeKey, showStepBlockCaptions, isHydrated]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -222,15 +227,21 @@ export default function App() {
         onThemeChange={setThemeKey}
         onShowFileList={() => setShowFileList(true)}
         onShowHelp={() => setShowHelp(true)}
+        showStepBlockCaptions={showStepBlockCaptions}
+        onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
       />
 
-      <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2">
-        <div className="bg-stone-100 p-6 overflow-auto">
+      <div className="mx-auto grid grid-cols-1 lg:flex flex-row">
+        <div className="bg-stone-100 p-6 overflow-auto lg:flex-1">
           <div
             className="rounded-sm shadow-lg border border-stone-300 overflow-hidden"
             style={{ background: theme.bg }}
           >
-            <Diagram model={model} theme={theme} />
+            <Diagram
+              model={model}
+              theme={theme}
+              showStepBlockCaptions={showStepBlockCaptions}
+            />
           </div>
           <div className="mt-3 font-jp text-[11px] text-stone-500 flex justify-between">
             <span>プレビュー · Preview</span>
@@ -238,7 +249,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)]">
+        <div className="border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)] w-1/2 max-w-[500px]">
           <div className="px-4 pt-3 border-b border-stone-700/60 flex items-center gap-2 overflow-x-auto">
             {openDocuments.map((document) => {
               const isActive = document.id === activeDocumentId;
