@@ -34,7 +34,7 @@ Sample text
 /role/
 
 <role01>
-label: 営業
+label: 営業;
 text-color: #0066cc;
 background-color: #e6f2ff;
 icon: sample.svg;

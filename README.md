@@ -18,6 +18,63 @@ npm run build
 npm run preview
 ```
 
+## LLM HTTP API: DSL to PNG (dev server only)
+
+While **`npm run dev`** is running, the Vite dev server exposes an HTTP API so tools (for example a Copilot agent or a script) can turn **DSL text** into a **PNG** without using the browser UI. This is **not** available from `npm run preview` or a static GitHub Pages deploy, because it relies on server middleware.
+
+The app is served under the Vite **`base`** path ([`vite.config.js`](vite.config.js)): **`/swimlane-app/`**. Use that prefix on the URLs below (or call `/llm/...` on the same host without the prefix; both work on the dev server).
+
+| Method | Path | Purpose |
+|--------|------|--------|
+| `GET` | `/swimlane-app/llm/` | JSON with `success: true` and `endpoints` (supported `theme` values, response contract). |
+| `POST` | `/swimlane-app/llm/png` | Request body = full DSL (including `@kai-swimlane` … `@end`). **Response is always JSON** with a boolean `success` (see below). |
+
+**Response contract (`POST /llm/png`):** `Content-Type: application/json`, HTTP **200** for normal outcomes (including DSL mistakes).
+
+- **`success: true`** — PNG bytes are in **`pngBase64`** (standard base64). **`mimeType`** is `"image/png"`.
+- **`success: false`** — **`error`** is a human-readable message (DSL format / markers / parser issues, empty body, bad JSON, etc.). If the parser reported rows, **`errors`** may repeat the same details as `{ line, text, msg }[]`.
+
+The server checks for an empty document, required **`@kai-swimlane`** / **`@end`** lines, then runs the same parser as the app; any parser issue is folded into **`error`**.
+
+**Query:** `theme` — one of `basic`, `washi`, `ink`, `mono` (default: `basic`).
+
+**Body:**
+
+- `Content-Type: text/plain` — raw DSL string.
+- `Content-Type: application/json` — `{"dsl": "…"}` (`dsl` must be a string).
+
+**CORS:** `Access-Control-Allow-Origin: *` on these routes so a browser-based agent can call the dev origin.
+
+**Example (curl + jq)** — decode PNG when `success` is true:
+
+```bash
+curl -sS -X POST "http://localhost:5173/swimlane-app/llm/png?theme=basic" \
+  -H "Content-Type: text/plain; charset=utf-8" \
+  --data-binary "@src/sample.txt" \
+| jq -r 'if .success then .pngBase64 else .error | halt_error(1) end' \
+| base64 -d > diagram.png
+```
+
+Simpler check without `jq` — save JSON and inspect `success` / `error`:
+
+```bash
+curl -sS -X POST "http://localhost:5173/swimlane-app/llm/png?theme=basic" \
+  -H "Content-Type: text/plain; charset=utf-8" \
+  --data-binary "@src/sample.txt" \
+  -o llm-response.json
+```
+
+**Example (JSON body):**
+
+```bash
+curl -sS -X POST "http://localhost:5173/swimlane-app/llm/png?theme=ink" \
+  -H "Content-Type: application/json" \
+  -d "{\"dsl\": \"@kai-swimlane\\n/title/\\nTest\\n/role/\\n<a>\\nlabel: A;\\n/line/\\n[a: Step]\\n@end\"}" \
+  -o llm-response.json
+```
+
+Implementation: [`src/server/llm-handler.js`](src/server/llm-handler.js) (SSR render + [`sharp`](https://sharp.pixelplumbing.com/) rasterization), wired in [`vite.config.js`](vite.config.js).
+
 ## Codebase overview
 
 ### Entry and app state
@@ -150,5 +207,6 @@ sales: Notify customer;
 
 ## Notes
 
-- Parser and rendering are intentionally lightweight and local (no backend).
+- Parser and rendering are intentionally lightweight and local (no production backend for the editor UI).
+- The **LLM PNG route** is dev-only middleware (see **LLM HTTP API: DSL to PNG** above); it does not ship with the static build.
 - The app currently uses JavaScript/JSX (not TypeScript).
