@@ -1,4 +1,4 @@
-import { truncate, wrapTextToDisplayColumns } from "../../lib/utils";
+import { truncate, wrapDescriptionToVisualLines } from "../../lib/utils";
 import { buildStepRowDisplayInfo } from "../../lib/parser";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
@@ -78,12 +78,12 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     const desc = (row?.description || "").trim();
     if (!desc) return 0;
     const titleText = (row.name || row.text || "").trim();
-    const lines = wrapTextToDisplayColumns(desc, 28);
-    if (lines.length === 0) return 0;
+    const visualLines = wrapDescriptionToVisualLines(desc, 28);
+    if (visualLines.length === 0) return 0;
     const descStartOffset = titleText ? 40 : 20;
     const extent =
       descStartOffset +
-      lines.length * descriptionLineHeight +
+      visualLines.length * descriptionLineHeight +
       descriptionBottomPad;
     let descExtra = Math.max(0, extent - heightWithProps);
     if (descExtra <= 0) return 0;
@@ -596,7 +596,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
               </text>
             )}
             {r.description?.trim() && (() => {
-              const descLines = wrapTextToDisplayColumns(
+              const visualLines = wrapDescriptionToVisualLines(
                 r.description.trim(),
                 28
               );
@@ -612,10 +612,22 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
                   fontSize="10"
                   fontWeight="400"
                 >
-                  <tspan>{descLines[0]}</tspan>
-                  {descLines.slice(1).map((ln, li) => (
-                    <tspan key={li} x={descX} dy={descriptionLineHeight}>
-                      {ln}
+                  {visualLines.map((runs, li) => (
+                    <tspan
+                      key={li}
+                      x={descX}
+                      dy={li === 0 ? 0 : descriptionLineHeight}
+                    >
+                      {runs.map((run, ri) => (
+                        <tspan
+                          key={ri}
+                          fontWeight={run.bold ? "600" : "400"}
+                          fontStyle={run.italic ? "italic" : "normal"}
+                          textDecoration={run.strike ? "line-through" : "none"}
+                        >
+                          {run.text}
+                        </tspan>
+                      ))}
                     </tspan>
                   ))}
                 </text>
