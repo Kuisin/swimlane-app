@@ -68,8 +68,13 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     return acc;
   }
 
-  /** Extra height so the left-gutter description fits; compare after props have extended the row. */
-  function stepDescriptionExtraHeight(row, heightWithProps) {
+  /**
+   * Extra height so the left-gutter description fits; compare after props have extended the row.
+   * Overflow may use vertical space before the next layout row:
+   * - Next row is a `skipIndex` step: subtract that step’s row height.
+   * - Next row is `branchStart` (if): subtract `diamondH`, same band the decision uses.
+   */
+  function stepDescriptionExtraHeight(row, rowIndex, heightWithProps) {
     const desc = (row?.description || "").trim();
     if (!desc) return 0;
     const titleText = (row.name || row.text || "").trim();
@@ -80,10 +85,25 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       descStartOffset +
       lines.length * descriptionLineHeight +
       descriptionBottomPad;
-    return Math.max(0, extent - heightWithProps);
+    let descExtra = Math.max(0, extent - heightWithProps);
+    if (descExtra <= 0) return 0;
+
+    const next = rows[rowIndex + 1];
+    if (
+      next?.kind === "step" &&
+      !next.empty &&
+      next.role &&
+      next.skipIndex
+    ) {
+      const nextH = stepRowHeight(next, rowIndex + 1);
+      descExtra = Math.max(0, descExtra - nextH);
+    } else if (next?.kind === "branchStart") {
+      descExtra = Math.max(0, descExtra - diamondH);
+    }
+    return descExtra;
   }
 
-  function stepRowHeight(row) {
+  function stepRowHeight(row, rowIndex) {
     if (!row || row.kind !== "step" || row.empty) return rowH;
     const counts = stepPropCounts(row);
     const maxPropsPerSide = Math.max(counts.left, counts.right);
@@ -92,7 +112,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       (maxPropsPerSide > 0 && propRowExtraHBase) +
       Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
     const heightWithProps = rowH + propExtra;
-    const descExtra = stepDescriptionExtraHeight(row, heightWithProps);
+    const descExtra = stepDescriptionExtraHeight(row, rowIndex, heightWithProps);
 
     return heightWithProps + descExtra;
   }
@@ -144,7 +164,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       rowMeta[i] = { y, kind: "merge" };
       y += mergeH;
     } else if (r.kind === "step") {
-      const h = stepRowHeight(r);
+      const h = stepRowHeight(r, i);
       stepRowHeightByIndex.set(i, h);
       rowMeta[i] = { y, kind: "step" };
       frameStack.forEach((frame) => {
@@ -444,7 +464,8 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       if (meta == null) return;
 
       const next = rows[i + 1];
-      let yLine = meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row));
+      let yLine =
+        meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row, i));
       if (next?.kind === "step" && next.skipIndex) return;
 
       /** If the next row is the if (decision), draw the swimlane line under the diamond, not above it. */
