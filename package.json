@@ -16,5 +16,8 @@
     "package:extension": "npm run package -w vscode-kai-swimlane",
     "bundle:cursor-plugin": "bash scripts/bundle-cursor-plugin.sh",
     "install:cursor-plugin": "bash scripts/install-cursor-plugin.sh"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17"
   }
 }
