@@ -1,3 +1,11 @@
+/** `key: value;` in /role/, /block/, /prop/ — trailing semicolon is required. */
+function parseSectionPropertyLine(text) {
+  const m = text.match(/^([a-zA-Z\-]+)\s*:\s*(.+);$/);
+  if (m) return { key: m[1].toLowerCase(), val: m[2].trim() };
+  if (/^[a-zA-Z\-]+\s*:\s*.+/.test(text)) return { missingSemicolon: true };
+  return null;
+}
+
 /** Unescape so `&lt;block01&gt;` and similar are parsed like `<block01>`. */
 export function unescapeDslLine(line) {
   return line
@@ -70,7 +78,7 @@ export function parseDSL(src) {
   const roles = {};
   {
     let active = null;
-    for (const { text } of sections.role) {
+    for (const { text, line } of sections.role) {
       const t = text.trim();
       if (!t) continue;
       const m = t.match(/^<([^>]+)>$/);
@@ -79,17 +87,19 @@ export function parseDSL(src) {
         if (!roles[active]) roles[active] = { id: active };
         continue;
       }
-      const kv = t.match(/^([a-zA-Z\-]+)\s*:\s*(.+?);?$/);
+      const kv = parseSectionPropertyLine(t);
+      if (kv?.missingSemicolon) {
+        errors.push({ line, text, msg: "property line must end with ';'" });
+        continue;
+      }
       if (kv && active) {
-        const key = kv[1].toLowerCase();
-        const val = kv[2].trim().replace(/;$/, "");
         const map = {
           label: "label",
           "text-color": "textColor",
           "background-color": "bg",
           icon: "icon",
         };
-        if (map[key]) roles[active][map[key]] = val;
+        if (map[kv.key]) roles[active][map[kv.key]] = kv.val;
       }
     }
   }
@@ -97,7 +107,7 @@ export function parseDSL(src) {
   const blocks = {};
   {
     let active = null;
-    for (const { text } of sections.block) {
+    for (const { text, line } of sections.block) {
       const t = text.trim();
       if (!t) continue;
       const m = t.match(/^<([^>]+)>$/);
@@ -106,10 +116,12 @@ export function parseDSL(src) {
         if (!blocks[active]) blocks[active] = { id: active };
         continue;
       }
-      const kv = t.match(/^([a-zA-Z\-]+)\s*:\s*(.+?);?$/);
+      const kv = parseSectionPropertyLine(t);
+      if (kv?.missingSemicolon) {
+        errors.push({ line, text, msg: "property line must end with ';'" });
+        continue;
+      }
       if (kv && active) {
-        const key = kv[1].toLowerCase();
-        const val = kv[2].trim().replace(/;$/, "");
         const map = {
           "background-color": "bg",
           "text-color": "textColor",
@@ -118,7 +130,7 @@ export function parseDSL(src) {
           icon: "icon",
           label: "label",
         };
-        if (map[key]) blocks[active][map[key]] = val;
+        if (map[kv.key]) blocks[active][map[kv.key]] = kv.val;
       }
     }
   }
@@ -126,7 +138,7 @@ export function parseDSL(src) {
   const props = {};
   {
     let active = null;
-    for (const { text } of sections.prop) {
+    for (const { text, line } of sections.prop) {
       const t = text.trim();
       if (!t) continue;
       const m = t.match(/^<([^>]+)>$/);
@@ -136,10 +148,12 @@ export function parseDSL(src) {
           props[active] = { id: active, label: active, side: "right" };
         continue;
       }
-      const kv = t.match(/^([a-zA-Z\-]+)\s*:\s*(.+?);?$/);
+      const kv = parseSectionPropertyLine(t);
+      if (kv?.missingSemicolon) {
+        errors.push({ line, text, msg: "property line must end with ';'" });
+        continue;
+      }
       if (kv && active) {
-        const key = kv[1].toLowerCase();
-        const val = kv[2].trim().replace(/;$/, "");
         const propMap = {
           label: "label",
           side: "side",
@@ -150,15 +164,15 @@ export function parseDSL(src) {
           hint: "title",
           "max-chars": "maxChars",
         };
-        const field = propMap[key];
-        if (field === "label") props[active].label = val;
+        const field = propMap[kv.key];
+        if (field === "label") props[active].label = kv.val;
         else if (field === "side") {
-          const side = val.toLowerCase();
+          const side = kv.val.toLowerCase();
           props[active].side = side === "left" ? "left" : "right";
         } else if (field === "maxChars") {
-          const n = parseInt(val, 10);
+          const n = parseInt(kv.val, 10);
           if (!Number.isNaN(n) && n > 0) props[active].maxChars = n;
-        } else if (field) props[active][field] = val;
+        } else if (field) props[active][field] = kv.val;
       }
     }
   }
@@ -241,27 +255,37 @@ export function parseDSL(src) {
       continue;
     }
 
-    m = u.match(/^label:\s*(.+?);?\s*$/);
-    if (m) {
+    if (/^label:\s*/i.test(u)) {
+      m = u.match(/^label:\s*(.+);\s*$/i);
+      if (!m) {
+        errors.push({ line, text, msg: "label: line must end with ';'" });
+        continue;
+      }
       if (lastRealStepIndex < 0) {
         errors.push({ line, text, msg: "label: has no preceding step" });
         continue;
       }
-      const pr = rows[lastRealStepIndex];
-      pr.name = m[1].trim().replace(/;$/, "");
+      rows[lastRealStepIndex].name = m[1].trim();
       continue;
     }
-    m = u.match(/^desc:\s*(.+?);?\s*$/);
-    if (m) {
+    if (/^desc:\s*/i.test(u)) {
+      m = u.match(/^desc:\s*(.+);\s*$/i);
+      if (!m) {
+        errors.push({ line, text, msg: "desc: line must end with ';'" });
+        continue;
+      }
       if (lastRealStepIndex < 0) {
         errors.push({ line, text, msg: "desc: has no preceding step" });
         continue;
       }
-      const pr = rows[lastRealStepIndex];
-      pr.description = m[1].trim().replace(/;$/, "");
+      rows[lastRealStepIndex].description = m[1].trim();
       continue;
     }
-    if (/^skip;?\s*$/i.test(u)) {
+    if (/^skip/i.test(u)) {
+      if (!/^skip;\s*$/i.test(u)) {
+        errors.push({ line, text, msg: "skip must be written as skip;" });
+        continue;
+      }
       if (lastRealStepIndex < 0) {
         errors.push({ line, text, msg: "skip has no preceding step" });
         continue;
@@ -269,8 +293,12 @@ export function parseDSL(src) {
       rows[lastRealStepIndex].skipIndex = true;
       continue;
     }
-    m = u.match(/^props:\s*(.+?);?\s*$/i);
-    if (m) {
+    if (/^props:\s*/i.test(u)) {
+      m = u.match(/^props:\s*(.+);\s*$/i);
+      if (!m) {
+        errors.push({ line, text, msg: "props: line must end with ';'" });
+        continue;
+      }
       if (lastRealStepIndex < 0) {
         errors.push({ line, text, msg: "props: has no preceding step" });
         continue;
@@ -363,4 +391,16 @@ export function parseDSL(src) {
   }));
 
   return { title, lanes, rows, blocks, props, errors };
+}
+
+/** Parse /block/ and /prop/ fragments (wraps for parseDSL; not for clipboard). */
+export function parseDSLParts(src) {
+  const body = src.trim();
+  const wrapped = `@kai-swimlane\n/title/\n\n${body}\n/role/\n<__parts_preview__>\nlabel: ;\n/line/\n@end\n`;
+  const model = parseDSL(wrapped);
+  return {
+    blocks: model.blocks,
+    props: model.props,
+    errors: model.errors,
+  };
 }

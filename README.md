@@ -96,7 +96,8 @@ Implementation: [`src/server/llm-handler.js`](src/server/llm-handler.js) (SSR re
 - Supports branch syntax: `if (...) is (...) than [#color]`, `elseif (...) than [#color]`, `else`, `endif`. Use `[loop]` at the end of a branch case to draw a back-edge to the if decision instead of the merge node.
 - When `#color` is omitted, branch condition blocks keep the current theme defaults.
 - Branch body indentation is optional, but two leading spaces are recommended for readability.
-- Step lines use bracket form: `[roleId: text]` with optional `<blockId>` at end; optional `label:`, `desc:`, `skip;` on following lines.
+- Step lines use bracket form: `[roleId: text]` with optional `<blockId>` at end; optional `label:`, `desc:`, `props:`, `skip;` on following lines (each must end with `;`).
+- `/role/`, `/block/`, and `/prop/` property lines must end with `;` (e.g. `label: Sales;`).
 - Supports empty step marker: `:;`
 
 ### Diagram rendering (core)
@@ -164,6 +165,7 @@ Sections:
 /title/
 /role/
 /block/
+/prop/
 /line/
 ```
 
@@ -182,6 +184,7 @@ background-color: #e6f2ff;
 
 <ops>
 label: Operations;
+background-color: #f5f5f4;
 
 /block/
 <warn>

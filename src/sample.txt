@@ -6,17 +6,17 @@
 /role/
 
 <role00>
-label: 区分
+label: 区分;
 text-color: #444444;
 background-color: #f5f5f4;
 
 <role01>
-label: システム
+label: システム;
 text-color: #1d4ed8;
 icon: sample-01.svg;
 
 <role02>
-label: 申請者
+label: 申請者;
 text-color: #000000;
 background-color: #ffffff;
 
@@ -46,13 +46,13 @@ icon: #alert-triangle;
 /prop/
 
 <A>
-label: 経費申請書
+label: 経費申請書;
 side: right;
 title: 会社所定フォーマットの申請書;
 max-chars: 8;
 
 <B>
-label: 承認ログ
+label: 承認ログ;
 side: left;
 background-color: #f1f5f9;
 border-color: #94a3b8;
@@ -60,14 +60,14 @@ text-color: #0f172a;
 title: 誰がいつ承認・差し戻ししたかの記録;
 
 <C>
-label: 通知メール
+label: 通知メール;
 side: right;
 background-color: #eff6ff;
 border-color: #3b82f6;
 text-color: #1e3a8a;
 
 <D>
-label: 領収書
+label: 領収書;
 side: left;
 hint: 金額・日付が読める画像またはPDF;
 

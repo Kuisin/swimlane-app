@@ -292,3 +292,45 @@ export function parseHelpMd(md) {
   }
   return sections;
 }
+
+const TEMPLATE_FENCE_RE = /```(kai-swimlane-parts|kai-swimlane)?\n?([\s\S]*?)```/;
+
+function extractTemplateFence(body) {
+  const match = body.match(TEMPLATE_FENCE_RE);
+  if (!match) return { lang: null, code: "" };
+  const lang = match[1] || null;
+  const code = match[2].replace(/\n$/, "");
+  let preview = null;
+  if (lang === "kai-swimlane") preview = "full";
+  else if (lang === "kai-swimlane-parts") preview = "parts";
+  return { lang, code, preview };
+}
+
+export function parseTemplateMd(md) {
+  const categories = [];
+  for (const block of md.split(/^## /m).filter(Boolean)) {
+    const lines = block.split(/\r?\n/);
+    const id = lines[0].trim().toLowerCase();
+    const body = lines.slice(1).join("\n");
+    const items = [];
+    const parts = body.split(/^### /m).filter((p) => p.trim());
+    parts.forEach((part, index) => {
+      const partLines = part.split(/\r?\n/);
+      const title = partLines[0].trim();
+      const partBody = partLines.slice(1).join("\n");
+      const { lang, code, preview } = extractTemplateFence(partBody);
+      if (!title || !code) return;
+      const desc = partBody.replace(TEMPLATE_FENCE_RE, "").trim();
+      items.push({
+        id: `${id}-${index}`,
+        title,
+        desc,
+        code,
+        lang,
+        preview,
+      });
+    });
+    categories.push({ id, items });
+  }
+  return categories;
+}

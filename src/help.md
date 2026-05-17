@@ -40,7 +40,7 @@ background-color: #e6f2ff;
 icon: sample.svg;
 ```
 
-<roleId> の下にプロパティ。label / text-color / background-color / icon。
+<roleId> の下にプロパティ。label / text-color / background-color / icon。各行は `;` で終えます。
 
 ## ブロック(再利用デザイン)
 
@@ -55,7 +55,7 @@ shape: hex;
 icon: #zap;
 ```
 
-再利用可能なステップのスタイル定義。shape: rect / rounded / hex / ellipse / cloud / note / subroutine。
+再利用可能なステップのスタイル定義。shape: rect / rounded / hex / ellipse / cloud / note / subroutine。プロパティ行は `;` で終えます。
 
 ## プロップ(再利用ドキュメント)
 
@@ -63,11 +63,11 @@ icon: #zap;
 /prop/
 
 <RQ>
-label: 申請書
+label: 申請書;
 side: right;
 
 <LG>
-label: 承認ログ
+label: 承認ログ;
 side: left;
 background-color: #f1f5f9;
 border-color: #64748b;
@@ -76,7 +76,7 @@ title: 監査用に保存される承認履歴;
 max-chars: 10;
 ```
 
-ステップに紐づける再利用可能なドキュメント定義。
+ステップに紐づける再利用可能なドキュメント定義。プロパティ行は `;` で終えます。
 
 - `label` — チップに表示する短い名前
 - `side` — `left` / `right`（省略時 `right`）

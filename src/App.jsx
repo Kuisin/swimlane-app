@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SAMPLE from "./sample.txt?raw";
 import HELP_MD from "./help.md?raw";
+import TEMPLATE_MD from "./template.md?raw";
 import DEFAULT_TAB_TEMPLATE from "./default-tab-template.txt?raw";
 import { parseDSL } from "./lib/parser";
 import { THEMES } from "./lib/themes";
@@ -308,7 +309,12 @@ export default function App() {
       </div>
 
       {showHelp && (
-        <HelpModal helpMd={HELP_MD} onClose={() => setShowHelp(false)} />
+        <HelpModal
+          helpMd={HELP_MD}
+          templateMd={TEMPLATE_MD}
+          themeKey={themeKey}
+          onClose={() => setShowHelp(false)}
+        />
       )}
       {showFileList && (
         <FileListModal
