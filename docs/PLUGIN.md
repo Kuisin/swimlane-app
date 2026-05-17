@@ -140,11 +140,22 @@ npm run install:cursor-plugin      # copy to ~/.cursor/plugins/local/kai-swimlan
 
 Target path: `~/.cursor/plugins/local/kai-swimlane` (use a real copy, not a symlink).
 
+## Markdown Preview Enhanced and PDF
+
+| Goal | Action |
+|------|--------|
+| Preview or PDF in **Markdown Preview Enhanced** | Command Palette → **Kai Swimlane: Set Up Markdown Preview Enhanced** (once per machine). |
+| PDF via **Markdown PDF** or similar | Command Palette → **Kai Swimlane: Embed Diagrams for PDF Export**, then export the generated `*.kai-export.md` file. |
+
+The built-in preview uses VS Code’s [Markdown extension API](https://code.visualstudio.com/api/extension-guides/markdown-extension) (`markdown.markdownItPlugins`). MPE and many PDF extensions use separate pipelines, like Mermaid does in those tools.
+
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
 | Preview shows plain code block | Reload window; confirm extension is enabled; fence language must be exactly `kai-swimlane` or `kai-swimlane-parts`. |
+| MPE / MPE PDF shows plain code | Run **Kai Swimlane: Set Up Markdown Preview Enhanced**; reload MPE preview. |
+| Markdown PDF shows plain code | Export from `*.kai-export.md` created by **Embed Diagrams for PDF Export**. |
 | `vsce: command not found` | Use `npm run package:extension` from the repo root (uses local `@vscode/vsce`). |
 | Build fails on `lucide-react` | Run `npm install` at repo root so workspace deps resolve. |
 | Diagram error in preview | Check DSL markers `@kai-swimlane` / `@end` for full diagrams; expand **DSL** in preview for source. |

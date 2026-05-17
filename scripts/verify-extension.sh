@@ -42,4 +42,8 @@ unzip -l "$VSIX_PATH" | grep -Fq 'extension/media/preview.css' || {
   echo "error: VSIX missing extension/media/preview.css" >&2
   exit 1
 }
-echo "OK: VSIX contains extension.js and preview.css"
+unzip -l "$VSIX_PATH" | grep -Fq 'extension/dist/html-enhance.cjs' || {
+  echo "error: VSIX missing extension/dist/html-enhance.cjs" >&2
+  exit 1
+}
+echo "OK: VSIX contains extension.js, html-enhance.cjs, and preview.css"
