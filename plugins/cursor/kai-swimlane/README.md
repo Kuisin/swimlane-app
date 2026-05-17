@@ -37,7 +37,7 @@ vscode/vscode-kai-swimlane-<version>.vsix
 After copying the plugin, install the VSIX:
 
 ```bash
-cursor --install-extension ~/.cursor/plugins/local/kai-swimlane/vscode/vscode-kai-swimlane-0.1.1.vsix
+cursor --install-extension ~/.cursor/plugins/local/kai-swimlane/vscode/vscode-kai-swimlane-0.1.2.vsix
 ```
 
 Or use **Extensions → ⋯ → Install from VSIX…**.
@@ -52,6 +52,15 @@ Download the latest VSIX from [GitHub Releases](https://github.com/YOUR_ORG/kai-
 | `skills/create-kai-swimlane/` | Skill to author diagrams |
 | `commands/open-preview-test.md` | How to verify preview |
 | `vscode/*.vsix` | Optional bundled Markdown preview extension |
+
+## Markdown Preview Enhanced and PDF
+
+| Goal | Command Palette |
+|------|-----------------|
+| MPE preview or PDF | **Kai Swimlane: Set Up Markdown Preview Enhanced** (once) |
+| Markdown PDF export | **Kai Swimlane: Embed Diagrams for PDF Export** → export `*.kai-export.md` |
+
+See [docs/PLUGIN.md](../../../docs/PLUGIN.md) in the repo for details.
 
 ## Update
 

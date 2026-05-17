@@ -1,7 +1,7 @@
 {
   "name": "kai-swimlane",
-  "version": "0.1.1",
-  "description": "Kai Swimlane DSL rules, diagram authoring skill, and Markdown preview extension install helpers.",
+  "version": "0.1.2",
+  "description": "Kai Swimlane DSL rules, diagram authoring skill, and Markdown preview (built-in, MPE, PDF export).",
   "author": {
     "name": "Kai Swimlane"
   },
