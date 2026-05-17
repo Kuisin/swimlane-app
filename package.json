@@ -1,32 +1,20 @@
 {
-  "name": "swinlane-app",
+  "name": "kai-swimlane",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "extensions/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "lucide-react": "^1.11.0",
-    "sharp": "^0.34.2",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "react-markdown": "^10.1.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@tailwindcss/vite": "^4.2.4",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.2.1",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.5.0",
-    "tailwindcss": "^4.2.4",
-    "vite": "^8.0.10"
+    "dev": "npm run dev -w @kai-swimlane/web",
+    "build": "npm run build -w @kai-swimlane/web",
+    "lint": "npm run lint -w @kai-swimlane/web",
+    "preview": "npm run preview -w @kai-swimlane/web",
+    "build:extension": "npm run build -w vscode-kai-swimlane",
+    "package:extension": "npm run package -w vscode-kai-swimlane",
+    "bundle:cursor-plugin": "bash scripts/bundle-cursor-plugin.sh",
+    "install:cursor-plugin": "bash scripts/install-cursor-plugin.sh"
   }
 }

@@ -1,0 +1,69 @@
+name: Release VS Code Extension
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build VSIX
+        run: npm run package:extension
+
+      - name: Read extension version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./extensions/vscode-kai-swimlane/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Extension version: $VERSION"
+
+      - name: Bundle Cursor plugin zip (includes VSIX)
+        run: |
+          mkdir -p plugins/cursor/kai-swimlane/vscode
+          cp plugins/vscode/vscode-kai-swimlane-*.vsix \
+            "plugins/cursor/kai-swimlane/vscode/vscode-kai-swimlane-${{ steps.version.outputs.version }}.vsix"
+          cd plugins/cursor && zip -r "../../kai-swimlane-cursor-plugin-${{ steps.version.outputs.version }}.zip" kai-swimlane
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-kai-swimlane-vsix
+          path: plugins/vscode/*.vsix
+          if-no-files-found: error
+
+      - name: Upload Cursor plugin zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kai-swimlane-cursor-plugin
+          path: kai-swimlane-cursor-plugin-*.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Kai Swimlane v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            plugins/vscode/*.vsix
+            kai-swimlane-cursor-plugin-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

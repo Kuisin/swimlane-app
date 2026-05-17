@@ -1,0 +1,59 @@
+{
+  "name": "vscode-kai-swimlane",
+  "displayName": "Kai Swimlane",
+  "description": "Render kai-swimlane and kai-swimlane-parts fenced code blocks in the Markdown preview.",
+  "version": "0.1.0",
+  "publisher": "kai-swimlane",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/kai-swimlane"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "swimlane",
+    "diagram",
+    "kai-swimlane"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./media/preview.css"
+    ],
+    "configuration": {
+      "title": "Kai Swimlane",
+      "properties": {
+        "kaiSwimlane.theme": {
+          "type": "string",
+          "default": "basic",
+          "enum": [
+            "basic",
+            "washi",
+            "ink",
+            "mono"
+          ],
+          "description": "Diagram theme used in Markdown preview for kai-swimlane fences."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "package": "npm run build && mkdir -p ../../plugins/vscode && vsce package --no-dependencies --out ../../plugins/vscode",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.0"
+  }
+}

@@ -1,0 +1,8 @@
+src/**
+esbuild.mjs
+node_modules/**
+.gitignore
+*.vsix
+.vscode/**
+dist/**/*.map
+samples/**

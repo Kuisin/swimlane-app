@@ -9,12 +9,6 @@ lerna-debug.log*
 
 node_modules
 dist
-*.vsix
-extensions/vscode-kai-swimlane/*.vsix
-plugins/vscode/*.vsix
-!plugins/vscode/.gitkeep
-plugins/cursor/kai-swimlane/vscode/*.vsix
-!plugins/cursor/kai-swimlane/vscode/.gitkeep
 dist-ssr
 *.local
 

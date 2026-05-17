@@ -1,0 +1,336 @@
+import { useEffect, useMemo, useState } from "react";
+import SAMPLE from "./sample.txt?raw";
+import HELP_MD from "./help.md?raw";
+import TEMPLATE_MD from "./template.md?raw";
+import DEFAULT_TAB_TEMPLATE from "./default-tab-template.txt?raw";
+import { parseDSL, THEMES, Diagram } from "@kai-swimlane/core";
+import { EditorPanel } from "./components/editor-panel";
+import { Toolbar } from "./components/toolbar";
+import { HelpModal } from "./components/help-modal";
+import { FileListModal } from "./components/file-list-modal";
+
+const STORAGE_KEY = "swimlane-editor-state-v1";
+
+function createDocument(id, name, src) {
+  return { id, name, src, savedSrc: src };
+}
+
+function createNextDocumentName(documents) {
+  return `Document ${documents.length + 1}`;
+}
+
+function createDocumentId() {
+  return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function extractTitleFromSource(src) {
+  const match = src.match(/\/title\/([\s\S]*?)(?:\n\/[a-z]+\/|$)/i);
+  if (!match) return "";
+
+  const firstLine = match[1]
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  return firstLine || "";
+}
+
+export default function App() {
+  const [documents, setDocuments] = useState([createDocument("doc-1", "Document 1", SAMPLE)]);
+  const [openDocumentIds, setOpenDocumentIds] = useState(["doc-1"]);
+  const [activeDocumentId, setActiveDocumentId] = useState("doc-1");
+  const [themeKey, setThemeKey] = useState("basic");
+  const [showStepBlockCaptions, setShowStepBlockCaptions] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showFileList, setShowFileList] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      setIsHydrated(true);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.documents) && parsed.documents.length > 0) {
+        const restoredDocuments = parsed.documents.map((doc, index) =>
+          ({
+            id: doc.id || `doc-${index + 1}`,
+            name: doc.name || `Document ${index + 1}`,
+            src: typeof doc.src === "string" ? doc.src : "",
+            savedSrc:
+              typeof doc.savedSrc === "string"
+                ? doc.savedSrc
+                : typeof doc.src === "string"
+                ? doc.src
+                : "",
+          })
+        );
+        setDocuments(restoredDocuments);
+        const restoredIds = restoredDocuments.map((document) => document.id);
+        const restoredOpenIds =
+          Array.isArray(parsed.openDocumentIds) && parsed.openDocumentIds.length > 0
+            ? parsed.openDocumentIds.filter((id) => restoredIds.includes(id))
+            : restoredIds;
+        const normalizedOpenIds =
+          restoredOpenIds.length > 0 ? restoredOpenIds : [restoredDocuments[0].id];
+
+        setOpenDocumentIds(normalizedOpenIds);
+        setActiveDocumentId(
+          normalizedOpenIds.includes(parsed.activeDocumentId)
+            ? parsed.activeDocumentId
+            : normalizedOpenIds[0]
+        );
+      }
+      if (typeof parsed.themeKey === "string" && THEMES[parsed.themeKey]) {
+        setThemeKey(parsed.themeKey);
+      }
+      if (typeof parsed.showStepBlockCaptions === "boolean") {
+        setShowStepBlockCaptions(parsed.showStepBlockCaptions);
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setIsHydrated(true);
+    }
+  }, []);
+
+  const openDocuments = openDocumentIds
+    .map((id) => documents.find((document) => document.id === id))
+    .filter(Boolean);
+  const activeDocument =
+    documents.find((document) => document.id === activeDocumentId) || openDocuments[0];
+  const src = activeDocument?.src || "";
+
+  const theme = THEMES[themeKey];
+  const model = useMemo(() => parseDSL(src), [src]);
+  const hasUnsavedChanges = documents.some((document) => document.src !== document.savedSrc);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const payload = {
+      documents: documents.map(({ id, name, src, savedSrc }) => ({
+        id,
+        name,
+        src,
+        savedSrc,
+      })),
+      openDocumentIds,
+      activeDocumentId,
+      themeKey,
+      showStepBlockCaptions,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [documents, openDocumentIds, activeDocumentId, themeKey, showStepBlockCaptions, isHydrated]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    function handleBeforeUnload(event) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  function updateActiveDocumentSrc(nextSrc) {
+    setDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === activeDocumentId ? { ...document, src: nextSrc } : document
+      )
+    );
+  }
+
+  function saveDocuments() {
+    const nextDocuments = documents.map((document) => ({
+      ...document,
+      savedSrc: document.src,
+    }));
+    setDocuments(nextDocuments);
+  }
+
+  function addDocumentTab() {
+    const id = createDocumentId();
+    const name = createNextDocumentName(documents);
+    const newDocument = createDocument(id, name, DEFAULT_TAB_TEMPLATE);
+    setDocuments((currentDocuments) => [...currentDocuments, newDocument]);
+    setOpenDocumentIds((currentOpenIds) => [...currentOpenIds, id]);
+    setActiveDocumentId(id);
+  }
+
+  function closeDocumentTab(documentId) {
+    setOpenDocumentIds((currentOpenIds) => {
+      if (!currentOpenIds.includes(documentId)) return currentOpenIds;
+      if (currentOpenIds.length === 1) return currentOpenIds;
+
+      const closingIndex = currentOpenIds.findIndex((id) => id === documentId);
+      const nextOpenIds = currentOpenIds.filter((id) => id !== documentId);
+
+      if (documentId === activeDocumentId) {
+        const nextIndex = Math.max(0, closingIndex - 1);
+        setActiveDocumentId(nextOpenIds[nextIndex] || nextOpenIds[0]);
+      }
+
+      return nextOpenIds;
+    });
+  }
+
+  function deleteDocumentFromStorage(documentId) {
+    setDocuments((currentDocuments) => {
+      if (currentDocuments.length === 1) {
+        const blankDocument = createDocument(
+          createDocumentId(),
+          "Document 1",
+          DEFAULT_TAB_TEMPLATE
+        );
+        setOpenDocumentIds([blankDocument.id]);
+        setActiveDocumentId(blankDocument.id);
+        return [blankDocument];
+      }
+
+      const nextDocuments = currentDocuments.filter(
+        (document) => document.id !== documentId
+      );
+      const nextDocumentIds = nextDocuments.map((document) => document.id);
+
+      setOpenDocumentIds((currentOpenIds) => {
+        const filteredOpenIds = currentOpenIds.filter((id) => id !== documentId);
+        if (filteredOpenIds.length > 0) return filteredOpenIds;
+        return [nextDocumentIds[0]];
+      });
+
+      if (documentId === activeDocumentId) {
+        setActiveDocumentId(nextDocumentIds[0]);
+      }
+
+      return nextDocuments;
+    });
+  }
+
+  return (
+    <div className="min-h-screen bg-stone-100 text-stone-900">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Shippori Mincho', serif; }
+        .font-jp { font-family: 'Noto Sans JP', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+      `}</style>
+
+      <Toolbar
+        themeKey={themeKey}
+        onThemeChange={setThemeKey}
+        onShowFileList={() => setShowFileList(true)}
+        onShowHelp={() => setShowHelp(true)}
+        showStepBlockCaptions={showStepBlockCaptions}
+        onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
+      />
+
+      <div className="mx-auto grid grid-cols-1 lg:flex flex-row">
+        <div className="bg-stone-100 p-6 overflow-auto lg:flex-1">
+          <div
+            className="rounded-sm shadow-lg border border-stone-300 overflow-hidden"
+            style={{ background: theme.bg }}
+          >
+            <Diagram
+              model={model}
+              theme={theme}
+              showStepBlockCaptions={showStepBlockCaptions}
+            />
+          </div>
+          <div className="mt-3 font-jp text-[11px] text-stone-500 flex justify-between">
+            <span>プレビュー · Preview</span>
+            <span>{model.title}</span>
+          </div>
+        </div>
+
+        <div className="border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)] w-1/2 max-w-[500px]">
+          <div className="px-4 pt-3 border-b border-stone-700/60 flex items-center gap-2 overflow-x-auto">
+            {openDocuments.map((document) => {
+              const isActive = document.id === activeDocumentId;
+              const isDirty = document.src !== document.savedSrc;
+              const documentTitle =
+                extractTitleFromSource(document.src) || document.name;
+              return (
+                <div
+                  key={document.id}
+                  className={`shrink-0 text-xs font-mono rounded-t-sm border flex items-center ${
+                    isActive
+                      ? "bg-stone-800 text-stone-50 border-stone-600"
+                      : "bg-stone-900 text-stone-400 border-stone-700"
+                  }`}
+                >
+                  <button
+                    onClick={() => setActiveDocumentId(document.id)}
+                    className={`px-3 py-1.5 text-left ${
+                      isActive ? "" : "hover:text-stone-200"
+                    }`}
+                  >
+                    {documentTitle}
+                    {isDirty ? " *" : ""}
+                  </button>
+                  <button
+                    onClick={() => closeDocumentTab(document.id)}
+                    className={`pr-2 pl-1 py-1.5 ${
+                      isActive
+                        ? "text-stone-300 hover:text-stone-50"
+                        : "text-stone-500 hover:text-stone-200"
+                    }`}
+                    aria-label={`Close ${documentTitle}`}
+                  >
+                    x
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              onClick={addDocumentTab}
+              className="shrink-0 text-xs font-mono px-2 py-1 rounded bg-stone-700 text-stone-300 hover:text-stone-100 hover:bg-stone-500"
+            >
+              + Tab
+            </button>
+          </div>
+          <EditorPanel
+            src={src}
+            onChange={updateActiveDocumentSrc}
+            model={model}
+            modelTitle={model.title}
+            themeBg={theme.bg}
+            hasUnsavedChanges={hasUnsavedChanges}
+            onSave={saveDocuments}
+          />
+        </div>
+      </div>
+
+      {showHelp && (
+        <HelpModal
+          helpMd={HELP_MD}
+          templateMd={TEMPLATE_MD}
+          themeKey={themeKey}
+          onClose={() => setShowHelp(false)}
+        />
+      )}
+      {showFileList && (
+        <FileListModal
+          documents={documents}
+          activeDocumentId={activeDocumentId}
+          onSelectDocument={(documentId) => {
+            setOpenDocumentIds((currentOpenIds) =>
+              currentOpenIds.includes(documentId)
+                ? currentOpenIds
+                : [...currentOpenIds, documentId]
+            );
+            setActiveDocumentId(documentId);
+            setShowFileList(false);
+          }}
+          onDeleteDocument={deleteDocumentFromStorage}
+          onClose={() => setShowFileList(false)}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,59 @@
+---
+description: Kai Swimlane DSL syntax for swimlane diagrams in markdown and .txt files
+globs:
+  - "**/*.md"
+  - "**/*.txt"
+alwaysApply: false
+---
+
+# Kai Swimlane DSL
+
+Use this DSL inside a fenced block tagged `kai-swimlane` (full diagram) or `kai-swimlane-parts` (blocks/props only).
+
+## Full document (required markers)
+
+```txt
+@kai-swimlane
+
+/title/
+My Process
+
+/role/
+<sales>
+label: Sales;
+background-color: #e6f2ff;
+
+/line/
+[sales: Receive order]
+
+@end
+```
+
+## Sections
+
+- `/title/` — diagram title
+- `/role/` — lanes: `<roleId>` then `label:`, `text-color:`, `background-color:`, `icon:`
+- `/block/` — reusable step styles: `shape:`, colors, `icon: #lucide-name`
+- `/prop/` — document chips attached to steps
+- `/line/` — flow: `[roleId: label]`, branches (`if` / `elseif` / `else` / `endif`)
+
+## Property lines
+
+In `/role/`, `/block/`, and `/prop/`, each property line must end with `;`.
+
+## Step line
+
+```txt
+[roleId: Step label] <optionalBlockId>
+label: Optional;
+desc: Optional description;
+props: PROP1, PROP2;
+```
+
+## Parts-only fence
+
+For template fragments without lanes or flow, use `kai-swimlane-parts` with only `/block/` and/or `/prop/` content.
+
+## Markdown preview
+
+Install the bundled VS Code extension (see plugin `README.md`) so `kai-swimlane` fences render in Markdown preview.

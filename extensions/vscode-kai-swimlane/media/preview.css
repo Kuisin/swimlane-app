@@ -1,0 +1,13 @@
+.kai-swimlane-fence svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.kai-swimlane-fence__preview {
+  line-height: 0;
+}
+
+.kai-swimlane-fence details[open] summary {
+  margin-bottom: 0;
+}

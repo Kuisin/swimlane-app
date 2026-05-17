@@ -1,0 +1,10 @@
+{
+  "name": "kai-swimlane",
+  "version": "0.1.0",
+  "description": "Kai Swimlane DSL rules, diagram authoring skill, and Markdown preview extension install helpers.",
+  "author": {
+    "name": "Kai Swimlane"
+  },
+  "keywords": ["swimlane", "diagram", "markdown", "dsl", "kai-swimlane"],
+  "license": "MIT"
+}
