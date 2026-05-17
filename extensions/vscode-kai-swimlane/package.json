@@ -2,7 +2,7 @@
   "name": "vscode-kai-swimlane",
   "displayName": "Kai Swimlane",
   "description": "Render kai-swimlane and kai-swimlane-parts fenced code blocks in the Markdown preview.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "kai-swimlane",
   "license": "MIT",
   "repository": {
@@ -13,7 +13,8 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization"
   ],
   "keywords": [
     "markdown",
