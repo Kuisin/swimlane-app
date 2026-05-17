@@ -41,8 +41,12 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
 
   const diamondH = 90;
   const mergeH = 60;
+  const branchLoopH = 24;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
+  const stepBoxH = 44;
+  const loopRouteMargin = 32;
+  const loopDropPad = 14;
   /** Previous step → if: horizontal elbow closer to the diamond (below the step block), not mid-gap. */
 
   const rowMeta = [];
@@ -133,6 +137,16 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     return rowCenterY(rowIndex);
   }
 
+  /** Bottom edge of the step shape only (props below are excluded). */
+  function stepBlockBottomY(rowIndex) {
+    const row = rows[rowIndex];
+    if (!row || row.kind !== "step") {
+      const yRow = rowMeta[rowIndex]?.y ?? 0;
+      return yRow + (stepRowHeightByIndex.get(rowIndex) || rowH);
+    }
+    return stepBlockCenterY(rowIndex) + stepBoxH / 2;
+  }
+
   function estimateTextWidth(text, base = 28) {
     if (!text) return base;
     let width = base;
@@ -163,6 +177,14 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       if (f) f.yMerge = y;
       rowMeta[i] = { y, kind: "merge" };
       y += mergeH;
+    } else if (r.kind === "branchLoop") {
+      stepRowHeightByIndex.set(i, branchLoopH);
+      rowMeta[i] = { y, kind: "branchLoop" };
+      frameStack.forEach((frame) => {
+        const lastCase = frame.cases[frame.cases.length - 1];
+        if (lastCase) lastCase.rowIndices.push(i);
+      });
+      y += branchLoopH;
     } else if (r.kind === "step") {
       const h = stepRowHeight(r, i);
       stepRowHeightByIndex.set(i, h);
@@ -286,6 +308,26 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     }
     return matched;
   }
+  function loopAnchorInCase(rowIndices, branchId) {
+    const loopIdx = [...rowIndices]
+      .reverse()
+      .find(
+        (idx) =>
+          rows[idx]?.kind === "branchLoop" &&
+          rows[idx].loopBranchId === branchId
+      );
+    if (loopIdx == null) return null;
+    const prevStepIdx = [...rowIndices]
+      .filter((idx) => idx < loopIdx)
+      .reverse()
+      .find(
+        (idx) =>
+          rows[idx]?.kind === "step" &&
+          !rows[idx].empty &&
+          rows[idx].role
+      );
+    return { loopIdx, prevStepIdx: prevStepIdx ?? null };
+  }
   frames.forEach((f) => {
     f.cases.forEach((c) => {
       const offset = c.offset || 0;
@@ -315,6 +357,115 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     const offset = stepOffsetByIndex.get(stepIdx) || 0;
     return baseX + offset;
   }
+
+  /** Block + props extent used for loop routing around obstacles. */
+  function stepObstacleBounds(rowIndex) {
+    const row = rows[rowIndex];
+    const cx =
+      row?.role && laneIndex(row.role) >= 0
+        ? nodeCenterX(rowIndex, row.role)
+        : width / 2;
+    let left = cx - nodeW / 2;
+    let right = cx + nodeW / 2;
+    let top = stepBlockCenterY(rowIndex) - stepBoxH / 2;
+    let bottom = stepBlockBottomY(rowIndex);
+
+    if (!row || row.kind !== "step") {
+      return { left, right, top, bottom };
+    }
+
+    const cy = stepBlockCenterY(rowIndex);
+    const { left: leftProps, right: rightProps } = splitPropsBySide(row.props);
+    const docY = cy + stepBoxH / 2 - 8;
+
+    leftProps.forEach((prop, docIdx) => {
+      const x = cx - nodeW / 2 + 55 - docW + docIdx * docGapX;
+      left = Math.min(left, x);
+      right = Math.max(right, x + docW);
+      bottom = Math.max(bottom, docY + docIdx * docGapY + docH);
+    });
+    rightProps.forEach((prop, docIdx) => {
+      const x = cx + nodeW / 2 - 60 + docIdx * docGapX;
+      left = Math.min(left, x);
+      right = Math.max(right, x + docW);
+      bottom = Math.max(bottom, docY + docIdx * docGapY + docH);
+    });
+
+    return { left, right, top, bottom };
+  }
+
+  function collectLoopObstacles(frame, sourceStepIdx, routeBottomY) {
+    const yMin = frame.yDecision;
+    const yMax = routeBottomY;
+    const overlaps = (top, bottom) => bottom >= yMin && top <= yMax;
+    const rects = [];
+
+    rows.forEach((row, idx) => {
+      if (row?.kind !== "step" || row.empty || !row.role) return;
+      const b = stepObstacleBounds(idx);
+      if (overlaps(b.top, b.bottom)) rects.push(b);
+    });
+
+    return rects;
+  }
+
+  /** Route from block bottom, around obstacles, into the side of the if diamond. */
+  function buildLoopBackPath({
+    fromX,
+    fromBottomY,
+    dCx,
+    dCy,
+    dW,
+    frame,
+    sourceStepIdx,
+    caseOffset,
+  }) {
+    const startY = fromBottomY;
+    const sourceBounds =
+      sourceStepIdx != null ? stepObstacleBounds(sourceStepIdx) : null;
+    const dropY = (sourceBounds?.bottom ?? startY) + loopDropPad;
+    const obstacles = collectLoopObstacles(frame, sourceStepIdx, dropY);
+
+    let sideSign;
+    if (caseOffset !== 0) {
+      sideSign = Math.sign(caseOffset);
+    } else if (obstacles.length > 0) {
+      const minLeft = Math.min(...obstacles.map((o) => o.left));
+      const maxRight = Math.max(...obstacles.map((o) => o.right));
+      const spaceLeft = fromX - minLeft;
+      const spaceRight = maxRight - fromX;
+      sideSign = spaceRight >= spaceLeft ? 1 : -1;
+    } else {
+      sideSign = fromX <= dCx ? -1 : 1;
+    }
+
+    const extentLeft = obstacles.length
+      ? Math.min(...obstacles.map((o) => o.left))
+      : sourceBounds?.left ?? fromX - nodeW / 2;
+    const extentRight = obstacles.length
+      ? Math.max(...obstacles.map((o) => o.right))
+      : sourceBounds?.right ?? fromX + nodeW / 2;
+
+    let routeX;
+    if (sideSign < 0) {
+      routeX =
+        Math.min(extentLeft, fromX, dCx - dW / 2) - loopRouteMargin;
+    } else {
+      routeX =
+        Math.max(extentRight, fromX, dCx + dW / 2) + loopRouteMargin;
+    }
+    routeX = Math.max(xPad + 12, Math.min(width - xPad - 12, routeX));
+
+    const enterFromLeft = routeX < dCx;
+    const toX = enterFromLeft ? dCx - dW / 2 : dCx + dW / 2;
+    const toY = dCy;
+
+    if (Math.abs(fromX - routeX) < 0.5) {
+      return `M ${fromX} ${startY} L ${fromX} ${dropY} L ${routeX} ${toY} L ${toX} ${toY}`;
+    }
+    return `M ${fromX} ${startY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${toY} L ${toX} ${toY}`;
+  }
+
   function splitPropsBySide(propIds) {
     const left = [];
     const right = [];
@@ -845,15 +996,55 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
               );
             })}
 
-            {/* Branch fan-in: each case path -> merge */}
+            {/* Branch fan-in: each case path -> merge or loop back to decision */}
             {f.cases.map((c, ci) => {
+              const anchor = loopAnchorInCase(c.rowIndices, f.id);
+              if (anchor) {
+                let fromX;
+                let fromBottomY;
+                let sourceStepIdx = null;
+                if (anchor.prevStepIdx != null) {
+                  sourceStepIdx = anchor.prevStepIdx;
+                  const r = rows[anchor.prevStepIdx];
+                  const li = laneIndex(r.role);
+                  fromX =
+                    li >= 0 ? nodeCenterX(anchor.prevStepIdx, r.role) : c.x;
+                  fromBottomY = stepBlockBottomY(anchor.prevStepIdx);
+                } else {
+                  fromX = c.x;
+                  const loopY = rowMeta[anchor.loopIdx]?.y ?? f.yDecision;
+                  fromBottomY =
+                    loopY +
+                    (stepRowHeightByIndex.get(anchor.loopIdx) || branchLoopH);
+                }
+                const d = buildLoopBackPath({
+                  fromX,
+                  fromBottomY,
+                  dCx,
+                  dCy,
+                  dW,
+                  frame: f,
+                  sourceStepIdx,
+                  caseOffset: c.offset || 0,
+                });
+                return (
+                  <path
+                    key={`loop-${f.id}-${ci}`}
+                    d={d}
+                    fill="none"
+                    stroke={theme.stroke}
+                    strokeWidth="1.6"
+                    markerEnd="url(#arrowhead)"
+                  />
+                );
+              }
+
               const lastStepIdx = [...c.rowIndices]
                 .reverse()
                 .find((idx) => rows[idx].kind === "step");
               let fromX, fromY;
               if (lastStepIdx != null) {
                 const r = rows[lastStepIdx];
-                const sy = rowMeta[lastStepIdx]?.y;
                 if (r.empty) {
                   fromX = c.x;
                   fromY = stepBlockCenterY(lastStepIdx) + 8;

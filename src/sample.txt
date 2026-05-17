@@ -84,11 +84,11 @@ props: A,D;
 [role01: 申請を受け付ける] <block01>
 props: B;
 
-if (入力チェック) is (OK) than
-  [role01: 承認依頼を送信] <block02>
-props: B,C;
-elseif (差し戻し) than
-  [role01: 差し戻し通知を送信] <block03>
+if (再試行) is (する) than
+  [role01: 項目を処理] <block02>
+  [loop]
+elseif (しない) than
+  [role01: 完了] <block03>
 props: C;
 endif
 

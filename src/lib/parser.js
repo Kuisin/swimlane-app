@@ -286,6 +286,19 @@ export function parseDSL(src) {
       continue;
     }
 
+    if (/^\[loop\]\s*;?\s*$/i.test(u)) {
+      if (stack.length === 0) {
+        errors.push({ line, text, msg: "[loop] outside if" });
+        continue;
+      }
+      rows.push({
+        kind: "branchLoop",
+        loopBranchId: stack[stack.length - 1].id,
+        depth: stack.length,
+      });
+      continue;
+    }
+
     let blockRef = null;
     let work = u;
     const blockAtEnd = u.match(/<([A-Za-z0-9_\-]+)>\s*;?\s*$/);

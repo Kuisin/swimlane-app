@@ -134,7 +134,16 @@ if (○○有無) is (あり) than
 elseif (なし) than
   [role02: エラー] <block03>
 endif
+
+if (再試行) is (する) than
+  [role01: 項目を処理] <block02>
+  [loop]
+elseif (しない) than
+  [role01: 完了] <block03>
+endif
 ```
 
 if〜endif で分岐。各ステップ行は上記と同じく `[roleId: 本文]` 形式。`than` の後ろに `#色名` を付けると条件ブロック色を指定できます。
 色指定がない場合は現在のテーマ既定色を使います。使える色：blue, green, red, orange, purple, gray, black
+
+分岐ケースの末尾に `[loop]` を置くと、そのケースはマージへ進まず同じ if の条件ダイヤモンドへ戻る矢印を描きます（`if` の外では使えません）。直前のステップから矢印が出ます。ステップが無いケースではケース位置から戻ります。
