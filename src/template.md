@@ -115,7 +115,6 @@ background-color: #f8fafc;
 text-color: #334155;
 border-color: #64748b;
 shape: rounded;
-icon: #settings;
 ```
 
 ### 申請・起票
