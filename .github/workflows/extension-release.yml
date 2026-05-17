@@ -25,8 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build VSIX
-        run: npm run package:extension
+      - name: Verify extension build and VSIX
+        run: npm run verify:extension
+
+      - name: Bundle VSIX into Cursor plugin
+        run: npm run bundle:cursor-plugin
 
       - name: Read extension version
         id: version
@@ -35,12 +38,14 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Extension version: $VERSION"
 
-      - name: Bundle Cursor plugin zip (includes VSIX)
+      - name: Zip Cursor plugin (includes bundled VSIX)
+        run: npm run zip:cursor-plugin -- ${{ steps.version.outputs.version }}
+
+      - name: Verify VSIX inside Cursor plugin zip
         run: |
-          mkdir -p plugins/cursor/kai-swimlane/vscode
-          cp plugins/vscode/vscode-kai-swimlane-*.vsix \
-            "plugins/cursor/kai-swimlane/vscode/vscode-kai-swimlane-${{ steps.version.outputs.version }}.vsix"
-          cd plugins/cursor && zip -r "../../kai-swimlane-cursor-plugin-${{ steps.version.outputs.version }}.zip" kai-swimlane
+          VSIX_PATH="kai-swimlane/vscode/vscode-kai-swimlane-${{ steps.version.outputs.version }}.vsix"
+          test -f "plugins/cursor/kai-swimlane/vscode/vscode-kai-swimlane-${{ steps.version.outputs.version }}.vsix"
+          unzip -l "kai-swimlane-cursor-plugin-${{ steps.version.outputs.version }}.zip" | grep -Fq "$VSIX_PATH"
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4

@@ -39,7 +39,7 @@ npm run install:cursor-plugin
 
 See [plugins/cursor/kai-swimlane/README.md](plugins/cursor/kai-swimlane/README.md).
 
-**CI:** pushing a tag `v*` runs [.github/workflows/vscode-extension-release.yml](.github/workflows/vscode-extension-release.yml) and attaches the `.vsix` + Cursor plugin zip to GitHub Releases.
+**CI:** pushing a tag `v*` runs [.github/workflows/extension-release.yml](.github/workflows/extension-release.yml), bundles the `.vsix` into `plugins/cursor/kai-swimlane/vscode/`, and attaches the standalone VSIX plus Cursor plugin zip to GitHub Releases.
 
 ## Run
 

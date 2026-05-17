@@ -14,6 +14,18 @@ label: Lane A;
 @end
 ```
 
+## Minimal fence (no `@kai-swimlane` / `@end`)
+
+```kai-swimlane
+/title/
+Minimal fence
+/role/
+<b>
+label: Lane B;
+/line/
+[b: Second step]
+```
+
 ## Parts (`kai-swimlane-parts`)
 
 ```kai-swimlane-parts

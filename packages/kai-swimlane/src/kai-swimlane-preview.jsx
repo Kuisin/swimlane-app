@@ -1,5 +1,10 @@
 import { useMemo } from "react";
-import { parseDSL, Diagram, THEMES } from "@kai-swimlane/core";
+import {
+  parseDSL,
+  Diagram,
+  THEMES,
+  normalizeFullFenceDSL,
+} from "@kai-swimlane/core";
 
 export function KaiSwimlanePreview({
   code,
@@ -7,7 +12,10 @@ export function KaiSwimlanePreview({
   showStepBlockCaptions = false,
   className = "",
 }) {
-  const model = useMemo(() => parseDSL(code), [code]);
+  const model = useMemo(
+    () => parseDSL(normalizeFullFenceDSL(code)),
+    [code]
+  );
   const theme = THEMES[themeKey] || THEMES.basic;
   const hasErrors = model.errors.length > 0;
 

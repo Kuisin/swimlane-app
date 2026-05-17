@@ -1,11 +1,24 @@
 ## role
 
+レーン ID は `role_` + 役割名（英語）にします。例: `role_applicant` = 申請者。図ごとに ID を増やしても構いません。
+
+| ID | 用途 |
+|----|------|
+| `role_category` | 区分列（見出し・`skip;` 用） |
+| `role_applicant` | 申請者・起票者 |
+| `role_approver` | 承認者 |
+| `role_accounting` | 経理・財務 |
+| `role_hr` | 人事 |
+| `role_system` | システム・自動処理 |
+| `role_legal` | 法務・コンプライアンス |
+| `role_partner` | 取引先・顧客（社外） |
+
 ### 区分列
 
 左カラムの見出し用レーン。手順番号を付けない行（`skip;`）と組み合わせます。
 
 ```
-<role00>
+<role_category>
 label: 区分;
 text-color: #444444;
 background-color: #f5f5f4;
@@ -13,10 +26,10 @@ background-color: #f5f5f4;
 
 ### 申請者
 
-申請・起票を行う担当者のレーン。`role02` など任意の ID に変更できます。
+申請・起票を行う担当者のレーン。
 
 ```
-<role02>
+<role_applicant>
 label: 申請者;
 text-color: #1e293b;
 background-color: #ffffff;
@@ -27,7 +40,7 @@ background-color: #ffffff;
 上長や承認権限者のレーン。緑系で「承認」ブロックと揃えると分かりやすいです。
 
 ```
-<role03>
+<role_approver>
 label: 承認者;
 text-color: #166534;
 background-color: #f0fdf4;
@@ -38,7 +51,7 @@ background-color: #f0fdf4;
 経理確認・支払処理などのレーン。
 
 ```
-<role04>
+<role_accounting>
 label: 経理;
 text-color: #1e40af;
 background-color: #eff6ff;
@@ -50,7 +63,7 @@ icon: #database;
 採用・労務など人事部門のレーン。
 
 ```
-<role05>
+<role_hr>
 label: 人事;
 text-color: #6b21a8;
 background-color: #faf5ff;
@@ -62,7 +75,7 @@ icon: #user;
 自動処理・バッチ・API 連携などのレーン。
 
 ```
-<role01>
+<role_system>
 label: システム;
 text-color: #3730a3;
 background-color: #eef2ff;
@@ -74,7 +87,7 @@ icon: #database;
 契約審査・コンプラ確認のレーン。
 
 ```
-<role06>
+<role_legal>
 label: 法務;
 text-color: #5b21b6;
 background-color: #f5f3ff;
@@ -86,7 +99,7 @@ icon: #shield-check;
 社外の相手方を表すレーン。
 
 ```
-<role07>
+<role_partner>
 label: 取引先;
 text-color: #92400e;
 background-color: #fffbeb;
@@ -378,23 +391,23 @@ title: 表示は6文字まで。ホバーで全文;
 
 /role/
 
-<role00>
+<role_category>
 label: 区分;
 text-color: #444444;
 background-color: #f5f5f4;
 
-<role01>
+<role_system>
 label: システム;
 text-color: #3730a3;
 background-color: #eef2ff;
 icon: #database;
 
-<role02>
+<role_applicant>
 label: 申請者;
 text-color: #1e293b;
 background-color: #ffffff;
 
-<role03>
+<role_approver>
 label: 承認者;
 text-color: #166534;
 background-color: #f0fdf4;
@@ -453,20 +466,20 @@ hint: 金額・日付が読める画像またはPDF;
 
 /line/
 
-[role00: 申請開始]
+[role_category: 申請開始]
 skip;
 
-[role02: 領収書を添付して申請] <block_apply>
+[role_applicant: 領収書を添付して申請] <block_apply>
 label: 申請入力;
 props: REQ_DOC,RECEIPT;
 
-[role01: 申請を受け付ける] <block_system>
+[role_system: 申請を受け付ける] <block_system>
 props: APPR_LOG;
 
-[role03: 承認する] <block_approve>
+[role_approver: 承認する] <block_approve>
 props: APPR_LOG;
 
-[role02: 結果を確認]
+[role_applicant: 結果を確認]
 props: NOTIFY;
 
 @end
@@ -484,22 +497,22 @@ props: NOTIFY;
 
 /role/
 
-<role00>
+<role_category>
 label: 区分;
 text-color: #444444;
 background-color: #f5f5f4;
 
-<role02>
+<role_applicant>
 label: 申請者;
 text-color: #1e293b;
 background-color: #ffffff;
 
-<role03>
+<role_approver>
 label: 承認者;
 text-color: #166534;
 background-color: #f0fdf4;
 
-<role04>
+<role_accounting>
 label: 経理;
 text-color: #1e40af;
 background-color: #eff6ff;
@@ -549,21 +562,21 @@ text-color: #334155;
 
 /line/
 
-[role00: 稟議]
+[role_category: 稟議]
 skip;
 
-[role02: 稟議書を起票] <block_apply>
+[role_applicant: 稟議書を起票] <block_apply>
 props: REQ_DOC;
 
-[role03: 承認] <block_approve>
+[role_approver: 承認] <block_approve>
 props: APPR_LOG;
 
 if (金額) is (上限超) than
-  [role04: 経理確認] <block_condition>
+  [role_accounting: 経理確認] <block_condition>
 elseif (以内) than
-  [role03: 承認完了] <block_condition>
+  [role_approver: 承認完了] <block_condition>
 else
-  [role02: 差し戻し] <block_condition>
+  [role_applicant: 差し戻し] <block_condition>
 endif
 
 @end
@@ -581,22 +594,22 @@ endif
 
 /role/
 
-<role00>
+<role_category>
 label: 区分;
 text-color: #444444;
 background-color: #f5f5f4;
 
-<role05>
+<role_hr>
 label: 人事;
 text-color: #6b21a8;
 background-color: #faf5ff;
 
-<role03>
+<role_approver>
 label: 採用担当;
 text-color: #166534;
 background-color: #f0fdf4;
 
-<role01>
+<role_system>
 label: システム;
 text-color: #3730a3;
 background-color: #eef2ff;
@@ -634,18 +647,18 @@ title: 内定通知・条件提示書;
 
 /line/
 
-[role00: 採用]
+[role_category: 採用]
 skip;
 
-[role05: 応募受付]
+[role_hr: 応募受付]
 props: RESUME;
 
-[role03: 面接・選考] <block_approve>
+[role_approver: 面接・選考] <block_approve>
 
-[role01: オファー送付] <block_notify>
+[role_system: オファー送付] <block_notify>
 props: OFFER;
 
-[role05: 入社手続き] <block_approve>
+[role_hr: 入社手続き] <block_approve>
 
 @end
 ```

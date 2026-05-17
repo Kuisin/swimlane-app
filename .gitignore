@@ -15,6 +15,7 @@ plugins/vscode/*.vsix
 !plugins/vscode/.gitkeep
 plugins/cursor/kai-swimlane/vscode/*.vsix
 !plugins/cursor/kai-swimlane/vscode/.gitkeep
+kai-swimlane-cursor-plugin-*.zip
 dist-ssr
 *.local
 

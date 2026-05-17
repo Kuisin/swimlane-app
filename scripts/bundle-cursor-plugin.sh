@@ -6,16 +6,15 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGIN_VSCODE="${REPO_ROOT}/plugins/cursor/kai-swimlane/vscode"
 VSIX_DIR="${REPO_ROOT}/plugins/vscode"
 
-shopt -s nullglob
-VSIX=("${VSIX_DIR}"/vscode-kai-swimlane-*.vsix)
-shopt -u nullglob
+VERSION="$(node -p "require('${REPO_ROOT}/extensions/vscode-kai-swimlane/package.json').version")"
+VSIX_SRC="${VSIX_DIR}/vscode-kai-swimlane-${VERSION}.vsix"
 
-if [[ ${#VSIX[@]} -eq 0 ]]; then
-  echo "error: no VSIX in ${VSIX_DIR}. Run: npm run package:extension" >&2
+if [[ ! -f "$VSIX_SRC" ]]; then
+  echo "error: missing ${VSIX_SRC}. Run: npm run package:extension" >&2
   exit 1
 fi
 
 mkdir -p "$PLUGIN_VSCODE"
 rm -f "$PLUGIN_VSCODE"/vscode-kai-swimlane-*.vsix
-cp "${VSIX[0]}" "$PLUGIN_VSCODE/"
-echo "Bundled: $PLUGIN_VSCODE/$(basename "${VSIX[0]}")"
+cp "$VSIX_SRC" "$PLUGIN_VSCODE/"
+echo "Bundled: $PLUGIN_VSCODE/$(basename "$VSIX_SRC")"

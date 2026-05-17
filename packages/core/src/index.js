@@ -1,4 +1,5 @@
 export { parseDSL, parseDSLParts, unescapeDslLine, buildStepRowDisplayInfo } from "./parser.js";
+export { normalizeFullFenceDSL, normalizePartsFenceDSL } from "./fence.js";
 export { THEMES } from "./themes.js";
 export {
   truncate,

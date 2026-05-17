@@ -6,7 +6,7 @@ Renders `kai-swimlane` and `kai-swimlane-parts` code fences in the built-in **Ma
 
 | Language tag | Content |
 |--------------|---------|
-| `kai-swimlane` | Full document (`@kai-swimlane` … `@end`) |
+| `kai-swimlane` | Full document (`@kai-swimlane` … `@end` optional in fences) |
 | `kai-swimlane-parts` | `/block/` and/or `/prop/` fragments |
 
 ## Settings

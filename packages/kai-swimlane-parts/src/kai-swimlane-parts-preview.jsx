@@ -1,4 +1,8 @@
-import { THEMES, TemplatePartsPreview } from "@kai-swimlane/core";
+import {
+  THEMES,
+  TemplatePartsPreview,
+  normalizePartsFenceDSL,
+} from "@kai-swimlane/core";
 
 export function KaiSwimlanePartsPreview({
   code,
@@ -9,7 +13,10 @@ export function KaiSwimlanePartsPreview({
 
   return (
     <div className={className} style={{ background: theme.bg }}>
-      <TemplatePartsPreview code={code} theme={theme} />
+      <TemplatePartsPreview
+        code={normalizePartsFenceDSL(code)}
+        theme={theme}
+      />
     </div>
   );
 }

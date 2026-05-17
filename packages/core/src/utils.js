@@ -312,8 +312,11 @@ export function parseTemplateMd(md) {
     const lines = block.split(/\r?\n/);
     const id = lines[0].trim().toLowerCase();
     const body = lines.slice(1).join("\n");
+    const h3Idx = body.search(/^### /m);
+    const intro = h3Idx >= 0 ? body.slice(0, h3Idx).trim() : "";
+    const itemsBody = h3Idx >= 0 ? body.slice(h3Idx) : body;
     const items = [];
-    const parts = body.split(/^### /m).filter((p) => p.trim());
+    const parts = itemsBody.split(/^### /m).filter((p) => p.trim());
     parts.forEach((part, index) => {
       const partLines = part.split(/\r?\n/);
       const title = partLines[0].trim();
@@ -330,7 +333,7 @@ export function parseTemplateMd(md) {
         preview,
       });
     });
-    categories.push({ id, items });
+    categories.push({ id, intro, items });
   }
   return categories;
 }

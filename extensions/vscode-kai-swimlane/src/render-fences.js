@@ -5,6 +5,8 @@ import {
   Diagram,
   PartsPreviewStatic,
   THEMES,
+  normalizeFullFenceDSL,
+  normalizePartsFenceDSL,
 } from "@kai-swimlane/core";
 
 const LANG_FULL = "kai-swimlane";
@@ -40,7 +42,8 @@ function errorHtml(message, code) {
 
 export function renderKaiSwimlaneFence(code, themeKey) {
   const theme = THEMES[themeKey] || THEMES.basic;
-  const model = parseDSL(code);
+  const normalized = normalizeFullFenceDSL(code);
+  const model = parseDSL(normalized);
 
   if (model.errors?.length) {
     return errorHtml(model.errors[0].msg, code);
@@ -59,8 +62,9 @@ export function renderKaiSwimlaneFence(code, themeKey) {
 
 export function renderKaiSwimlanePartsFence(code, themeKey) {
   const theme = THEMES[themeKey] || THEMES.basic;
+  const normalized = normalizePartsFenceDSL(code);
   const body = renderToStaticMarkup(
-    React.createElement(PartsPreviewStatic, { code, theme })
+    React.createElement(PartsPreviewStatic, { code: normalized, theme })
   );
 
   return wrapFencePreview(body, code, theme.bg);

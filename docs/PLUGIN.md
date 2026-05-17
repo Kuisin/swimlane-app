@@ -67,7 +67,6 @@ cursor --install-extension plugins/vscode/vscode-kai-swimlane-0.1.0.vsix
 
 ````markdown
 ```kai-swimlane
-@kai-swimlane
 /title/
 Hello
 /role/
@@ -75,8 +74,9 @@ Hello
 label: A;
 /line/
 [a: Step one]
-@end
 ```
+
+(`@kai-swimlane` and `@end` are optional inside fences; the extension adds them when missing.)
 ````
 
 3. Open **Markdown: Open Preview** (`Cmd+Shift+V` / `Ctrl+Shift+V`).
@@ -112,13 +112,14 @@ Edit `"version"` in `extensions/vscode-kai-swimlane/package.json`, then run `npm
 
 ## GitHub Actions (automated release)
 
-On push of a version tag (e.g. `v0.1.0`), the workflow [`.github/workflows/vscode-extension-release.yml`](../.github/workflows/vscode-extension-release.yml):
+On push of a version tag (e.g. `v0.1.0`), the workflow [`.github/workflows/extension-release.yml`](../.github/workflows/extension-release.yml):
 
 1. Builds `vscode-kai-swimlane-<version>.vsix`
-2. Zips `plugins/cursor/kai-swimlane/` (with VSIX in `vscode/`) as `kai-swimlane-cursor-plugin-<version>.zip`
+2. Copies it into `plugins/cursor/kai-swimlane/vscode/` (`npm run bundle:cursor-plugin`)
+3. Zips `plugins/cursor/kai-swimlane/` as `kai-swimlane-cursor-plugin-<version>.zip` (includes the VSIX)
 3. Uploads both to **GitHub Releases**
 
-Manual run (artifacts only, no release): **Actions → Release VS Code Extension → Run workflow**.
+Manual run (artifacts only, no release): **Actions → Release Extension → Run workflow**.
 
 Create a release locally:
 
@@ -133,8 +134,7 @@ git push origin v0.1.0
 Install rules/skills into Cursor:
 
 ```bash
-npm run package:extension          # optional: build VSIX first
-npm run bundle:cursor-plugin       # copy VSIX into plugins/cursor/kai-swimlane/vscode/
+npm run package:cursor-plugin      # build VSIX, copy into plugin, zip for release
 npm run install:cursor-plugin      # copy to ~/.cursor/plugins/local/kai-swimlane
 ```
 

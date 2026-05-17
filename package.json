@@ -14,7 +14,10 @@
     "preview": "npm run preview -w @kai-swimlane/web",
     "build:extension": "npm run build -w vscode-kai-swimlane",
     "package:extension": "npm run package -w vscode-kai-swimlane",
+    "verify:extension": "bash scripts/verify-extension.sh",
     "bundle:cursor-plugin": "bash scripts/bundle-cursor-plugin.sh",
+    "zip:cursor-plugin": "bash scripts/zip-cursor-plugin.sh",
+    "package:cursor-plugin": "npm run package:extension && npm run bundle:cursor-plugin && npm run zip:cursor-plugin",
     "install:cursor-plugin": "bash scripts/install-cursor-plugin.sh"
   },
   "optionalDependencies": {
