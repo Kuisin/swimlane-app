@@ -41,6 +41,7 @@ export default function App() {
   const [activeDocumentId, setActiveDocumentId] = useState("doc-1");
   const [themeKey, setThemeKey] = useState("basic");
   const [showStepBlockCaptions, setShowStepBlockCaptions] = useState(true);
+  const [mergeAtPreviousBlock, setMergeAtPreviousBlock] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -90,6 +91,9 @@ export default function App() {
       if (typeof parsed.showStepBlockCaptions === "boolean") {
         setShowStepBlockCaptions(parsed.showStepBlockCaptions);
       }
+      if (typeof parsed.mergeAtPreviousBlock === "boolean") {
+        setMergeAtPreviousBlock(parsed.mergeAtPreviousBlock);
+      }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     } finally {
@@ -122,9 +126,18 @@ export default function App() {
       activeDocumentId,
       themeKey,
       showStepBlockCaptions,
+      mergeAtPreviousBlock,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [documents, openDocumentIds, activeDocumentId, themeKey, showStepBlockCaptions, isHydrated]);
+  }, [
+    documents,
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    isHydrated,
+  ]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -228,6 +241,8 @@ export default function App() {
         onShowHelp={() => setShowHelp(true)}
         showStepBlockCaptions={showStepBlockCaptions}
         onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
+        mergeAtPreviousBlock={mergeAtPreviousBlock}
+        onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
       />
 
       <div className="mx-auto grid grid-cols-1 lg:flex flex-row">
@@ -240,6 +255,7 @@ export default function App() {
               model={model}
               theme={theme}
               showStepBlockCaptions={showStepBlockCaptions}
+              mergeAtPreviousBlock={mergeAtPreviousBlock}
             />
           </div>
           <div className="mt-3 font-jp text-[11px] text-stone-500 flex justify-between">

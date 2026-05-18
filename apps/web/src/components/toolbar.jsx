@@ -8,6 +8,8 @@ export function Toolbar({
   onShowHelp,
   showStepBlockCaptions,
   onShowStepBlockCaptionsChange,
+  mergeAtPreviousBlock,
+  onMergeAtPreviousBlockChange,
 }) {
   return (
     <header className="border-b border-stone-300 bg-stone-50">
@@ -72,6 +74,22 @@ export function Toolbar({
                   ステップの本文とブロック参照を表示
                   <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
                     Step title and block ref
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-stone-400"
+                  checked={mergeAtPreviousBlock}
+                  onChange={(event) =>
+                    onMergeAtPreviousBlockChange(event.target.checked)
+                  }
+                />
+                <span>
+                  クローズ位置を前ブロックに合わせる
+                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
+                    Close diamond follows previous block (off = if-start)
                   </span>
                 </span>
               </label>

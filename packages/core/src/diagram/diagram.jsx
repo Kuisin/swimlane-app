@@ -13,7 +13,12 @@ const BRANCH_COLOR_STYLES = {
   black: { stroke: "#111827", bg: "#e5e7eb" },
 };
 
-export function Diagram({ model, theme, showStepBlockCaptions = true }) {
+export function Diagram({
+  model,
+  theme,
+  showStepBlockCaptions = true,
+  mergeAtPreviousBlock = true,
+}) {
   const { title, lanes, rows, blocks = {}, props = {} } = model;
   const minLaneW = 220;
   const maxLaneW = 360;
@@ -266,7 +271,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
         };
       }
       return {
-        fromX: frameAnchorX(childFrame),
+        fromX: mergeAnchorX(childFrame),
         fromY: childFrame.yMerge + mergeH / 2 - 14,
       };
     }
@@ -581,6 +586,34 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     if (f.parentCase) return caseAnchorX(f.parentCase);
     const first = f.cases[0];
     return first ? caseAnchorX(first) : width / 2;
+  }
+
+  /**
+   * X-position of the close (merge) diamond: place it on the previous block's
+   * lane/x — the last step before `branchEnd`. If the immediate predecessor is
+   * a nested if's close diamond, follow that frame's merge anchor recursively.
+   * Falls back to the if-start anchor when no preceding block exists, or when
+   * the `mergeAtPreviousBlock` option is disabled (legacy if-start position).
+   */
+  function mergeAnchorX(f) {
+    if (!mergeAtPreviousBlock) return frameAnchorX(f);
+    const endIdx = rows.findIndex(
+      (r) => r.kind === "branchEnd" && r.id === f.id,
+    );
+    if (endIdx < 0) return frameAnchorX(f);
+
+    for (let j = endIdx - 1; j >= 0; j--) {
+      const row = rows[j];
+      if (row.kind === "step" && !row.empty && row.role) {
+        return nodeCenterX(j, row.role);
+      }
+      if (row.kind === "branchEnd" && row.id !== f.id) {
+        const nestedFrame = frames.find((fr) => fr.id === row.id);
+        if (nestedFrame) return mergeAnchorX(nestedFrame);
+      }
+      if (row.kind === "branchStart" && row.id === f.id) break;
+    }
+    return frameAnchorX(f);
   }
 
   function laneIndexForX(x) {
@@ -913,7 +946,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       if (row.kind === "branchEnd") {
         const frame = frameById.get(row.id);
         if (!frame) continue;
-        const mergeCenterX = frameAnchorX(frame);
+        const mergeCenterX = mergeAnchorX(frame);
         const mergeBottomY = frame.yMerge + mergeH / 2 + 14;
         return {
           x: mergeCenterX,
@@ -1267,7 +1300,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
         const dH = 50;
         const decisionStyle = resolveBranchStyle(f.decisionColor);
 
-        const mCx = frameAnchorX(f);
+        const mCx = mergeAnchorX(f);
         const mCy = f.yMerge + mergeH / 2;
         const mW = 40;
         const mH = 28;
@@ -1559,7 +1592,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
 
         const dCx = frameAnchorX(f);
         const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - 25;
-        const mCx = dCx;
+        const mCx = mergeAnchorX(f);
         const mBotY = f.yMerge + mergeH / 2 + 14;
 
         const edges = [];
