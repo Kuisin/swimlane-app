@@ -334,6 +334,93 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     return Math.max(siblingsInLane, maxNested);
   }
 
+  /**
+   * Bottom-up layout: for each frame and each lane it touches, compute the case
+   * offsets so adjacent cases clear each other's full nested subtree extent
+   * in that lane (not just the immediate case width).
+   *
+   * frameCaseOffsets: frame.id -> Map(`${caseIdx}-${laneId}`, offset relative to frame anchor)
+   * frameSubtreeExtent: frame.id -> { [laneId]: { min, max } extent relative to frame anchor }
+   */
+  const frameCaseOffsets = new Map();
+  const frameSubtreeExtent = new Map();
+
+  function computeFrameLayout(frame) {
+    frame.cases.forEach((c) => {
+      if (c.childFrame) computeFrameLayout(c.childFrame);
+    });
+
+    const casesByLane = new Map();
+    frame.cases.forEach((c, caseIdx) => {
+      for (const lane of lanes) {
+        if (!caseTouchesLane(c, lane.id)) continue;
+        const list = casesByLane.get(lane.id) || [];
+        if (!list.includes(caseIdx)) list.push(caseIdx);
+        casesByLane.set(lane.id, list);
+      }
+    });
+
+    const offsets = new Map();
+    const extents = {};
+    for (const lane of lanes) extents[lane.id] = { min: 0, max: 0 };
+
+    casesByLane.forEach((indices, laneId) => {
+      const caseExtents = indices.map((ci) => {
+        const c = frame.cases[ci];
+        let mn = 0;
+        let mx = 0;
+        if (c.childFrame) {
+          const childExt = frameSubtreeExtent.get(c.childFrame.id)?.[laneId];
+          if (childExt) {
+            mn = Math.min(mn, childExt.min);
+            mx = Math.max(mx, childExt.max);
+          }
+        }
+        return { mn, mx };
+      });
+
+      const n = indices.length;
+      const pos = new Array(n);
+      if (n === 1) {
+        pos[0] = 0;
+      } else {
+        for (let k = 0; k < n; k++) {
+          pos[k] = (k - (n - 1) / 2) * caseSpread;
+        }
+        for (let k = 1; k < n; k++) {
+          const prevRight = pos[k - 1] + caseExtents[k - 1].mx;
+          const required = prevRight + caseSpread - caseExtents[k].mn;
+          if (pos[k] < required) pos[k] = required;
+        }
+        let minOverall = Infinity;
+        let maxOverall = -Infinity;
+        for (let k = 0; k < n; k++) {
+          minOverall = Math.min(minOverall, pos[k] + caseExtents[k].mn);
+          maxOverall = Math.max(maxOverall, pos[k] + caseExtents[k].mx);
+        }
+        const mid = (minOverall + maxOverall) / 2;
+        for (let k = 0; k < n; k++) pos[k] -= mid;
+      }
+
+      indices.forEach((ci, k) => offsets.set(`${ci}-${laneId}`, pos[k]));
+
+      let mnAll = Infinity;
+      let mxAll = -Infinity;
+      indices.forEach((ci, k) => {
+        mnAll = Math.min(mnAll, pos[k] + caseExtents[k].mn);
+        mxAll = Math.max(mxAll, pos[k] + caseExtents[k].mx);
+      });
+      extents[laneId] = { min: mnAll, max: mxAll };
+    });
+
+    frameCaseOffsets.set(frame.id, offsets);
+    frameSubtreeExtent.set(frame.id, extents);
+  }
+
+  for (const f of frames) {
+    if (!f.parentCase) computeFrameLayout(f);
+  }
+
   const maxCasesPerLane = new Map();
   for (const f of frames) {
     if (f.parentCase) continue;
@@ -341,6 +428,20 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       const n = countCasesInLaneIncludingNested(f, lane.id);
       const prev = maxCasesPerLane.get(lane.id) || 0;
       maxCasesPerLane.set(lane.id, Math.max(prev, n));
+    }
+  }
+
+  /** Span (max-min) of all top-level frames' subtrees per lane, used to size lanes. */
+  const maxLaneSpan = new Map();
+  for (const f of frames) {
+    if (f.parentCase) continue;
+    const ext = frameSubtreeExtent.get(f.id);
+    if (!ext) continue;
+    for (const lane of lanes) {
+      const e = ext[lane.id];
+      if (!e) continue;
+      const span = e.max - e.min;
+      maxLaneSpan.set(lane.id, Math.max(maxLaneSpan.get(lane.id) || 0, span));
     }
   }
 
@@ -353,9 +454,11 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     }, 0);
     const caseCount = maxCasesPerLane.get(lane.id) || 0;
     const branchWidth = caseCount > 1 ? minLaneW + (caseCount - 1) * caseSpread : minLaneW;
-    // Cap label/step width but never shrink below branch fan-out (else multi-case if clips nodes and elbows).
+    /** Subtree-extent driven width: span + step block + margin. */
+    const span = maxLaneSpan.get(lane.id) || 0;
+    const extentWidth = span > 0 ? span + nodeW + 32 : 0;
     const textPart = Math.max(minLaneW, headerWidth, maxStepWidth);
-    return Math.max(Math.min(maxLaneW, textPart), branchWidth);
+    return Math.max(Math.min(maxLaneW, textPart), branchWidth, extentWidth);
   });
   const laneOffsets = [];
   let laneCursor = xPad + leftGutter;
@@ -377,7 +480,28 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
   }
 
   function frameAnchorX(f) {
-    return f.anchorX ?? f.cases[0]?.x ?? width / 2;
+    const startIdx = rows.findIndex(
+      (r) => r.kind === "branchStart" && r.id === f.id,
+    );
+    if (startIdx > 0) {
+      for (let j = startIdx - 1; j >= 0; j--) {
+        const row = rows[j];
+        if (row.kind === "step" && !row.empty && row.role) {
+          return nodeCenterX(j, row.role);
+        }
+        if (
+          row.kind === "branchCase" &&
+          row.depth != null &&
+          row.depth < (f.depth ?? 0)
+        )
+          break;
+        if (row.kind === "branchStart" && row.depth < (f.depth ?? 0)) break;
+        if (row.kind === "branchEnd") break;
+      }
+    }
+    if (f.parentCase) return caseAnchorX(f.parentCase);
+    const first = f.cases[0];
+    return first ? caseAnchorX(first) : width / 2;
   }
 
   function laneIndexForX(x) {
@@ -407,29 +531,6 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       usedX[key] = idx;
     });
   });
-
-  const framesByDepthDesc = [...frames].sort(
-    (a, b) => (b.depth ?? 0) - (a.depth ?? 0),
-  );
-  const framesByDepthAsc = [...frames].sort(
-    (a, b) => (a.depth ?? 0) - (b.depth ?? 0),
-  );
-
-  for (const f of framesByDepthDesc) {
-    f.anchorX = caseAnchorX(f.cases[0]);
-  }
-  for (const f of framesByDepthAsc) {
-    for (const c of f.cases) {
-      if (c.childFrame && !caseHasDirectStep(c)) {
-        c.x = frameAnchorX(c.childFrame) - (c.offset || 0);
-      }
-    }
-  }
-  for (const f of framesByDepthDesc) {
-    if (f.parentCase) {
-      f.anchorX = caseAnchorX(f.parentCase);
-    }
-  }
 
   const stepRows = rows
     .map((r, i) => ({ r, i, y: rowMeta[i]?.y, meta: rowMeta[i] }))
@@ -474,38 +575,21 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       inheritedByLane ||
       Object.fromEntries(lanes.map((lane) => [lane.id, 0]));
 
-    const casesByLane = new Map();
-    frame.cases.forEach((c, caseIdx) => {
-      for (const lane of lanes) {
-        if (!caseTouchesLane(c, lane.id)) continue;
-        const list = casesByLane.get(lane.id) || [];
-        if (!list.includes(caseIdx)) list.push(caseIdx);
-        casesByLane.set(lane.id, list);
-      }
-    });
-
-    const caseLaneOffset = new Map();
-    casesByLane.forEach((indices, laneId) => {
-      const center = (indices.length - 1) / 2;
-      indices.forEach((caseIdx, j) => {
-        caseLaneOffset.set(`${caseIdx}-${laneId}`, (j - center) * caseSpread);
-      });
-    });
+    const offsets = frameCaseOffsets.get(frame.id);
+    const caseLaneOffset = (caseIdx, laneId) =>
+      offsets?.get(`${caseIdx}-${laneId}`) || 0;
 
     frame.cases.forEach((c, caseIdx) => {
       const anchorLane = resolveCaseLane(c);
       c.offset =
-        anchorLane != null
-          ? caseLaneOffset.get(`${caseIdx}-${anchorLane}`) || 0
-          : 0;
+        anchorLane != null ? caseLaneOffset(caseIdx, anchorLane) : 0;
 
       c.rowIndices.forEach((stepIdx) => {
         const row = rows[stepIdx];
         if (row?.kind === "step" && !row.empty && row.role) {
-          const laneOff = caseLaneOffset.get(`${caseIdx}-${row.role}`) || 0;
           stepOffsetByIndex.set(
             stepIdx,
-            (inherited[row.role] || 0) + laneOff,
+            (inherited[row.role] || 0) + caseLaneOffset(caseIdx, row.role),
           );
         }
       });
@@ -513,10 +597,9 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       if (c.childFrame) {
         const childInherited = { ...inherited };
         for (const lane of lanes) {
-          const laneId = lane.id;
-          childInherited[laneId] =
-            (childInherited[laneId] || 0) +
-            (caseLaneOffset.get(`${caseIdx}-${laneId}`) || 0);
+          childInherited[lane.id] =
+            (childInherited[lane.id] || 0) +
+            caseLaneOffset(caseIdx, lane.id);
         }
         applyCaseOffsetsForFrame(c.childFrame, childInherited);
       }
@@ -525,6 +608,14 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
 
   for (const f of frames) {
     if (!f.parentCase) applyCaseOffsetsForFrame(f, null);
+  }
+
+  for (const f of frames) {
+    for (const c of f.cases) {
+      if (c.childFrame && !caseHasDirectStep(c)) {
+        c.x = frameAnchorX(c.childFrame) - (c.offset || 0);
+      }
+    }
   }
   function nodeCenterX(stepIdx, roleId) {
     const li = laneIndex(roleId);
