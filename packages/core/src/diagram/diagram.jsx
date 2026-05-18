@@ -154,6 +154,13 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     return width;
   }
 
+  function pushToActiveCase(rowIndex) {
+    const frame = frameStack[frameStack.length - 1];
+    if (!frame) return;
+    const lastCase = frame.cases[frame.cases.length - 1];
+    if (lastCase) lastCase.rowIndices.push(rowIndex);
+  }
+
   rows.forEach((r, i) => {
     if (r.kind === "branchStart") {
       const f = {
@@ -162,58 +169,180 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
         cond: r.cond,
         yDecision: y,
         decisionColor: r.branchColor || null,
-        cases: [{ label: r.firstCase, color: r.branchColor || null, rowIndices: [] }],
+        cases: [
+          {
+            label: r.firstCase,
+            color: r.branchColor || null,
+            rowIndices: [],
+            startRow: i,
+          },
+        ],
+        parentCase: null,
+        anchorX: null,
       };
+      if (frameStack.length > 0) {
+        const parent = frameStack[frameStack.length - 1];
+        const parentCase = parent.cases[parent.cases.length - 1];
+        parentCase.childFrame = f;
+        f.parentCase = parentCase;
+      }
       frameStack.push(f);
       frames.push(f);
       rowMeta[i] = { y, kind: "decision" };
       y += diamondH;
     } else if (r.kind === "branchCase") {
       const f = frameStack[frameStack.length - 1];
-      if (f) f.cases.push({ label: r.label, color: r.branchColor || null, rowIndices: [] });
+      if (f)
+        f.cases.push({
+          label: r.label,
+          color: r.branchColor || null,
+          rowIndices: [],
+          startRow: i,
+        });
       rowMeta[i] = { y, kind: "case" };
     } else if (r.kind === "branchEnd") {
       const f = frameStack.pop();
-      if (f) f.yMerge = y;
+      if (f) {
+        f.yMerge = y;
+        f.endRow = i;
+      }
       rowMeta[i] = { y, kind: "merge" };
       y += mergeH;
     } else if (r.kind === "branchLoop") {
       stepRowHeightByIndex.set(i, branchLoopH);
       rowMeta[i] = { y, kind: "branchLoop" };
-      frameStack.forEach((frame) => {
-        const lastCase = frame.cases[frame.cases.length - 1];
-        if (lastCase) lastCase.rowIndices.push(i);
-      });
+      pushToActiveCase(i);
       y += branchLoopH;
     } else if (r.kind === "step") {
       const h = stepRowHeight(r, i);
       stepRowHeightByIndex.set(i, h);
       rowMeta[i] = { y, kind: "step" };
-      frameStack.forEach((frame) => {
-        const lastCase = frame.cases[frame.cases.length - 1];
-        if (lastCase) lastCase.rowIndices.push(i);
-      });
+      pushToActiveCase(i);
       y += h;
     }
   });
 
-  const maxCasesPerLane = new Map();
-  frames.forEach((f) => {
-    const counts = new Map();
-    f.cases.forEach((c) => {
-      const firstStep = c.rowIndices.find((stepIdx) => {
-        const row = rows[stepIdx];
-        return row.kind === "step" && !row.empty && row.role;
+  function caseHasDirectStep(c) {
+    return c.rowIndices.some((idx) => {
+      const row = rows[idx];
+      return row?.kind === "step" && !row.empty && row.role;
+    });
+  }
+
+  function firstDirectStepIdx(c) {
+    return c.rowIndices.find((idx) => {
+      const row = rows[idx];
+      return row?.kind === "step" && !row.empty && row.role;
+    });
+  }
+
+  /** Where a case path meets the merge diamond (after nested if, if any). */
+  function caseMergeAnchor(c) {
+    const childFrame = c.childFrame;
+    if (childFrame?.yMerge != null) {
+      const childEndIdx =
+        childFrame.endRow ??
+        rows.findIndex(
+          (r) => r.kind === "branchEnd" && r.id === childFrame.id,
+        );
+      const stepsAfterChild = c.rowIndices.filter((idx) => {
+        const row = rows[idx];
+        return (
+          row?.kind === "step" &&
+          !row.empty &&
+          row.role &&
+          (childEndIdx < 0 || idx > childEndIdx)
+        );
       });
-      if (firstStep == null) return;
-      const laneId = rows[firstStep].role;
-      counts.set(laneId, (counts.get(laneId) || 0) + 1);
-    });
-    counts.forEach((count, laneId) => {
-      const prev = maxCasesPerLane.get(laneId) || 0;
-      maxCasesPerLane.set(laneId, Math.max(prev, count));
-    });
-  });
+      const lastAfterChild = stepsAfterChild[stepsAfterChild.length - 1];
+      if (lastAfterChild != null) {
+        const r = rows[lastAfterChild];
+        const li = laneIndex(r.role);
+        return {
+          fromX:
+            li >= 0 ? nodeCenterX(lastAfterChild, r.role) : caseAnchorX(c),
+          fromY: stepBlockCenterY(lastAfterChild) + 22,
+        };
+      }
+      return {
+        fromX: frameAnchorX(childFrame),
+        fromY: childFrame.yMerge + mergeH / 2 - 14,
+      };
+    }
+
+    const lastDirectStepIdx = [...c.rowIndices]
+      .reverse()
+      .find((idx) => {
+        const row = rows[idx];
+        return row?.kind === "step" && !row.empty && row.role;
+      });
+    if (lastDirectStepIdx != null) {
+      const r = rows[lastDirectStepIdx];
+      const li = laneIndex(r.role);
+      return {
+        fromX:
+          li >= 0 ? nodeCenterX(lastDirectStepIdx, r.role) : caseAnchorX(c),
+        fromY: stepBlockCenterY(lastDirectStepIdx) + 22,
+      };
+    }
+    return null;
+  }
+
+  /** Lane for a case anchor (first step role, or nested child lane). */
+  function resolveCaseLane(c) {
+    const stepIdx = firstDirectStepIdx(c);
+    if (stepIdx != null) return rows[stepIdx].role;
+    if (c.childFrame) {
+      for (const nc of c.childFrame.cases) {
+        const lane = resolveCaseLane(nc);
+        if (lane) return lane;
+      }
+    }
+    return null;
+  }
+
+  /** True if the case has any step (including nested) in this role lane. */
+  function caseTouchesLane(c, laneId) {
+    for (const idx of c.rowIndices) {
+      const row = rows[idx];
+      if (row?.kind === "step" && !row.empty && row.role === laneId) return true;
+    }
+    if (c.childFrame) {
+      for (const nc of c.childFrame.cases) {
+        if (caseTouchesLane(nc, laneId)) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Case count per lane including all nested child if branches (for lane width). */
+  function countCasesInLaneIncludingNested(frame, laneId) {
+    let siblingsInLane = 0;
+    let maxNested = 0;
+    for (const c of frame.cases) {
+      if (caseTouchesLane(c, laneId)) siblingsInLane++;
+      if (c.childFrame) {
+        maxNested = Math.max(
+          maxNested,
+          countCasesInLaneIncludingNested(c.childFrame, laneId),
+        );
+      }
+    }
+    if (siblingsInLane > 0 && maxNested > 0) {
+      return siblingsInLane + maxNested - 1;
+    }
+    return Math.max(siblingsInLane, maxNested);
+  }
+
+  const maxCasesPerLane = new Map();
+  for (const f of frames) {
+    if (f.parentCase) continue;
+    for (const lane of lanes) {
+      const n = countCasesInLaneIncludingNested(f, lane.id);
+      const prev = maxCasesPerLane.get(lane.id) || 0;
+      maxCasesPerLane.set(lane.id, Math.max(prev, n));
+    }
+  }
 
   const laneWidths = lanes.map((lane) => {
     const headerWidth = estimateTextWidth(lane.label || lane.id, lane.icon ? 88 : 64);
@@ -243,28 +372,27 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
   const laneCenter = (i) => laneX(i) + (laneWidths[i] ?? minLaneW) / 2;
   const laneWidth = (i) => laneWidths[i] ?? minLaneW;
 
-  frames.forEach((f) => {
-    const casesByLane = new Map();
-    f.cases.forEach((c, idx) => {
-      const firstStep = c.rowIndices.find((stepIdx) => {
-        const r = rows[stepIdx];
-        return r.kind === "step" && !r.empty && r.role;
-      });
-      if (firstStep == null) return;
-      const laneId = rows[firstStep].role;
-      const list = casesByLane.get(laneId) || [];
-      list.push(idx);
-      casesByLane.set(laneId, list);
-    });
+  function caseAnchorX(c) {
+    return (c.x ?? width / 2) + (c.offset || 0);
+  }
 
+  function frameAnchorX(f) {
+    return f.anchorX ?? f.cases[0]?.x ?? width / 2;
+  }
+
+  function laneIndexForX(x) {
+    for (let li = 0; li < lanes.length; li++) {
+      if (x >= laneX(li) && x <= laneX(li) + laneWidth(li)) return li;
+    }
+    return -1;
+  }
+
+  frames.forEach((f) => {
     f.cases.forEach((c) => {
-      const firstStep = c.rowIndices.find((idx) => {
-        const r = rows[idx];
-        return r.kind === "step" && !r.empty && r.role;
-      });
+      const firstStep = firstDirectStepIdx(c);
       if (firstStep != null) {
-        const r = rows[firstStep];
-        const li = laneIndex(r.role);
+        const row = rows[firstStep];
+        const li = laneIndex(row.role);
         c.x = li >= 0 ? laneCenter(li) : width / 2;
       } else {
         c.x = width / 2;
@@ -278,17 +406,30 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       }
       usedX[key] = idx;
     });
-
-    casesByLane.forEach((indices) => {
-      if (indices.length <= 1) return;
-      const spread = caseSpread;
-      const center = (indices.length - 1) / 2;
-      indices.forEach((caseIdx, j) => {
-        const c = f.cases[caseIdx];
-        c.offset = (j - center) * spread;
-      });
-    });
   });
+
+  const framesByDepthDesc = [...frames].sort(
+    (a, b) => (b.depth ?? 0) - (a.depth ?? 0),
+  );
+  const framesByDepthAsc = [...frames].sort(
+    (a, b) => (a.depth ?? 0) - (b.depth ?? 0),
+  );
+
+  for (const f of framesByDepthDesc) {
+    f.anchorX = caseAnchorX(f.cases[0]);
+  }
+  for (const f of framesByDepthAsc) {
+    for (const c of f.cases) {
+      if (c.childFrame && !caseHasDirectStep(c)) {
+        c.x = frameAnchorX(c.childFrame) - (c.offset || 0);
+      }
+    }
+  }
+  for (const f of framesByDepthDesc) {
+    if (f.parentCase) {
+      f.anchorX = caseAnchorX(f.parentCase);
+    }
+  }
 
   const stepRows = rows
     .map((r, i) => ({ r, i, y: rowMeta[i]?.y, meta: rowMeta[i] }))
@@ -328,28 +469,63 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       );
     return { loopIdx, prevStepIdx: prevStepIdx ?? null };
   }
-  frames.forEach((f) => {
-    f.cases.forEach((c) => {
-      const offset = c.offset || 0;
-      if (!offset) return;
-      const firstStepIdx = c.rowIndices.find((stepIdx) => {
-        const row = rows[stepIdx];
-        return row?.kind === "step" && !row.empty && row.role;
-      });
-      const caseRoleId = firstStepIdx != null ? rows[firstStepIdx]?.role : null;
-      c.rowIndices.forEach((stepIdx) => {
-        const row = rows[stepIdx];
-        if (
-          row?.kind === "step" &&
-          !row.empty &&
-          row.role &&
-          caseRoleId &&
-          row.role === caseRoleId
-        )
-          stepOffsetByIndex.set(stepIdx, offset);
+  function applyCaseOffsetsForFrame(frame, inheritedByLane = null) {
+    const inherited =
+      inheritedByLane ||
+      Object.fromEntries(lanes.map((lane) => [lane.id, 0]));
+
+    const casesByLane = new Map();
+    frame.cases.forEach((c, caseIdx) => {
+      for (const lane of lanes) {
+        if (!caseTouchesLane(c, lane.id)) continue;
+        const list = casesByLane.get(lane.id) || [];
+        if (!list.includes(caseIdx)) list.push(caseIdx);
+        casesByLane.set(lane.id, list);
+      }
+    });
+
+    const caseLaneOffset = new Map();
+    casesByLane.forEach((indices, laneId) => {
+      const center = (indices.length - 1) / 2;
+      indices.forEach((caseIdx, j) => {
+        caseLaneOffset.set(`${caseIdx}-${laneId}`, (j - center) * caseSpread);
       });
     });
-  });
+
+    frame.cases.forEach((c, caseIdx) => {
+      const anchorLane = resolveCaseLane(c);
+      c.offset =
+        anchorLane != null
+          ? caseLaneOffset.get(`${caseIdx}-${anchorLane}`) || 0
+          : 0;
+
+      c.rowIndices.forEach((stepIdx) => {
+        const row = rows[stepIdx];
+        if (row?.kind === "step" && !row.empty && row.role) {
+          const laneOff = caseLaneOffset.get(`${caseIdx}-${row.role}`) || 0;
+          stepOffsetByIndex.set(
+            stepIdx,
+            (inherited[row.role] || 0) + laneOff,
+          );
+        }
+      });
+
+      if (c.childFrame) {
+        const childInherited = { ...inherited };
+        for (const lane of lanes) {
+          const laneId = lane.id;
+          childInherited[laneId] =
+            (childInherited[laneId] || 0) +
+            (caseLaneOffset.get(`${caseIdx}-${laneId}`) || 0);
+        }
+        applyCaseOffsetsForFrame(c.childFrame, childInherited);
+      }
+    });
+  }
+
+  for (const f of frames) {
+    if (!f.parentCase) applyCaseOffsetsForFrame(f, null);
+  }
   function nodeCenterX(stepIdx, roleId) {
     const li = laneIndex(roleId);
     if (li < 0) return width / 2;
@@ -529,6 +705,15 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       continue;
     if (prevCase && !curCase) continue;
     if (!prevCase && curCase) continue;
+    let hasBranchBetween = false;
+    for (let j = prev.i + 1; j < cur.i; j++) {
+      if (rows[j]?.kind === "branchStart") {
+        hasBranchBetween = true;
+        break;
+      }
+    }
+    if (hasBranchBetween) continue;
+    if (rows[prev.i + 1]?.kind === "branchStart") continue;
     const fromIdx = laneIndex(prev.r.role);
     const toIdx = laneIndex(cur.r.role);
     if (fromIdx < 0 || toIdx < 0) continue;
@@ -559,7 +744,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       if (row.kind === "branchEnd") {
         const frame = frameById.get(row.id);
         if (!frame) continue;
-        const mergeCenterX = frame.cases[0]?.x ?? width / 2;
+        const mergeCenterX = frameAnchorX(frame);
         const mergeBottomY = frame.yMerge + mergeH / 2 + 14;
         return {
           x: mergeCenterX,
@@ -907,13 +1092,13 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
       {frames.map((f) => {
         if (f.yMerge == null) return null;
 
-        const dCx = f.cases[0].x || width / 2;
+        const dCx = frameAnchorX(f);
         const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
         const dW = Math.max(140, (f.cond.length + 4) * 9);
         const dH = 50;
         const decisionStyle = resolveBranchStyle(f.decisionColor);
 
-        const mCx = dCx;
+        const mCx = frameAnchorX(f);
         const mCy = f.yMerge + mergeH / 2;
         const mW = 40;
         const mH = 28;
@@ -943,23 +1128,33 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
 
             {/* Branch fan-out: decision -> each case path */}
             {f.cases.map((c, ci) => {
-              const firstStepIdx = c.rowIndices.find(
-                (idx) => rows[idx].kind === "step"
-              );
+              const child = c.childFrame;
+              const directStepIdx = firstDirectStepIdx(c);
+              const targetsNestedDecision =
+                child != null && directStepIdx == null;
+
               let targetY;
-              let targetX = c.x;
+              let targetX = caseAnchorX(c);
               let caseLaneWidth = minLaneW;
-              if (firstStepIdx != null) {
-                const sy = rowMeta[firstStepIdx]?.y;
-                targetY = stepBlockCenterY(firstStepIdx) - 22;
-                const r = rows[firstStepIdx];
+              let showArrow = false;
+
+              if (targetsNestedDecision) {
+                targetX = frameAnchorX(child);
+                targetY =
+                  child.yDecision + diamondH / 2 + decisionYOffset - 22;
+                const li = laneIndexForX(targetX);
+                if (li >= 0) caseLaneWidth = laneWidth(li);
+              } else if (directStepIdx != null) {
+                targetY = stepBlockCenterY(directStepIdx) - 22;
+                const r = rows[directStepIdx];
                 if (r.role) {
                   const li = laneIndex(r.role);
                   if (li >= 0) {
-                    targetX = nodeCenterX(firstStepIdx, r.role);
+                    targetX = nodeCenterX(directStepIdx, r.role);
                     caseLaneWidth = laneWidth(li);
                   }
                 }
+                showArrow = true;
               } else {
                 targetY = mCy - mH / 2 - 4;
               }
@@ -971,13 +1166,18 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
               const sideX = targetX;
               const laneSafeMin = targetX - caseLaneWidth / 2 + 16;
               const laneSafeMax = targetX + caseLaneWidth / 2 - 16;
-              const clampedSideX = Math.max(laneSafeMin, Math.min(laneSafeMax, sideX));
+              const clampedSideX = Math.max(
+                laneSafeMin,
+                Math.min(laneSafeMax, sideX),
+              );
+              const needsElbow =
+                Math.abs(targetX - startX) > 0.5 || (showArrow && sideOffset !== 0);
               const edgeD =
-                firstStepIdx != null && sideOffset !== 0
+                showArrow && sideOffset !== 0
                   ? `M ${startX} ${startY} L ${startX} ${bendY} L ${clampedSideX} ${bendY} L ${clampedSideX} ${targetY}`
-                  : targetX === startX
-                    ? `M ${startX} ${startY} L ${targetX} ${targetY}`
-                    : `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${targetY}`;
+                  : needsElbow
+                    ? `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${targetY}`
+                    : `M ${startX} ${startY} L ${targetX} ${targetY}`;
 
               return (
                 <g key={`case-${f.id}-${ci}`}>
@@ -986,11 +1186,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
                     fill="none"
                     stroke={theme.stroke}
                     strokeWidth="1.6"
-                    markerEnd={
-                      firstStepIdx != null
-                        ? "url(#arrowhead)"
-                        : undefined
-                    }
+                    markerEnd={showArrow ? "url(#arrowhead)" : undefined}
                   />
                 </g>
               );
@@ -1039,35 +1235,25 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
                 );
               }
 
-              const lastStepIdx = [...c.rowIndices]
-                .reverse()
-                .find((idx) => rows[idx].kind === "step");
-              let fromX, fromY;
-              if (lastStepIdx != null) {
-                const r = rows[lastStepIdx];
-                if (r.empty) {
-                  fromX = c.x;
-                  fromY = stepBlockCenterY(lastStepIdx) + 8;
-                } else {
-                  const li = laneIndex(r.role);
-                  fromX = li >= 0 ? nodeCenterX(lastStepIdx, r.role) : c.x;
-                  fromY = stepBlockCenterY(lastStepIdx) + 22;
-                }
+              const mergeFrom = caseMergeAnchor(c);
+              let fromX;
+              let fromY;
+              if (mergeFrom) {
+                fromX = mergeFrom.fromX;
+                fromY = mergeFrom.fromY;
               } else {
-                fromX = c.x;
+                fromX = caseAnchorX(c);
                 fromY = f.yDecision + diamondH - 4;
               }
               const toX = mCx;
               const toY = mCy - mH / 2;
               const bendY2 = toY - 14;
               const sideOffset = c.offset || 0;
-              const viaX = fromX;
-              const d =
-                sideOffset !== 0
-                  ? `M ${viaX} ${fromY} L ${viaX} ${fromY} L ${viaX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
-                  : fromX === toX
-                    ? `M ${fromX} ${fromY} L ${toX} ${toY}`
-                    : `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`;
+              const needsMergeElbow =
+                Math.abs(fromX - toX) > 0.5 || sideOffset !== 0;
+              const d = needsMergeElbow
+                ? `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
+                : `M ${fromX} ${fromY} L ${toX} ${toY}`;
               return (
                 <path
                   key={`mrg-${f.id}-${ci}`}
@@ -1169,25 +1355,40 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
         );
         let prevStepIdx = -1;
         for (let j = startIdx - 1; j >= 0; j--) {
-          if (rows[j].kind === "step" && !rows[j].empty && rows[j].role) {
+          const row = rows[j];
+          if (row.kind === "step" && !row.empty && row.role) {
             prevStepIdx = j;
             break;
           }
-          if (rows[j].kind === "branchEnd") break;
+          // Same-frame case header, or parent/sibling case (nested if must not
+          // connect across elseif/else into another branch).
+          if (
+            row.kind === "branchCase" &&
+            (row.id === f.id ||
+              (row.depth != null && row.depth < f.depth))
+          )
+            break;
+          if (row.kind === "branchStart" && row.depth < f.depth) break;
+          if (row.kind === "branchEnd") break;
         }
         const endIdx = rows.findIndex(
           (r) => r.kind === "branchEnd" && r.id === f.id
         );
         let nextStepIdx = -1;
         for (let j = endIdx + 1; j < rows.length; j++) {
-          if (rows[j].kind === "step" && !rows[j].empty && rows[j].role) {
-            nextStepIdx = j;
-            break;
+          const row = rows[j];
+          if (row.kind === "step" && !row.empty && row.role) {
+            if (f.depth === 0 || row.depth > f.depth) {
+              nextStepIdx = j;
+              break;
+            }
+            continue;
           }
-          if (rows[j].kind === "branchStart") break;
+          if (f.depth === 0 && row.kind === "branchStart") break;
+          if (f.depth > 0 && row.depth != null && row.depth <= f.depth) break;
         }
 
-        const dCx = f.cases[0].x || width / 2;
+        const dCx = frameAnchorX(f);
         const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - 25;
         const mCx = dCx;
         const mBotY = f.yMerge + mergeH / 2 + 14;
@@ -1359,6 +1560,8 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
         const dH = 50;
 
         return f.cases.map((c, ci) => {
+          if (/^else$/i.test((c.label || "").trim())) return null;
+
           const firstStepIdx = c.rowIndices.find(
             (idx) => rows[idx].kind === "step"
           );

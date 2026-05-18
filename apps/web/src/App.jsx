@@ -248,7 +248,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)] w-1/2 max-w-[500px]">
+        <div className="border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)] w-1/2 max-w-[600px]">
           <div className="px-4 pt-3 border-b border-stone-700/60 flex items-center gap-2 overflow-x-auto">
             {openDocuments.map((document) => {
               const isActive = document.id === activeDocumentId;
