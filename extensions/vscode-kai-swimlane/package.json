@@ -1,8 +1,8 @@
 {
   "name": "vscode-kai-swimlane",
   "displayName": "Kai Swimlane",
-  "description": "Render kai-swimlane fences in the built-in Markdown preview, Markdown Preview Enhanced, and PDF export.",
-  "version": "0.1.2",
+  "description": "Render kai-swimlane fences in the built-in Markdown preview.",
+  "version": "0.1.4",
   "publisher": "kai-swimlane",
   "license": "MIT",
   "repository": {
@@ -30,18 +30,6 @@
     "markdown.markdownItPlugins": true,
     "markdown.previewStyles": [
       "./media/preview.css"
-    ],
-    "commands": [
-      {
-        "command": "kaiSwimlane.setupMarkdownPreviewEnhanced",
-        "title": "Kai Swimlane: Set Up Markdown Preview Enhanced",
-        "category": "Kai Swimlane"
-      },
-      {
-        "command": "kaiSwimlane.embedDiagramsForExport",
-        "title": "Kai Swimlane: Embed Diagrams for PDF Export",
-        "category": "Kai Swimlane"
-      }
     ],
     "configuration": {
       "title": "Kai Swimlane",

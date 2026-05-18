@@ -21,6 +21,7 @@
     "install:cursor-plugin": "bash scripts/install-cursor-plugin.sh"
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17"
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
+    "lightningcss-linux-x64-gnu": "1.32.0"
   }
 }

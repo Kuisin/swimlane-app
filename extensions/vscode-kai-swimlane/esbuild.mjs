@@ -18,17 +18,9 @@ const shared = {
   logLevel: "info",
 };
 
-await Promise.all([
-  esbuild.build({
-    ...shared,
-    entryPoints: [path.join(__dirname, "src/extension.js")],
-    outfile: path.join(__dirname, "dist/extension.js"),
-    external: ["vscode"],
-  }),
-  esbuild.build({
-    ...shared,
-    entryPoints: [path.join(__dirname, "src/html-enhance.js")],
-    outfile: path.join(__dirname, "dist/html-enhance.cjs"),
-    external: [],
-  }),
-]);
+await esbuild.build({
+  ...shared,
+  entryPoints: [path.join(__dirname, "src/extension.js")],
+  outfile: path.join(__dirname, "dist/extension.js"),
+  external: ["vscode"],
+});

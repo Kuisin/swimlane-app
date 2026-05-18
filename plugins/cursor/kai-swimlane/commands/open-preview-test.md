@@ -27,8 +27,3 @@ Then **Developer: Reload Window**.
 4. Change **Kai Swimlane: Theme** in settings; preview should refresh.
 
 If preview shows plain code blocks, install or enable the VSIX and reload.
-
-## Markdown Preview Enhanced / PDF
-
-- **MPE:** Command Palette → **Kai Swimlane: Set Up Markdown Preview Enhanced**, then use MPE preview or PDF export.
-- **Markdown PDF:** Command Palette → **Kai Swimlane: Embed Diagrams for PDF Export**, then export the generated `*.kai-export.md`.
