@@ -46,6 +46,21 @@ function PropDocChip({ prop, x, y, theme }) {
   );
 }
 
+function PropPreviewItem({ prop, theme }) {
+  return (
+    <div className="flex flex-col items-center gap-1 shrink-0">
+      <svg
+        width={DOC_W + 8}
+        height={DOC_H + 8}
+        className="overflow-visible"
+      >
+        <PropDocChip prop={prop} x={4} y={4} theme={theme} />
+      </svg>
+      <span className="font-mono text-[10px] text-stone-500">{prop.id}</span>
+    </div>
+  );
+}
+
 function BlockPreviewItem({ block, theme }) {
   const shape = block.shape || "rounded";
   const fill = block.bg || theme.boxBg;
@@ -102,8 +117,6 @@ export function TemplatePartsPreview({ code, theme }) {
     );
   }
 
-  const propSvgWidth = propList.length * (DOC_W + 12) - 12;
-
   return (
     <div className="flex flex-col gap-4 p-3">
       {blockList.length > 0 ? (
@@ -114,22 +127,10 @@ export function TemplatePartsPreview({ code, theme }) {
         </div>
       ) : null}
       {propList.length > 0 ? (
-        <div className="flex justify-center overflow-x-auto">
-          <svg
-            width={Math.max(propSvgWidth, DOC_W)}
-            height={DOC_H + 8}
-            className="overflow-visible shrink-0"
-          >
-            {propList.map((prop, i) => (
-              <PropDocChip
-                key={prop.id}
-                prop={prop}
-                x={i * (DOC_W + 12)}
-                y={0}
-                theme={theme}
-              />
-            ))}
-          </svg>
+        <div className="flex flex-wrap gap-4 justify-center">
+          {propList.map((prop) => (
+            <PropPreviewItem key={prop.id} prop={prop} theme={theme} />
+          ))}
         </div>
       ) : null}
     </div>

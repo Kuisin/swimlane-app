@@ -977,7 +977,7 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
                   ? `M ${startX} ${startY} L ${startX} ${bendY} L ${clampedSideX} ${bendY} L ${clampedSideX} ${targetY}`
                   : targetX === startX
                     ? `M ${startX} ${startY} L ${targetX} ${targetY}`
-                    : `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${bendY + branchCaseBendYOffset}`;
+                    : `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${targetY}`;
 
               return (
                 <g key={`case-${f.id}-${ci}`}>

@@ -45,6 +45,37 @@ function PropDocChip({ prop, x, y, theme }) {
   );
 }
 
+function PropPreviewItem({ prop, theme }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        flexShrink: 0,
+      }}
+    >
+      <svg
+        width={DOC_W + 8}
+        height={DOC_H + 8}
+        style={{ overflow: "visible" }}
+      >
+        <PropDocChip prop={prop} x={4} y={4} theme={theme} />
+      </svg>
+      <span
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 10,
+          color: "#78716c",
+        }}
+      >
+        {prop.id}
+      </span>
+    </div>
+  );
+}
+
 function BlockPreviewItem({ block, theme }) {
   const shape = block.shape || "rounded";
   const fill = block.bg || theme.boxBg;
@@ -120,8 +151,6 @@ export function PartsPreviewStatic({ code, theme }) {
     );
   }
 
-  const propSvgWidth = propList.length * (DOC_W + 12) - 12;
-
   return (
     <div
       style={{
@@ -147,22 +176,17 @@ export function PartsPreviewStatic({ code, theme }) {
         </div>
       ) : null}
       {propList.length > 0 ? (
-        <div style={{ display: "flex", justifyContent: "center", overflowX: "auto" }}>
-          <svg
-            width={Math.max(propSvgWidth, DOC_W)}
-            height={DOC_H + 8}
-            style={{ overflow: "visible", flexShrink: 0 }}
-          >
-            {propList.map((prop, i) => (
-              <PropDocChip
-                key={prop.id}
-                prop={prop}
-                x={i * (DOC_W + 12)}
-                y={0}
-                theme={theme}
-              />
-            ))}
-          </svg>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 16,
+            justifyContent: "center",
+          }}
+        >
+          {propList.map((prop) => (
+            <PropPreviewItem key={prop.id} prop={prop} theme={theme} />
+          ))}
         </div>
       ) : null}
     </div>

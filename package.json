@@ -18,7 +18,7 @@
     "bundle:cursor-plugin": "bash scripts/bundle-cursor-plugin.sh",
     "zip:cursor-plugin": "bash scripts/zip-cursor-plugin.sh",
     "package:cursor-plugin": "npm run package:extension && npm run bundle:cursor-plugin && npm run zip:cursor-plugin",
-    "install:cursor-plugin": "bash scripts/install-cursor-plugin.sh"
+    "install:cursor-plugin": "npm run package:cursor-plugin && bash scripts/install-cursor-plugin.sh"
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",

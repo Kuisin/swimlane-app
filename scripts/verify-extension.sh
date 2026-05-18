@@ -43,3 +43,9 @@ unzip -l "$VSIX_PATH" | grep -Fq 'extension/media/preview.css' || {
   exit 1
 }
 echo "OK: VSIX contains extension.js and preview.css"
+
+if unzip -p "$VSIX_PATH" extension/dist/extension.js | grep -q propSvgWidth; then
+  echo "error: VSIX still uses legacy horizontal prop layout (propSvgWidth)" >&2
+  exit 1
+fi
+echo "OK: VSIX includes wrapped prop parts preview"
