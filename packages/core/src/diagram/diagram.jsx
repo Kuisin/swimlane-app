@@ -28,9 +28,10 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
   const docW = 65;
   const docH = 40;
   const docGapX = 8;
-  const docGapY = 16;
+  const docGapY = 18;
 
   const propRowExtraHBase = 20;
+  const propExtraWPerProps = docGapX;
   const propRowExtraHPerProps = docGapY;
 
   /** Left-gutter description: line metrics (fontSize 10). */
@@ -421,6 +422,67 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     if (!f.parentCase) computeFrameLayout(f);
   }
 
+  /**
+   * Step offset (lane-relative) accumulated through nested frames. Computed up-front
+   * so lane width can size for actual leftmost/rightmost step + prop extents.
+   */
+  const stepOffsetByIndex = new Map();
+  function fillStepOffsets(frame, inheritedByLane) {
+    const inherited =
+      inheritedByLane ||
+      Object.fromEntries(lanes.map((lane) => [lane.id, 0]));
+    const offsets = frameCaseOffsets.get(frame.id);
+    const co = (ci, lid) => offsets?.get(`${ci}-${lid}`) || 0;
+    frame.cases.forEach((c, caseIdx) => {
+      c.rowIndices.forEach((stepIdx) => {
+        const row = rows[stepIdx];
+        if (row?.kind === "step" && !row.empty && row.role) {
+          stepOffsetByIndex.set(
+            stepIdx,
+            (inherited[row.role] || 0) + co(caseIdx, row.role),
+          );
+        }
+      });
+      if (c.childFrame) {
+        const childInherited = { ...inherited };
+        for (const lane of lanes) {
+          childInherited[lane.id] =
+            (childInherited[lane.id] || 0) + co(caseIdx, lane.id);
+        }
+        fillStepOffsets(c.childFrame, childInherited);
+      }
+    });
+  }
+  for (const f of frames) {
+    if (!f.parentCase) fillStepOffsets(f, null);
+  }
+
+  function stepPropSideCounts(row) {
+    const left = [];
+    const right = [];
+    (row?.props || []).forEach((propId) => {
+      const prop = props[propId] || { id: propId, side: "right" };
+      if (prop.side === "left") left.push(prop);
+      else right.push(prop);
+    });
+    return { left: left.length, right: right.length };
+  }
+
+  /**
+   * Step right-edge extension past the step center, including right-side prop
+   * chips and an extra `propExtraWPerProps`-per-prop margin so lanes don't end
+   * flush against the rightmost doc.
+   */
+  function stepRightExtent(row) {
+    const { right: n } = stepPropSideCounts(row);
+    if (n === 0) return nodeW / 2;
+    return nodeW / 2 - 60 + (n - 2) * propExtraWPerProps + docW;
+  }
+  /** Fixed left margin for lane width (left-side props are ignored). */
+  function stepLeftExtent() {
+    return -nodeW / 2;
+  }
+
   const maxCasesPerLane = new Map();
   for (const f of frames) {
     if (f.parentCase) continue;
@@ -431,19 +493,25 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     }
   }
 
-  /** Span (max-min) of all top-level frames' subtrees per lane, used to size lanes. */
-  const maxLaneSpan = new Map();
-  for (const f of frames) {
-    if (f.parentCase) continue;
-    const ext = frameSubtreeExtent.get(f.id);
-    if (!ext) continue;
-    for (const lane of lanes) {
-      const e = ext[lane.id];
-      if (!e) continue;
-      const span = e.max - e.min;
-      maxLaneSpan.set(lane.id, Math.max(maxLaneSpan.get(lane.id) || 0, span));
-    }
-  }
+  /**
+   * Lane-relative leftmost/rightmost edges (branch offset + block/props on right).
+   * Left edge uses fixed block margin only; right edge grows with right-side props.
+   */
+  const stepEdgesByLane = new Map();
+  rows.forEach((row, i) => {
+    if (row.kind !== "step" || row.empty || !row.role) return;
+    const off = stepOffsetByIndex.get(i) || 0;
+    const left = off + stepLeftExtent();
+    const right = off + stepRightExtent(row);
+    const cur = stepEdgesByLane.get(row.role);
+    if (!cur) stepEdgesByLane.set(row.role, { min: left, max: right });
+    else stepEdgesByLane.set(row.role, {
+      min: Math.min(cur.min, left),
+      max: Math.max(cur.max, right),
+    });
+  });
+
+  const laneContentPad = 16;
 
   const laneWidths = lanes.map((lane) => {
     const headerWidth = estimateTextWidth(lane.label || lane.id, lane.icon ? 88 : 64);
@@ -454,9 +522,11 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
     }, 0);
     const caseCount = maxCasesPerLane.get(lane.id) || 0;
     const branchWidth = caseCount > 1 ? minLaneW + (caseCount - 1) * caseSpread : minLaneW;
-    /** Subtree-extent driven width: span + step block + margin. */
-    const span = maxLaneSpan.get(lane.id) || 0;
-    const extentWidth = span > 0 ? span + nodeW + 32 : 0;
+    const edges = stepEdgesByLane.get(lane.id);
+    /** Fixed left pad + branch span; only `edges.max` grows when right props extend. */
+    const extentWidth = edges
+      ? edges.max - edges.min + laneContentPad * 2
+      : 0;
     const textPart = Math.max(minLaneW, headerWidth, maxStepWidth);
     return Math.max(Math.min(maxLaneW, textPart), branchWidth, extentWidth);
   });
@@ -472,8 +542,17 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
 
   const laneIndex = (id) => laneIndexById.get(id) ?? -1;
   const laneX = (i) => laneOffsets[i] ?? xPad + leftGutter;
-  const laneCenter = (i) => laneX(i) + (laneWidths[i] ?? minLaneW) / 2;
   const laneWidth = (i) => laneWidths[i] ?? minLaneW;
+  /**
+   * Branch-layout origin (offset 0). Pinned so the leftmost block stays at
+   * `laneX + laneContentPad`; lane width grows to the right when right props extend.
+   */
+  const laneCenter = (i) => {
+    const lane = lanes[i];
+    if (!lane) return laneX(i) + laneWidth(i) / 2;
+    const branchMin = stepEdgesByLane.get(lane.id)?.min ?? -nodeW / 2;
+    return laneX(i) + laneContentPad - branchMin;
+  };
 
   function caseAnchorX(c) {
     return (c.x ?? width / 2) + (c.offset || 0);
@@ -539,7 +618,6 @@ export function Diagram({ model, theme, showStepBlockCaptions = true }) {
   const connectors = [];
   const terminalGap = 28;
   const terminalRadius = 5;
-  const stepOffsetByIndex = new Map();
   function caseOfStep(stepIdx) {
     let matched = null;
     for (const f of frames) {
