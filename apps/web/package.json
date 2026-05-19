@@ -11,12 +11,15 @@
   },
   "dependencies": {
     "@kai-swimlane/core": "*",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.0",
     "kai-swimlane": "*",
     "kai-swimlane-parts": "*",
+    "lightningcss-win32-x64-msvc": "^1.32.0",
     "lucide-react": "^1.11.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.6.2",
     "sharp": "^0.34.2"
   },
   "devDependencies": {
@@ -31,5 +34,8 @@
     "globals": "^17.5.0",
     "tailwindcss": "^4.2.4",
     "vite": "^8.0.10"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-win32-x64-msvc": "^1.0.1"
   }
 }

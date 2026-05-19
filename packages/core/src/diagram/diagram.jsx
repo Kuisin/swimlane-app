@@ -3,7 +3,7 @@ import { buildStepRowDisplayInfo } from "../parser.js";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
 
-const BRANCH_COLOR_STYLES = {
+export const BRANCH_COLOR_STYLES = {
   blue: { stroke: "#2563eb", bg: "#dbeafe" },
   green: { stroke: "#15803d", bg: "#dcfce7" },
   red: { stroke: "#b91c1c", bg: "#fee2e2" },
@@ -13,11 +13,52 @@ const BRANCH_COLOR_STYLES = {
   black: { stroke: "#111827", bg: "#e5e7eb" },
 };
 
+function RowSelectionHighlight({ x, y, w, h }) {
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={w}
+      height={h}
+      fill="#2563eb"
+      fillOpacity={0.1}
+      stroke="#2563eb"
+      strokeWidth={2}
+      rx={6}
+      pointerEvents="none"
+    />
+  );
+}
+
+function RowHitTarget({ rowIndex, x, y, w, h, selected, onSelect }) {
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={w}
+      height={h}
+      fill="transparent"
+      pointerEvents="all"
+      cursor="pointer"
+      stroke={selected ? "#2563eb" : "none"}
+      strokeWidth={selected ? 2.5 : 0}
+      rx={4}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect?.(rowIndex);
+      }}
+    />
+  );
+}
+
 export function Diagram({
   model,
   theme,
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
+  interactive = false,
+  selectedRowIndex = null,
+  onRowSelect,
 }) {
   const { title, lanes, rows, blocks = {}, props = {} } = model;
   const minLaneW = 220;
@@ -544,6 +585,20 @@ export function Diagram({
 
   const width = laneCursor + xPad;
   const baseBottomPadding = 50;
+
+  function stepRowBounds(rowIndex) {
+    const row = rows[rowIndex];
+    const meta = rowMeta[rowIndex];
+    if (!row || !meta || row.kind !== "step" || row.empty || !row.role) {
+      return null;
+    }
+    return {
+      x: xPad,
+      y: meta.y,
+      w: width - xPad * 2,
+      h: stepRowHeightByIndex.get(rowIndex) ?? stepRowHeight(row, rowIndex),
+    };
+  }
 
   const laneIndex = (id) => laneIndexById.get(id) ?? -1;
   const laneX = (i) => laneOffsets[i] ?? xPad + leftGutter;
@@ -1818,6 +1873,142 @@ export function Diagram({
           );
         });
       })}
+
+      {interactive &&
+        selectedRowIndex != null &&
+        (() => {
+          const bounds = stepRowBounds(selectedRowIndex);
+          if (!bounds) return null;
+          return (
+            <RowSelectionHighlight
+              key={`sel-${selectedRowIndex}`}
+              x={bounds.x}
+              y={bounds.y}
+              w={bounds.w}
+              h={bounds.h}
+            />
+          );
+        })()}
+
+      {interactive &&
+        rows.map((r, i) => {
+          const meta = rowMeta[i];
+          if (!meta) return null;
+
+          if (r.kind === "step" && !r.empty && r.role) {
+            const bounds = stepRowBounds(i);
+            if (!bounds) return null;
+            return (
+              <RowHitTarget
+                key={`hit-${i}`}
+                rowIndex={i}
+                x={bounds.x}
+                y={bounds.y}
+                w={bounds.w}
+                h={bounds.h}
+                selected={false}
+                onSelect={onRowSelect}
+              />
+            );
+          }
+
+          if (r.kind === "branchStart") {
+            const f = frames.find((fr) => fr.id === r.id);
+            if (!f) return null;
+            const dCx = frameAnchorX(f);
+            const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+            const dW = Math.max(140, (f.cond.length + 4) * 9);
+            const dH = 50;
+            return (
+              <RowHitTarget
+                key={`hit-${i}`}
+                rowIndex={i}
+                x={dCx - dW / 2 - 12}
+                y={dCy - dH / 2 - 12}
+                w={dW + 24}
+                h={dH + 24}
+                selected={selectedRowIndex === i}
+                onSelect={onRowSelect}
+              />
+            );
+          }
+
+          if (r.kind === "branchCase") {
+            const f = frames.find((fr) =>
+              fr.cases.some((c) => c.startRow === i)
+            );
+            const c = f?.cases.find((ca) => ca.startRow === i);
+            if (!f || !c) return null;
+            const labelW = ((c.label || "").length + 2) * 8.5;
+            const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+            const dH = 50;
+            const startY = dCy + dH / 2;
+            const bendY = startY + branchCaseBendYOffset;
+            const labelY = bendY + 18;
+            let targetX = c.x;
+            const firstStepIdx = c.rowIndices.find(
+              (idx) => rows[idx]?.kind === "step"
+            );
+            if (firstStepIdx != null) {
+              const sr = rows[firstStepIdx];
+              if (sr.role) {
+                const li = laneIndex(sr.role);
+                if (li >= 0) targetX = nodeCenterX(firstStepIdx, sr.role);
+              }
+            }
+            return (
+              <RowHitTarget
+                key={`hit-${i}`}
+                rowIndex={i}
+                x={targetX - labelW / 2 - 8}
+                y={labelY - 14}
+                w={labelW + 16}
+                h={28}
+                selected={selectedRowIndex === i}
+                onSelect={onRowSelect}
+              />
+            );
+          }
+
+          if (r.kind === "branchEnd") {
+            const f = frames.find((fr) => fr.endRow === i);
+            if (!f || f.yMerge == null) return null;
+            const mCx = mergeAnchorX(f);
+            const mCy = f.yMerge + mergeH / 2;
+            const mW = 40;
+            const mH = 28;
+            return (
+              <RowHitTarget
+                key={`hit-${i}`}
+                rowIndex={i}
+                x={mCx - mW / 2 - 10}
+                y={mCy - mH / 2 - 10}
+                w={mW + 20}
+                h={mH + 20}
+                selected={selectedRowIndex === i}
+                onSelect={onRowSelect}
+              />
+            );
+          }
+
+          if (r.kind === "branchLoop") {
+            const yRow = meta.y ?? 0;
+            return (
+              <RowHitTarget
+                key={`hit-${i}`}
+                rowIndex={i}
+                x={xPad + leftGutter}
+                y={yRow}
+                w={width - xPad * 2 - leftGutter}
+                h={branchLoopH}
+                selected={selectedRowIndex === i}
+                onSelect={onRowSelect}
+              />
+            );
+          }
+
+          return null;
+        })}
     </svg>
   );
 }

@@ -153,7 +153,7 @@ function TemplatePartsPreviewCard({ item, themeKey, copiedId, onCopy }) {
   );
 }
 
-function TemplateRolePreviewCard({ item, themeKey, copiedId, onCopy, theme }) {
+function TemplateRolePreviewCard({ item, copiedId, onCopy, theme }) {
   return (
     <section className={CARD_CLASS}>
       <TemplateCardHeader item={item} copiedId={copiedId} onCopy={onCopy} />
@@ -200,7 +200,6 @@ function TemplateItem({ item, categoryId, themeKey, theme, copiedId, onCopy }) {
     return (
       <TemplateRolePreviewCard
         item={item}
-        themeKey={themeKey}
         theme={theme}
         copiedId={copiedId}
         onCopy={onCopy}

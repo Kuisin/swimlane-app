@@ -1,4 +1,5 @@
 export { parseDSL, parseDSLParts, unescapeDslLine, buildStepRowDisplayInfo } from "./parser.js";
+export { serializeDSL } from "./serializer.js";
 export { normalizeFullFenceDSL, normalizePartsFenceDSL } from "./fence.js";
 export { THEMES } from "./themes.js";
 export {
@@ -7,8 +8,8 @@ export {
   parseHelpMd,
   parseTemplateMd,
 } from "./utils.js";
-export { getLucideIcon } from "./icon-registry.js";
-export { Diagram } from "./diagram/diagram.jsx";
+export { getLucideIcon, getIconNames } from "./icon-registry.js";
+export { Diagram, BRANCH_COLOR_STYLES } from "./diagram/diagram.jsx";
 export { StepShape } from "./diagram/step-shape.jsx";
 export { BlockIcon } from "./diagram/block-icon.jsx";
 export { TemplatePartsPreview } from "./template-parts-preview.jsx";

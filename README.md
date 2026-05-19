@@ -57,6 +57,13 @@ npm run build
 npm run preview -w @kai-swimlane/web
 ```
 
+The editor is published under the Vite base path **`/swimlane-app/`**:
+
+- **Text editor:** `https://<your-org>.github.io/swimlane-app/`
+- **GUI editor:** `https://<your-org>.github.io/swimlane-app/gui`
+
+Deep links to `/gui` work on GitHub Pages via `apps/web/public/404.html` (SPA fallback).
+
 ## Markdown fence plugins
 
 | Fence | Package | Preview |

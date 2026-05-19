@@ -11,6 +11,7 @@
     "dev": "npm run dev -w @kai-swimlane/web",
     "build": "npm run build -w @kai-swimlane/web",
     "lint": "npm run lint -w @kai-swimlane/web",
+    "test": "npm run test -w @kai-swimlane/core",
     "preview": "npm run preview -w @kai-swimlane/web",
     "build:extension": "npm run build -w vscode-kai-swimlane",
     "package:extension": "npm run package -w vscode-kai-swimlane",
