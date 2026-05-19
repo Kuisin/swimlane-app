@@ -1,6 +1,7 @@
 import { GuiSideModal } from "./gui-side-modal";
 import { PropPartsPreview } from "./template-preview";
 import { TemplateListPanel } from "./template-list-panel";
+import { DraftTemplateForm } from "./draft-template-form";
 import { PROP_SIDE_OPTIONS } from "../../lib/parts-form-options";
 import {
   ColorField,
@@ -15,6 +16,7 @@ import {
   mergeBlockProp,
 } from "../../lib/template-catalog";
 import { applyModelEdit } from "../../lib/gui-model";
+import { useUnsavedGuard } from "../../hooks/use-unsaved-guard";
 
 export function PropsModal({
   open,
@@ -27,6 +29,12 @@ export function PropsModal({
 }) {
   const defaults = getDefaultTemplates(templateMd);
   const inDoc = getInDocTemplates(model);
+  const { onDirtyChange, guardUnsaved } = useUnsavedGuard();
+
+  function handleClose() {
+    if (!guardUnsaved()) return;
+    onClose();
+  }
 
   function insertDefault(item) {
     const idMatch = item.code?.match(/<([^>]+)>/);
@@ -39,16 +47,17 @@ export function PropsModal({
     );
   }
 
-  function patchProp(propId, patch) {
+  function saveProp(draft) {
     onUpdateSrc(
-      applyModelEdit(src, (draft) => {
-        draft.props[propId] = { ...draft.props[propId], ...patch };
+      applyModelEdit(src, (m) => {
+        m.props[draft.id] = { ...draft };
       })
     );
   }
 
   function deleteProp(propId) {
     if (isPropReferenced(model, propId)) return;
+    if (!window.confirm("このプロップを削除しますか？")) return;
     onUpdateSrc(
       applyModelEdit(src, (draft) => {
         delete draft.props[propId];
@@ -66,12 +75,13 @@ export function PropsModal({
   }
 
   return (
-    <GuiSideModal title="プロップ" open={open} onClose={onClose}>
+    <GuiSideModal title="プロップ" open={open} onClose={handleClose}>
       <TemplateListPanel
         defaultItems={defaults.props}
         docItems={inDoc.props}
         onAddDoc={addProp}
         addDocLabel="プロップを追加"
+        guardUnsaved={guardUnsaved}
         renderListItem={(item, tab) =>
           tab === "default" ? (
             <span className="truncate font-jp">{item.title}</span>
@@ -102,13 +112,18 @@ export function PropsModal({
               </button>
             </div>
           ) : (
-            <PropForm
-              prop={item}
-              themeKey={themeKey}
+            <DraftTemplateForm
+              key={item.id}
+              item={item}
               referenced={isPropReferenced(model, item.id)}
-              onPatch={(patch) => patchProp(item.id, patch)}
+              onDirtyChange={onDirtyChange}
+              onSave={saveProp}
               onDelete={() => deleteProp(item.id)}
-            />
+            >
+              {({ draft, patch }) => (
+                <PropForm prop={draft} themeKey={themeKey} onPatch={patch} />
+              )}
+            </DraftTemplateForm>
           )
         }
       />
@@ -116,7 +131,7 @@ export function PropsModal({
   );
 }
 
-function PropForm({ prop, referenced, onPatch, onDelete, themeKey }) {
+function PropForm({ prop, onPatch, themeKey }) {
   return (
     <div className="space-y-2 text-xs font-jp">
       <PropPartsPreview prop={prop} themeKey={themeKey} />
@@ -156,14 +171,6 @@ function PropForm({ prop, referenced, onPatch, onDelete, themeKey }) {
         value={prop.maxChars}
         onChange={(maxChars) => onPatch({ maxChars })}
       />
-      <button
-        type="button"
-        disabled={referenced}
-        onClick={onDelete}
-        className="text-xs text-red-700 border border-red-300 px-2 py-1 rounded disabled:opacity-40"
-      >
-        削除
-      </button>
     </div>
   );
 }

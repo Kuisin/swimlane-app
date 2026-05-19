@@ -180,6 +180,8 @@ export function GuiPage() {
                 row={selectedRow}
                 lanes={model.lanes}
                 blocks={model.blocks}
+                props={model.props}
+                themeKey={themeKey}
                 onPatch={patchSelectedRow}
               />
             )}

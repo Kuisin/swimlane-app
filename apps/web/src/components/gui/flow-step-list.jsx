@@ -219,7 +219,7 @@ export function FlowStepList({
               <button
                 type="button"
                 onClick={() => onSelectRow(i)}
-                className="flex-1 text-left py-1.5 pr-1 min-w-0"
+                className="flex-1 text-left py-1.5 min-w-0 flex flex-row"
               >
                 <span className="inline-block rounded px-1.5 py-0.5 text-[9px] font-medium bg-stone-600 text-stone-100 mr-1.5 shrink-0">
                   {badge}

@@ -7,6 +7,7 @@ export function TemplateListPanel({
   renderDetail,
   onAddDoc,
   addDocLabel = "追加",
+  guardUnsaved,
 }) {
   const [tab, setTab] = useState("default");
   const [selectedId, setSelectedId] = useState(null);
@@ -15,13 +16,28 @@ export function TemplateListPanel({
   const selected =
     items.find((item) => itemKey(item) === selectedId) || items[0] || null;
 
+  function tryNavigate(next) {
+    if (guardUnsaved && !guardUnsaved()) return;
+    next();
+  }
+
+  function selectItem(key) {
+    tryNavigate(() => setSelectedId(key));
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex border-b border-stone-200">
-        <TabButton active={tab === "default"} onClick={() => setTab("default")}>
+        <TabButton
+          active={tab === "default"}
+          onClick={() => tryNavigate(() => setTab("default"))}
+        >
           既定
         </TabButton>
-        <TabButton active={tab === "doc"} onClick={() => setTab("doc")}>
+        <TabButton
+          active={tab === "doc"}
+          onClick={() => tryNavigate(() => setTab("doc"))}
+        >
           ドキュメント
         </TabButton>
         {tab === "doc" && onAddDoc && (
@@ -43,7 +59,7 @@ export function TemplateListPanel({
               <li key={key}>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(key)}
+                  onClick={() => selectItem(key)}
                   className={`w-full text-left px-2 py-2 text-xs border-b border-stone-100 ${
                     active ? "bg-stone-200" : "hover:bg-stone-100"
                   }`}

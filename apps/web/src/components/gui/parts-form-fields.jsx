@@ -1,9 +1,6 @@
+import { useState } from "react";
 import { ICON_OPTIONS } from "../../lib/parts-form-options";
-import {
-  COLOR_PRESET_GROUPS,
-  findMatchingPresetValue,
-  normalizeHexColor,
-} from "../../lib/color-presets";
+import { COLOR_PRESET_GROUPS, normalizeHexColor } from "../../lib/color-presets";
 
 function normalizeHexForPicker(value) {
   return normalizeHexColor(value) || "#000000";
@@ -53,33 +50,33 @@ export function NumberField({ label, value, onChange, min = 1 }) {
 }
 
 export function ColorField({ label, value, onChange }) {
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const pickerValue = normalizeHexForPicker(value);
-  const presetMatch = findMatchingPresetValue(value);
+  const displayColor = normalizeHexColor(value) || "#ffffff";
 
   return (
     <Field label={label}>
       <div className="space-y-2">
-        <select
-          value={presetMatch}
-          onChange={(e) => {
-            if (e.target.value) onChange(e.target.value);
-          }}
-          className={`${inputClass} font-jp w-full`}
-          aria-label={`${label} preset`}
-        >
-          <option value="">プリセットから選択…</option>
-          {COLOR_PRESET_GROUPS.map((group) => (
-            <optgroup key={group.id} label={group.label}>
-              {group.colors.map((color) => (
-                <option key={`${group.id}-${color.value}`} value={color.value}>
-                  {color.label} ({color.value})
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-8 h-8 shrink-0 rounded border border-stone-300"
+            style={{ background: displayColor }}
+            aria-hidden
+          />
+          <span className="font-mono text-[11px] text-stone-700 min-w-0 truncate flex-1">
+            {value?.trim() || "—"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen((open) => !open)}
+            className="shrink-0 text-[10px] font-jp text-stone-500 hover:text-stone-800 underline"
+            aria-expanded={paletteOpen}
+          >
+            {paletteOpen ? "パレットを閉じる" : "パレット"}
+          </button>
+        </div>
 
-        <ColorSwatchGrid value={value} onChange={onChange} />
+        {paletteOpen && <ColorSwatchGrid value={value} onChange={onChange} />}
 
         <div className="flex gap-2 items-center pt-1 border-t border-stone-200">
           <span className="text-[9px] text-stone-400 font-jp shrink-0">カスタム</span>

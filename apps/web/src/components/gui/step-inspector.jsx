@@ -1,4 +1,16 @@
-export function StepInspector({ row, lanes, blocks, onPatch }) {
+import {
+  BlockFieldWithPicker,
+  PropsFieldWithPicker,
+} from "./step-parts-pickers";
+
+export function StepInspector({
+  row,
+  lanes,
+  blocks,
+  props,
+  themeKey,
+  onPatch,
+}) {
   if (!row || row.kind !== "step" || row.empty) {
     return (
       <p className="text-xs font-jp text-stone-500 px-3 py-4">
@@ -6,8 +18,6 @@ export function StepInspector({ row, lanes, blocks, onPatch }) {
       </p>
     );
   }
-
-  const propValue = (row.props || []).join(",");
 
   return (
     <div className="px-3 py-3 space-y-3 text-xs font-jp">
@@ -36,18 +46,12 @@ export function StepInspector({ row, lanes, blocks, onPatch }) {
       </div>
       <div>
         <label className="block text-[10px] text-stone-500 mb-1">ブロック</label>
-        <select
-          value={row.blockRef || ""}
-          onChange={(e) => onPatch({ blockRef: e.target.value || null })}
-          className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
-        >
-          <option value="">（なし）</option>
-          {Object.values(blocks).map((block) => (
-            <option key={block.id} value={block.id}>
-              {block.label || block.id}
-            </option>
-          ))}
-        </select>
+        <BlockFieldWithPicker
+          value={row.blockRef}
+          blocks={blocks}
+          themeKey={themeKey}
+          onChange={(blockRef) => onPatch({ blockRef })}
+        />
       </div>
       <div>
         <label className="block text-[10px] text-stone-500 mb-1">ラベル</label>
@@ -70,20 +74,12 @@ export function StepInspector({ row, lanes, blocks, onPatch }) {
         />
       </div>
       <div>
-        <label className="block text-[10px] text-stone-500 mb-1">
-          プロップ（カンマ区切り）
-        </label>
-        <input
-          type="text"
-          value={propValue}
-          onChange={(e) => {
-            const ids = e.target.value
-              .split(",")
-              .map((id) => id.trim())
-              .filter(Boolean);
-            onPatch({ props: ids.length ? ids : undefined });
-          }}
-          className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 font-mono text-stone-100"
+        <label className="block text-[10px] text-stone-500 mb-1">プロップ</label>
+        <PropsFieldWithPicker
+          value={row.props}
+          props={props}
+          themeKey={themeKey}
+          onChange={(ids) => onPatch({ props: ids })}
         />
       </div>
       <label className="flex items-center gap-2 text-stone-300">

@@ -1,5 +1,6 @@
 import { GuiSideModal } from "./gui-side-modal";
 import { TemplateListPanel } from "./template-list-panel";
+import { DraftTemplateForm } from "./draft-template-form";
 import {
   RoleCodePreview,
   RoleLanePreview,
@@ -12,6 +13,7 @@ import {
   mergeRole,
 } from "../../lib/template-catalog";
 import { applyModelEdit } from "../../lib/gui-model";
+import { useUnsavedGuard } from "../../hooks/use-unsaved-guard";
 import {
   ColorField,
   IconSelectField,
@@ -39,18 +41,25 @@ export function RolesModal({
 }) {
   const defaults = getDefaultTemplates(templateMd);
   const inDoc = getInDocTemplates(model);
+  const { onDirtyChange, guardUnsaved } = useUnsavedGuard();
 
-  function patchLane(laneId, patch) {
+  function handleClose() {
+    if (!guardUnsaved()) return;
+    onClose();
+  }
+
+  function saveLane(draft) {
     onUpdateSrc(
-      applyModelEdit(src, (draft) => {
-        const idx = draft.lanes.findIndex((l) => l.id === laneId);
-        if (idx >= 0) draft.lanes[idx] = { ...draft.lanes[idx], ...patch };
+      applyModelEdit(src, (m) => {
+        const idx = m.lanes.findIndex((l) => l.id === draft.id);
+        if (idx >= 0) m.lanes[idx] = { ...draft };
       })
     );
   }
 
   function deleteLane(laneId) {
     if (isLaneReferenced(model, laneId)) return;
+    if (!window.confirm("この役割を削除しますか？")) return;
     onUpdateSrc(
       applyModelEdit(src, (draft) => {
         draft.lanes = draft.lanes.filter((l) => l.id !== laneId);
@@ -85,12 +94,13 @@ export function RolesModal({
   }
 
   return (
-    <GuiSideModal title="役割" open={open} onClose={onClose}>
+    <GuiSideModal title="役割" open={open} onClose={handleClose}>
       <TemplateListPanel
         defaultItems={[...defaults.roles, ...defaults.sets.map((s) => ({ ...s, isSet: true }))]}
         docItems={inDoc.roles}
         onAddDoc={addLane}
         addDocLabel="役割を追加"
+        guardUnsaved={guardUnsaved}
         renderListItem={(item, tab) =>
           tab === "default" ? (
             <span className="font-jp truncate">
@@ -117,12 +127,18 @@ export function RolesModal({
               isSet={item.isSet}
             />
           ) : (
-            <DocRoleForm
-              lane={item}
+            <DraftTemplateForm
+              key={item.id}
+              item={item}
               referenced={isLaneReferenced(model, item.id)}
-              onPatch={(patch) => patchLane(item.id, patch)}
+              onDirtyChange={onDirtyChange}
+              onSave={saveLane}
               onDelete={() => deleteLane(item.id)}
-            />
+            >
+              {({ draft, patch }) => (
+                <DocRoleForm lane={draft} onPatch={patch} />
+              )}
+            </DraftTemplateForm>
           )
         }
       />
@@ -154,7 +170,7 @@ function DefaultRoleDetail({ item, themeKey, onInsert, isSet }) {
   );
 }
 
-function DocRoleForm({ lane, referenced, onPatch, onDelete }) {
+function DocRoleForm({ lane, onPatch }) {
   return (
     <div className="space-y-2 text-xs font-jp">
       <RoleLanePreview lane={lane} />
@@ -179,18 +195,6 @@ function DocRoleForm({ lane, referenced, onPatch, onDelete }) {
         value={lane.icon}
         onChange={(icon) => onPatch({ icon })}
       />
-      <button
-        type="button"
-        disabled={referenced}
-        onClick={onDelete}
-        className="text-xs text-red-700 border border-red-300 px-2 py-1 rounded disabled:opacity-40"
-      >
-        削除
-      </button>
-      {referenced && (
-        <p className="text-[10px] text-stone-500">ステップで使用中のため削除不可</p>
-      )}
     </div>
   );
 }
-

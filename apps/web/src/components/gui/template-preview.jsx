@@ -32,26 +32,39 @@ export function RoleCodePreview({ code }) {
   return <RoleLanePreview lane={lane} />;
 }
 
-export function BlockPartsPreview({ block, code, themeKey }) {
+const defaultPartsPreviewClass =
+  "rounded-md border border-stone-300 overflow-auto max-h-48 mb-3";
+
+export function BlockPartsPreview({
+  block,
+  code,
+  themeKey,
+  className = defaultPartsPreviewClass,
+}) {
   const partsCode = code || (block ? blockToPartsCode(block) : "");
   if (!partsCode.trim()) return null;
   return (
     <KaiSwimlanePartsPreview
       code={partsCode}
       themeKey={themeKey}
-      className="rounded-md border border-stone-300 overflow-auto max-h-48 mb-3"
+      className={className}
     />
   );
 }
 
-export function PropPartsPreview({ prop, code, themeKey }) {
+export function PropPartsPreview({
+  prop,
+  code,
+  themeKey,
+  className = defaultPartsPreviewClass,
+}) {
   const partsCode = code || (prop ? propToPartsCode(prop) : "");
   if (!partsCode.trim()) return null;
   return (
     <KaiSwimlanePartsPreview
       code={partsCode}
       themeKey={themeKey}
-      className="rounded-md border border-stone-300 overflow-auto max-h-48 mb-3"
+      className={className}
     />
   );
 }

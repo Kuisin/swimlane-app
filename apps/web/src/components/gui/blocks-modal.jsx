@@ -1,6 +1,7 @@
 import { GuiSideModal } from "./gui-side-modal";
 import { BlockPartsPreview } from "./template-preview";
 import { TemplateListPanel } from "./template-list-panel";
+import { DraftTemplateForm } from "./draft-template-form";
 import { BLOCK_SHAPE_OPTIONS } from "../../lib/parts-form-options";
 import {
   ColorField,
@@ -15,6 +16,7 @@ import {
   mergeBlockProp,
 } from "../../lib/template-catalog";
 import { applyModelEdit } from "../../lib/gui-model";
+import { useUnsavedGuard } from "../../hooks/use-unsaved-guard";
 
 export function BlocksModal({
   open,
@@ -27,6 +29,12 @@ export function BlocksModal({
 }) {
   const defaults = getDefaultTemplates(templateMd);
   const inDoc = getInDocTemplates(model);
+  const { onDirtyChange, guardUnsaved } = useUnsavedGuard();
+
+  function handleClose() {
+    if (!guardUnsaved()) return;
+    onClose();
+  }
 
   function insertDefault(item) {
     const idMatch = item.code?.match(/<([^>]+)>/);
@@ -39,16 +47,17 @@ export function BlocksModal({
     );
   }
 
-  function patchBlock(blockId, patch) {
+  function saveBlock(draft) {
     onUpdateSrc(
-      applyModelEdit(src, (draft) => {
-        draft.blocks[blockId] = { ...draft.blocks[blockId], ...patch };
+      applyModelEdit(src, (m) => {
+        m.blocks[draft.id] = { ...draft };
       })
     );
   }
 
   function deleteBlock(blockId) {
     if (isBlockReferenced(model, blockId)) return;
+    if (!window.confirm("このブロックを削除しますか？")) return;
     onUpdateSrc(
       applyModelEdit(src, (draft) => {
         delete draft.blocks[blockId];
@@ -73,12 +82,13 @@ export function BlocksModal({
   }
 
   return (
-    <GuiSideModal title="ブロック" open={open} onClose={onClose}>
+    <GuiSideModal title="ブロック" open={open} onClose={handleClose}>
       <TemplateListPanel
         defaultItems={defaults.blocks}
         docItems={inDoc.blocks}
         onAddDoc={addBlock}
         addDocLabel="ブロックを追加"
+        guardUnsaved={guardUnsaved}
         renderListItem={(item, tab) =>
           tab === "default" ? (
             <span className="truncate font-jp">{item.title}</span>
@@ -109,13 +119,18 @@ export function BlocksModal({
               </button>
             </div>
           ) : (
-            <BlockForm
-              block={item}
-              themeKey={themeKey}
+            <DraftTemplateForm
+              key={item.id}
+              item={item}
               referenced={isBlockReferenced(model, item.id)}
-              onPatch={(patch) => patchBlock(item.id, patch)}
+              onDirtyChange={onDirtyChange}
+              onSave={saveBlock}
               onDelete={() => deleteBlock(item.id)}
-            />
+            >
+              {({ draft, patch }) => (
+                <BlockForm block={draft} themeKey={themeKey} onPatch={patch} />
+              )}
+            </DraftTemplateForm>
           )
         }
       />
@@ -123,7 +138,7 @@ export function BlocksModal({
   );
 }
 
-function BlockForm({ block, referenced, onPatch, onDelete, themeKey }) {
+function BlockForm({ block, onPatch, themeKey }) {
   return (
     <div className="space-y-2 text-xs">
       <BlockPartsPreview block={block} themeKey={themeKey} />
@@ -158,14 +173,6 @@ function BlockForm({ block, referenced, onPatch, onDelete, themeKey }) {
         value={block.icon}
         onChange={(icon) => onPatch({ icon })}
       />
-      <button
-        type="button"
-        disabled={referenced}
-        onClick={onDelete}
-        className="text-xs text-red-700 border border-red-300 px-2 py-1 rounded disabled:opacity-40 font-jp"
-      >
-        削除
-      </button>
     </div>
   );
 }
