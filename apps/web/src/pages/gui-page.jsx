@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Diagram } from "@kai-swimlane/core";
 import { Toolbar } from "../components/toolbar";
 import { DocumentTabs } from "../components/document-tabs";
@@ -10,7 +10,7 @@ import { TitleField } from "../components/gui/title-field";
 import { FlowStepList } from "../components/gui/flow-step-list";
 import { StepInspector } from "../components/gui/step-inspector";
 import { BranchInspector } from "../components/gui/branch-inspector";
-import { openTemplatePopup } from "../lib/open-template-popup";
+import { ToolbarTemplateActions } from "../components/toolbar-template-actions";
 
 export function GuiPage() {
   const editor = useEditor();
@@ -40,10 +40,10 @@ export function GuiPage() {
     deleteDocumentFromStorage,
     documents,
     helpMd,
+    templateMd,
   } = editor;
 
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
-  const templatePopupRefs = useRef({});
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
 
@@ -90,31 +90,7 @@ export function GuiPage() {
         onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
         mergeAtPreviousBlock={mergeAtPreviousBlock}
         onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
-        guiActions={
-          <>
-            <button
-              type="button"
-              onClick={() => openTemplatePopup("roles", templatePopupRefs)}
-              className="text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200"
-            >
-              役割
-            </button>
-            <button
-              type="button"
-              onClick={() => openTemplatePopup("blocks", templatePopupRefs)}
-              className="text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200"
-            >
-              ブロック
-            </button>
-            <button
-              type="button"
-              onClick={() => openTemplatePopup("props", templatePopupRefs)}
-              className="text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200"
-            >
-              プロップ
-            </button>
-          </>
-        }
+        guiActions={<ToolbarTemplateActions />}
       />
 
       <DocumentTabs

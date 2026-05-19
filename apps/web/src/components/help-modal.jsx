@@ -1,12 +1,8 @@
 import { useMemo, useState } from "react";
 import { Check, Copy, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import {
-  parseDSL,
-  parseHelpMd,
-  parseTemplateMd,
-  THEMES,
-} from "@kai-swimlane/core";
+import { parseHelpMd, parseTemplateMd, THEMES } from "@kai-swimlane/core";
+import { laneFromRoleCode } from "../lib/template-catalog";
 import { KaiSwimlanePreview } from "kai-swimlane";
 import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
 
@@ -99,13 +95,7 @@ function TemplateCardHeader({ item, copiedId, onCopy }) {
 }
 
 function RoleLanePreview({ code, theme }) {
-  const role = useMemo(() => {
-    const wrapped = `@kai-swimlane\n/title/\n\n/role/\n${code.trim()}\n/line/\n@end\n`;
-    const model = parseDSL(wrapped);
-    if (model.errors.length > 0) return null;
-    const id = Object.keys(model.roles)[0];
-    return id ? model.roles[id] : null;
-  }, [code]);
+  const role = useMemo(() => laneFromRoleCode(code), [code]);
 
   if (!role) return null;
 
