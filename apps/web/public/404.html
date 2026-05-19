@@ -13,12 +13,10 @@
         } else if (path !== "/" && path !== base) {
           route = path;
         }
-        var target =
-          base.replace(/\/$/, "") +
-          route +
-          window.location.search +
-          window.location.hash;
-        window.location.replace(target);
+        var restorePath =
+          route + window.location.search + window.location.hash;
+        sessionStorage.setItem("swimlane-spa-redirect", restorePath);
+        window.location.replace(base + "index.html");
       })();
     </script>
   </head>

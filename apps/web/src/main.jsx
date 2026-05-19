@@ -6,6 +6,9 @@ import { EditorProvider } from "./context/editor-context";
 import { EditorPage } from "./pages/editor-page";
 import { GuiPage } from "./pages/gui-page";
 import { TemplatePopupPage } from "./pages/template-popup-page";
+import { restoreSpaPathFrom404 } from "./lib/spa-redirect";
+
+restoreSpaPathFrom404();
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
 
