@@ -45,17 +45,54 @@ function serializeBranchColor(color) {
   return color ? ` #${color}` : "";
 }
 
+function firstBranchCaseLabel(rows, startIndex) {
+  const start = rows[startIndex];
+  const embedded = (start.firstCase || "").trim();
+  if (embedded) return embedded;
+  for (let i = startIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind === "branchEnd" && row.id === start.id) break;
+    if (row.kind === "branchStart") break;
+    if (row.kind === "branchCase" && row.id === start.id) {
+      const label = (row.label || "").trim();
+      if (label && !/^else$/i.test(label)) return label;
+    }
+  }
+  return "";
+}
+
+/** First branchCase after branchStart is serialized inside the if line. */
+function isFirstBranchCaseRow(rows, caseIndex) {
+  const row = rows[caseIndex];
+  if (row.kind !== "branchCase") return false;
+  let startIdx = -1;
+  for (let i = caseIndex - 1; i >= 0; i--) {
+    if (rows[i].kind === "branchStart" && rows[i].id === row.id) {
+      startIdx = i;
+      break;
+    }
+    if (rows[i].kind === "branchEnd" && rows[i].id === row.id) return false;
+  }
+  if (startIdx < 0) return false;
+  if ((rows[startIdx].firstCase || "").trim()) return false;
+  for (let i = startIdx + 1; i < caseIndex; i++) {
+    if (rows[i].kind === "branchCase" && rows[i].id === row.id) return false;
+  }
+  return true;
+}
+
 function serializeLineRows(rows) {
   const out = [];
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     if (row.kind === "branchStart") {
       const color = serializeBranchColor(row.branchColor);
-      out.push(
-        `if (${row.cond}) is (${row.firstCase}) than${color}`
-      );
+      const firstCase = firstBranchCaseLabel(rows, i);
+      out.push(`if (${row.cond}) is (${firstCase}) than${color}`);
       continue;
     }
     if (row.kind === "branchCase") {
+      if (isFirstBranchCaseRow(rows, i)) continue;
       const label = (row.label || "").trim();
       if (/^else$/i.test(label)) {
         out.push("else");

@@ -1,11 +1,11 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Diagram } from "@kai-swimlane/core";
 import { Toolbar } from "../components/toolbar";
 import { DocumentTabs } from "../components/document-tabs";
 import { HelpModal } from "../components/help-modal";
 import { FileListModal } from "../components/file-list-modal";
 import { useEditor } from "../hooks/use-editor";
-import { applyModelEdit } from "../lib/gui-model";
+import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
 import { TitleField } from "../components/gui/title-field";
 import { FlowStepList } from "../components/gui/flow-step-list";
 import { StepInspector } from "../components/gui/step-inspector";
@@ -45,8 +45,10 @@ export function GuiPage() {
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
   const templatePopupRefs = useRef({});
 
+  const guiModel = useMemo(() => parseGuiModel(src), [src]);
+
   const selectedRow =
-    selectedRowIndex != null ? model.rows[selectedRowIndex] : null;
+    selectedRowIndex != null ? guiModel.rows[selectedRowIndex] : null;
   const isBranchRow =
     selectedRow &&
     ["branchStart", "branchCase", "branchEnd", "branchLoop"].includes(
@@ -131,7 +133,7 @@ export function GuiPage() {
             style={{ background: theme.bg }}
           >
             <Diagram
-              model={model}
+              model={guiModel}
               theme={theme}
               showStepBlockCaptions={showStepBlockCaptions}
               mergeAtPreviousBlock={mergeAtPreviousBlock}
@@ -145,17 +147,17 @@ export function GuiPage() {
         <div className="w-[45%] min-w-0 flex flex-col bg-stone-900 text-stone-100 border-l border-stone-300">
           <TitleField title={model.title} onChange={handleTitleChange} />
           <FlowStepList
-            rows={model.rows}
+            rows={guiModel.rows}
             selectedRowIndex={selectedRowIndex}
             onSelectRow={setSelectedRowIndex}
             onEditRows={onEditRows}
-            lanes={model.lanes}
+            lanes={guiModel.lanes}
           />
           <div className="border-t border-stone-700/60 max-h-[40%] overflow-y-auto shrink-0">
             {isBranchRow ? (
               <BranchInspector
                 row={selectedRow}
-                rows={model.rows}
+                rows={guiModel.rows}
                 onPatch={patchSelectedRow}
               />
             ) : (

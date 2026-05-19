@@ -216,14 +216,16 @@ export function Diagram({
         cond: r.cond,
         yDecision: y,
         decisionColor: r.branchColor || null,
-        cases: [
-          {
-            label: r.firstCase,
-            color: r.branchColor || null,
-            rowIndices: [],
-            startRow: i,
-          },
-        ],
+        cases: (r.firstCase && String(r.firstCase).trim())
+          ? [
+              {
+                label: r.firstCase.trim(),
+                color: r.branchColor || null,
+                rowIndices: [],
+                startRow: i,
+              },
+            ]
+          : [],
         parentCase: null,
         anchorX: null,
       };

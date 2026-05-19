@@ -1,3 +1,42 @@
+/** Move branchStart.firstCase into a following branchCase row (GUI list shape). */
+export function normalizeBranchRows(rows) {
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind === "branchStart" && (row.firstCase || "").trim()) {
+      const firstCase = row.firstCase.trim();
+      const next = rows[i + 1];
+      const alreadySplit =
+        next?.kind === "branchCase" &&
+        next.id === row.id &&
+        (next.label || "").trim() === firstCase;
+      out.push({ ...row, firstCase: "" });
+      if (!alreadySplit) {
+        out.push({
+          kind: "branchCase",
+          label: firstCase,
+          branchColor: row.branchColor ?? null,
+          id: row.id,
+          depth: row.depth,
+        });
+      }
+      continue;
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+export function nextBranchId(rows) {
+  let max = 0;
+  for (const row of rows) {
+    if (row.kind === "branchStart" && typeof row.id === "number" && row.id > max) {
+      max = row.id;
+    }
+  }
+  return max + 1;
+}
+
 /** Find paired branchEnd index for branchStart at startIndex. */
 export function findBranchEndIndex(rows, startIndex) {
   const start = rows[startIndex];
@@ -130,9 +169,9 @@ export function rowBadgeLabel(row) {
     case "step":
       return row.empty ? "空行" : "手順";
     case "branchStart":
-      return "分岐";
+      return "分岐開始";
     case "branchCase":
-      return /^else$/i.test((row.label || "").trim()) ? "その他" : "分岐";
+      return /^else$/i.test((row.label || "").trim()) ? "else" : "分岐";
     case "branchEnd":
       return "分岐終了";
     case "branchLoop":
@@ -154,8 +193,7 @@ export function rowSummaryText(row, lanes) {
     }
     case "branchStart": {
       const cond = (row.cond || "").trim() || "条件";
-      const first = (row.firstCase || "").trim() || "最初のケース";
-      return `「${cond}」のとき → ${first}`;
+      return `「${cond}」`;
     }
     case "branchCase": {
       if (/^else$/i.test((row.label || "").trim())) {

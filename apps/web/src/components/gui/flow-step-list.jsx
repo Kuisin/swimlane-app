@@ -5,6 +5,7 @@ import {
   findBranchEndIndex,
   getReorderBounds,
   isInsideOpenBranch,
+  nextBranchId,
   rowBadgeLabel,
   rowSummaryText,
   swapStepRows,
@@ -45,18 +46,33 @@ export function FlowStepList({
     const idx =
       selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
     const depth = rows[Math.max(0, idx - 1)]?.depth ?? 0;
+    const branchId = nextBranchId(rows);
     insertAt(idx, [
       {
         kind: "branchStart",
         cond: "条件",
-        firstCase: "ケース",
+        firstCase: "",
         branchColor: null,
-        id: 0,
+        id: branchId,
+        depth,
+      },
+      {
+        kind: "branchCase",
+        label: "ケース1",
+        branchColor: null,
+        id: branchId,
+        depth,
+      },
+      {
+        kind: "branchCase",
+        label: "ケース2",
+        branchColor: null,
+        id: branchId,
         depth,
       },
       {
         kind: "branchEnd",
-        id: 0,
+        id: branchId,
         depth,
       },
     ]);

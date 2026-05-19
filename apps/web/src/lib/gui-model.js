@@ -1,7 +1,17 @@
 import { parseDSL, serializeDSL } from "@kai-swimlane/core";
+import { normalizeBranchRows } from "./flow-rows";
 
 export function applyModelEdit(prevSrc, editFn) {
   const draft = structuredClone(parseDSL(prevSrc));
+  draft.rows = normalizeBranchRows(draft.rows);
   const result = editFn(draft);
-  return serializeDSL(result ?? draft);
+  const model = result ?? draft;
+  model.rows = normalizeBranchRows(model.rows);
+  return serializeDSL(model);
+}
+
+/** GUI view model: branchStart.firstCase always shown as its own branchCase row. */
+export function parseGuiModel(src) {
+  const model = parseDSL(src);
+  return { ...model, rows: normalizeBranchRows(model.rows) };
 }

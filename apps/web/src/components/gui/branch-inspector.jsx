@@ -23,23 +23,9 @@ export function BranchInspector({ row, rows, onPatch }) {
             className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
           />
         </div>
-        <div>
-          <label className="block text-[10px] text-stone-500 mb-1">
-            最初のケース
-          </label>
-          <input
-            type="text"
-            value={row.firstCase || ""}
-            onChange={(e) => onPatch({ firstCase: e.target.value })}
-            className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
-          />
-        </div>
-        <BranchColorSelect
-          value={row.branchColor || ""}
-          onChange={(branchColor) =>
-            onPatch({ branchColor: branchColor || null })
-          }
-        />
+        <p className="text-[10px] text-stone-500">
+          分岐ケースは一覧の「分岐」行で編集します。
+        </p>
       </div>
     );
   }
