@@ -1,7 +1,15 @@
 import { Buffer } from "node:buffer";
 import { renderToStaticMarkup } from "react-dom/server";
-import sharp from "sharp";
 import React from "react";
+
+let sharpPromise;
+
+function loadSharp() {
+  if (!sharpPromise) {
+    sharpPromise = import("sharp").then((mod) => mod.default);
+  }
+  return sharpPromise;
+}
 import { parseDSL, Diagram, THEMES } from "@kai-swimlane/core";
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -156,6 +164,7 @@ async function modelToPngBuffer(model, themeKey) {
   const outW = Math.max(1, Math.round(w * PNG_SCALE));
   const outH = Math.max(1, Math.round(h * PNG_SCALE));
 
+  const sharp = await loadSharp();
   return sharp(Buffer.from(svg, "utf8"), { density: 144 })
     .resize(outW, outH)
     .flatten({ background: theme.bg })

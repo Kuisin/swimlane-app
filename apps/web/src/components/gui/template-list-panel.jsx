@@ -9,7 +9,7 @@ export function TemplateListPanel({
   addDocLabel = "追加",
   guardUnsaved,
 }) {
-  const [tab, setTab] = useState("default");
+  const [tab, setTab] = useState("doc");
   const [selectedId, setSelectedId] = useState(null);
 
   const items = tab === "default" ? defaultItems : docItems;

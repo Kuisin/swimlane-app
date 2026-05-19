@@ -15,7 +15,20 @@ function llmRoutePlugin() {
       server.middlewares.use(async (req, res, next) => {
         const url = req.url || "/";
         if (!llmHandlerMod) {
-          llmHandlerMod = await server.ssrLoadModule("/src/server/llm-handler.js");
+          try {
+            llmHandlerMod = await server.ssrLoadModule("/src/server/llm-handler.js");
+          } catch (error) {
+            console.error("[swimlane-llm-routes] Failed to load LLM handler:", error);
+            res.statusCode = 503;
+            res.setHeader("Content-Type", "application/json; charset=utf-8");
+            res.end(
+              JSON.stringify({
+                success: false,
+                error: "LLM server module failed to load. Check the dev server console.",
+              })
+            );
+            return;
+          }
         }
         const handled = await llmHandlerMod.handleLlmRoute(req, res, url, server.config.base);
         if (!handled) next();
