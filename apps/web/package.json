@@ -11,10 +11,8 @@
   },
   "dependencies": {
     "@kai-swimlane/core": "*",
-    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.0",
     "kai-swimlane": "*",
     "kai-swimlane-parts": "*",
-    "lightningcss-win32-x64-msvc": "^1.32.0",
     "lucide-react": "^1.11.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
