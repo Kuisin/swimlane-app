@@ -226,7 +226,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-900">
+    <div className="h-dvh w-dvw bg-stone-100 text-stone-900 lg:flex lg:flex-col">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
         .font-display { font-family: 'Shippori Mincho', serif; }
@@ -245,8 +245,8 @@ export default function App() {
         onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
       />
 
-      <div className="mx-auto grid grid-cols-1 lg:flex lg:flex-row">
-        <div className="bg-stone-100 p-6 overflow-auto lg:flex-1">
+      <div className="flex-1 w-full mx-auto grid grid-cols-1 lg:flex lg:flex-row">
+        <div className="h-full bg-stone-100 p-6 overflow-auto lg:flex-1">
           <div
             className="rounded-sm shadow-lg border border-stone-300 overflow-hidden"
             style={{ background: theme.bg }}
@@ -264,7 +264,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="max-w-none lg:max-w-[600px] w-full lg:w-1/2 border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)]">
+        <div className="h-full max-w-none lg:max-w-[600px] w-full lg:w-1/2 border-r border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[calc(100vh-73px)]">
           <div className="px-4 pt-3 border-b border-stone-700/60 flex items-center gap-2 overflow-x-auto">
             {openDocuments.map((document) => {
               const isActive = document.id === activeDocumentId;

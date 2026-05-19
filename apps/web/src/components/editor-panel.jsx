@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, Save } from "lucide-react";
+import { applyTabIndent } from "../lib/editor-indent.js";
 import { downloadPNG, downloadSVG } from "../lib/export.js";
 
 export function EditorPanel({
@@ -12,7 +13,61 @@ export function EditorPanel({
   onSave,
 }) {
   const [copied, setCopied] = useState(false);
+  const textareaRef = useRef(null);
+  const lineNumbersRef = useRef(null);
+  const lineCount = useMemo(() => {
+    if (!src) return 1;
+    return src.split("\n").length;
+  }, [src]);
+  const lineNumbers = useMemo(
+    () => Array.from({ length: lineCount }, (_, i) => i + 1),
+    [lineCount],
+  );
+  const errorLines = useMemo(
+    () => new Set(model.errors.map((e) => e.line)),
+    [model.errors],
+  );
   const stepCount = model.rows.filter((r) => r.kind === "step").length;
+  const highlightsRef = useRef(null);
+  const pendingSelectionRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const pending = pendingSelectionRef.current;
+    const textarea = textareaRef.current;
+    if (!pending || !textarea) return;
+    textarea.selectionStart = pending.start;
+    textarea.selectionEnd = pending.end;
+    pendingSelectionRef.current = null;
+  }, [src]);
+
+  function handleEditorKeyDown(e) {
+    if (e.key !== "Tab") return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    e.preventDefault();
+    const result = applyTabIndent(
+      src,
+      textarea.selectionStart,
+      textarea.selectionEnd,
+      e.shiftKey,
+    );
+    if (!result) return;
+
+    pendingSelectionRef.current = {
+      start: result.selectionStart,
+      end: result.selectionEnd,
+    };
+    onChange(result.value);
+  }
+
+  function syncEditorScroll() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const { scrollTop } = textarea;
+    if (lineNumbersRef.current) lineNumbersRef.current.scrollTop = scrollTop;
+    if (highlightsRef.current) highlightsRef.current.scrollTop = scrollTop;
+  }
   const blockCount = Object.keys(model.blocks || {}).length;
 
   async function copyDSL() {
@@ -67,24 +122,74 @@ export function EditorPanel({
           {/* move copy text button here */}
           <button
             onClick={onSave}
-            className={`flex items-center gap-1.5 text-xs font-jp px-3 py-2 border rounded-sm transition ${
-              hasUnsavedChanges
+            className={`flex items-center gap-1.5 text-xs font-jp px-3 py-2 border rounded-sm transition ${hasUnsavedChanges
                 ? "border-amber-500 text-amber-300 bg-amber-950/40 hover:bg-amber-900/40"
                 : "border-stone-700 text-stone-300 hover:bg-stone-800"
-            }`}
+              }`}
           >
             <Save size={14} /> {hasUnsavedChanges ? "保存*" : "保存"}
           </button>
         </div>
       </div>
 
-      <textarea
-        value={src}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-        className="flex-1 w-full p-4 bg-transparent text-stone-100 font-mono text-sm leading-relaxed outline-none resize-none"
-        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-      />
+      <div className="flex flex-1 min-h-0">
+        <div
+          ref={lineNumbersRef}
+          className="shrink-0 overflow-hidden py-4 pl-2 pr-4 select-none border-r border-stone-700/40"
+          aria-hidden
+        >
+          <div
+            className="font-mono text-sm leading-relaxed text-stone-500 text-right tabular-nums"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            {lineNumbers.map((n) => (
+              <div
+                key={n}
+                className={
+                  errorLines.has(n)
+                    ? "text-red-400 bg-red-950/50 -mx-2 px-2 rounded-sm"
+                    : undefined
+                }
+              >
+                {n}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="relative flex-1 min-w-0 min-h-0">
+          <div
+            ref={highlightsRef}
+            className="absolute inset-0 overflow-hidden pointer-events-none"
+            aria-hidden
+          >
+            <div
+              className="py-4 pl-4 pr-2 font-mono text-sm leading-relaxed"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              {lineNumbers.map((n) => (
+                <div
+                  key={n}
+                  className={
+                    errorLines.has(n) ? "bg-red-950/45 rounded-sm" : undefined
+                  }
+                >
+                  {"\u00a0"}
+                </div>
+              ))}
+            </div>
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={src}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleEditorKeyDown}
+            onScroll={syncEditorScroll}
+            spellCheck={false}
+            className="relative z-10 w-full h-full py-4 pl-4 pr-2 bg-transparent text-stone-100 font-mono text-sm leading-relaxed outline-none resize-none"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          />
+        </div>
+      </div>
 
       {model.errors.length > 0 && (
         <div className="border-t border-red-900/50 bg-red-950/30 p-3 max-h-48 overflow-auto shrink-0">
