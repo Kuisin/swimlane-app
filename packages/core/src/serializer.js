@@ -81,48 +81,101 @@ function isFirstBranchCaseRow(rows, caseIndex) {
   return true;
 }
 
+const INDENT = "  ";
+
+function indent(depth, line) {
+  return INDENT.repeat(Math.max(0, depth ?? 0)) + line;
+}
+
+function pushBlankLine(out) {
+  if (out.length > 0 && out[out.length - 1] !== "") {
+    out.push("");
+  }
+}
+
+function serializeStepLines(out, row, depth) {
+  if (row.empty) {
+    out.push(indent(depth, ":"));
+    return;
+  }
+  const blockSuffix = row.blockRef ? ` <${row.blockRef}>` : "";
+  out.push(indent(depth, `[${row.role}: ${row.text}]${blockSuffix}`));
+  if (row.name) out.push(indent(depth, `label: ${row.name};`));
+  if (row.description) out.push(indent(depth, `desc: ${row.description};`));
+  if (row.skipIndex) out.push(indent(depth, "skip;"));
+  if (row.props?.length) {
+    out.push(indent(depth, `props: ${row.props.join(",")};`));
+  }
+}
+
 function serializeLineRows(rows) {
   const out = [];
+  let prevKind = null;
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    const depth = row.depth ?? 0;
+
     if (row.kind === "branchStart") {
+      if (
+        prevKind === "branchEnd" ||
+        (prevKind === "step" && depth === 0)
+      ) {
+        pushBlankLine(out);
+      }
       const color = serializeBranchColor(row.branchColor);
       const firstCase = firstBranchCaseLabel(rows, i);
-      out.push(`if (${row.cond}) is (${firstCase}) than${color}`);
+      out.push(indent(depth, `if (${row.cond}) is (${firstCase}) than${color}`));
+      prevKind = "branchStart";
       continue;
     }
+
     if (row.kind === "branchCase") {
-      if (isFirstBranchCaseRow(rows, i)) continue;
-      const label = (row.label || "").trim();
-      if (/^else$/i.test(label)) {
-        out.push("else");
-      } else {
-        const color = serializeBranchColor(row.branchColor);
-        out.push(`elseif (${label}) than${color}`);
-      }
-      continue;
-    }
-    if (row.kind === "branchEnd") {
-      out.push("endif");
-      continue;
-    }
-    if (row.kind === "branchLoop") {
-      out.push("[loop]");
-      continue;
-    }
-    if (row.kind === "step") {
-      if (row.empty) {
-        out.push(":");
+      if (isFirstBranchCaseRow(rows, i)) {
+        prevKind = "branchCase";
         continue;
       }
-      const blockSuffix = row.blockRef ? ` <${row.blockRef}>` : "";
-      out.push(`[${row.role}: ${row.text}]${blockSuffix}`);
-      if (row.name) out.push(`label: ${row.name};`);
-      if (row.description) out.push(`desc: ${row.description};`);
-      if (row.skipIndex) out.push("skip;");
-      if (row.props?.length) out.push(`props: ${row.props.join(",")};`);
+      pushBlankLine(out);
+      const label = (row.label || "").trim();
+      if (/^else$/i.test(label)) {
+        out.push(indent(depth, "else"));
+      } else {
+        const color = serializeBranchColor(row.branchColor);
+        out.push(indent(depth, `elseif (${label}) than${color}`));
+      }
+      prevKind = "branchCase";
+      continue;
+    }
+
+    if (row.kind === "branchEnd") {
+      out.push(indent(depth, "endif"));
+      prevKind = "branchEnd";
+      const next = rows[i + 1];
+      if (
+        next &&
+        (next.kind === "branchStart" ||
+          (next.kind === "step" && !next.empty && (next.depth ?? 0) <= depth))
+      ) {
+        pushBlankLine(out);
+      }
+      continue;
+    }
+
+    if (row.kind === "branchLoop") {
+      out.push(indent(depth, "[loop]"));
+      prevKind = "branchLoop";
+      continue;
+    }
+
+    if (row.kind === "step") {
+      if (depth === 0 && prevKind === "step" && !row.empty) {
+        pushBlankLine(out);
+      }
+      serializeStepLines(out, row, depth);
+      prevKind = "step";
     }
   }
+
   return out;
 }
 
