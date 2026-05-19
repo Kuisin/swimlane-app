@@ -103,6 +103,20 @@ export function RolesTemplatePanel({ registerGuardUnsaved }) {
     );
   }
 
+  function reorderLane(lane, direction) {
+    updateActiveDocumentSrc(
+      applyModelEdit(src, (draft) => {
+        const idx = draft.lanes.findIndex((l) => l.id === lane.id);
+        if (idx < 0) return;
+        const target = direction === "up" ? idx - 1 : idx + 1;
+        if (target < 0 || target >= draft.lanes.length) return;
+        const next = [...draft.lanes];
+        [next[idx], next[target]] = [next[target], next[idx]];
+        draft.lanes = next;
+      })
+    );
+  }
+
   return (
     <TemplateListPanel
       defaultItems={[...defaults.roles, ...defaults.sets.map((s) => ({ ...s, isSet: true }))]}
@@ -110,6 +124,8 @@ export function RolesTemplatePanel({ registerGuardUnsaved }) {
       onAddDoc={addLane}
       addDocLabel="役割を追加"
       guardUnsaved={guardUnsaved}
+      onReorderDocItem={reorderLane}
+      docReorderHint="上＝左のレーン、下＝右のレーン（↑↓で並べ替え）"
       renderListItem={(item, tab) =>
         tab === "default" ? (
           <span className="font-jp truncate">
