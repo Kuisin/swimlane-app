@@ -5,8 +5,11 @@ import HELP_MD from "../help.md?raw";
 import TEMPLATE_MD from "../template.md?raw";
 import DEFAULT_TAB_TEMPLATE from "../default-tab-template.txt?raw";
 import { parseDSL, THEMES } from "@kai-swimlane/core";
-
-const STORAGE_KEY = "swimlane-editor-state-v1";
+import {
+  STORAGE_KEY,
+  parseStoredEditorState,
+  applyStoredEditorState,
+} from "../lib/editor-storage";
 
 function createDocument(id, name, src) {
   return { id, name, src, savedSrc: src };
@@ -35,57 +38,43 @@ export function EditorProvider({ children }) {
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time localStorage hydrate
-      setIsHydrated(true);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.documents) && parsed.documents.length > 0) {
-        const restoredDocuments = parsed.documents.map((doc, index) => ({
-          id: doc.id || `doc-${index + 1}`,
-          name: doc.name || `Document ${index + 1}`,
-          src: typeof doc.src === "string" ? doc.src : "",
-          savedSrc:
-            typeof doc.savedSrc === "string"
-              ? doc.savedSrc
-              : typeof doc.src === "string"
-                ? doc.src
-                : "",
-        }));
-        setDocuments(restoredDocuments);
-        const restoredIds = restoredDocuments.map((document) => document.id);
-        const restoredOpenIds =
-          Array.isArray(parsed.openDocumentIds) && parsed.openDocumentIds.length > 0
-            ? parsed.openDocumentIds.filter((id) => restoredIds.includes(id))
-            : restoredIds;
-        const normalizedOpenIds =
-          restoredOpenIds.length > 0 ? restoredOpenIds : [restoredDocuments[0].id];
-
-        setOpenDocumentIds(normalizedOpenIds);
-        setActiveDocumentId(
-          normalizedOpenIds.includes(parsed.activeDocumentId)
-            ? parsed.activeDocumentId
-            : normalizedOpenIds[0]
-        );
-      }
-      if (typeof parsed.themeKey === "string" && THEMES[parsed.themeKey]) {
-        setThemeKey(parsed.themeKey);
-      }
-      if (typeof parsed.showStepBlockCaptions === "boolean") {
-        setShowStepBlockCaptions(parsed.showStepBlockCaptions);
-      }
-      if (typeof parsed.mergeAtPreviousBlock === "boolean") {
-        setMergeAtPreviousBlock(parsed.mergeAtPreviousBlock);
-      }
-    } catch {
+    const parsed = parseStoredEditorState(raw);
+    if (parsed) {
+      applyStoredEditorState(parsed, {
+        setDocuments,
+        setOpenDocumentIds,
+        setActiveDocumentId,
+        setThemeKey,
+        setShowStepBlockCaptions,
+        setMergeAtPreviousBlock,
+      });
+    } else if (raw) {
       localStorage.removeItem(STORAGE_KEY);
-    } finally {
-      setIsHydrated(true);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time localStorage hydrate
+    setIsHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    function handleStorage(event) {
+      if (event.key !== STORAGE_KEY || !event.newValue) return;
+      const parsed = parseStoredEditorState(event.newValue);
+      if (!parsed) return;
+      applyStoredEditorState(parsed, {
+        setDocuments,
+        setOpenDocumentIds,
+        setActiveDocumentId,
+        setThemeKey,
+        setShowStepBlockCaptions,
+        setMergeAtPreviousBlock,
+      });
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [isHydrated]);
 
   const openDocuments = openDocumentIds
     .map((id) => documents.find((document) => document.id === id))

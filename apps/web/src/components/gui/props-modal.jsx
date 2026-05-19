@@ -1,4 +1,4 @@
-import { GuiSideModal } from "./gui-side-modal";
+import { useEffect } from "react";
 import { PropPartsPreview } from "./template-preview";
 import { TemplateListPanel } from "./template-list-panel";
 import { DraftTemplateForm } from "./draft-template-form";
@@ -17,24 +17,17 @@ import {
 } from "../../lib/template-catalog";
 import { applyModelEdit } from "../../lib/gui-model";
 import { useUnsavedGuard } from "../../hooks/use-unsaved-guard";
+import { useEditor } from "../../hooks/use-editor";
 
-export function PropsModal({
-  open,
-  onClose,
-  templateMd,
-  model,
-  themeKey,
-  src,
-  onUpdateSrc,
-}) {
+export function PropsTemplatePanel({ registerGuardUnsaved }) {
+  const { templateMd, model, themeKey, src, updateActiveDocumentSrc } = useEditor();
   const defaults = getDefaultTemplates(templateMd);
   const inDoc = getInDocTemplates(model);
   const { onDirtyChange, guardUnsaved } = useUnsavedGuard();
 
-  function handleClose() {
-    if (!guardUnsaved()) return;
-    onClose();
-  }
+  useEffect(() => {
+    registerGuardUnsaved?.(guardUnsaved);
+  }, [guardUnsaved, registerGuardUnsaved]);
 
   function insertDefault(item) {
     const idMatch = item.code?.match(/<([^>]+)>/);
@@ -42,13 +35,13 @@ export function PropsModal({
     if (id && model.props[id] && !window.confirm(`プロップ ${id} を上書きしますか？`)) {
       return;
     }
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (draft) => mergeBlockProp(draft, item))
     );
   }
 
   function saveProp(draft) {
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (m) => {
         m.props[draft.id] = { ...draft };
       })
@@ -58,7 +51,7 @@ export function PropsModal({
   function deleteProp(propId) {
     if (isPropReferenced(model, propId)) return;
     if (!window.confirm("このプロップを削除しますか？")) return;
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (draft) => {
         delete draft.props[propId];
       })
@@ -67,7 +60,7 @@ export function PropsModal({
 
   function addProp() {
     const id = `PROP_${Date.now()}`;
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (draft) => {
         draft.props[id] = { id, label: id, side: "right" };
       })
@@ -75,59 +68,57 @@ export function PropsModal({
   }
 
   return (
-    <GuiSideModal title="プロップ" open={open} onClose={handleClose}>
-      <TemplateListPanel
-        defaultItems={defaults.props}
-        docItems={inDoc.props}
-        onAddDoc={addProp}
-        addDocLabel="プロップを追加"
-        guardUnsaved={guardUnsaved}
-        renderListItem={(item, tab) =>
-          tab === "default" ? (
-            <span className="truncate font-jp">{item.title}</span>
-          ) : (
-            <span className="font-jp text-[11px] truncate">
-              {item.label || item.id}
-              <span className="text-stone-400 text-[10px]">
-                {" "}
-                · {item.side === "left" ? "左" : "右"}
-              </span>
+    <TemplateListPanel
+      defaultItems={defaults.props}
+      docItems={inDoc.props}
+      onAddDoc={addProp}
+      addDocLabel="プロップを追加"
+      guardUnsaved={guardUnsaved}
+      renderListItem={(item, tab) =>
+        tab === "default" ? (
+          <span className="truncate font-jp">{item.title}</span>
+        ) : (
+          <span className="font-jp text-[11px] truncate">
+            {item.label || item.id}
+            <span className="text-stone-400 text-[10px]">
+              {" "}
+              · {item.side === "left" ? "左" : "右"}
             </span>
-          )
-        }
-        renderDetail={(item, tab) =>
-          tab === "default" ? (
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold font-jp">{item.title}</h3>
-              <PropPartsPreview code={item.code} themeKey={themeKey} />
-              <pre className="text-[10px] font-mono bg-stone-900 text-stone-100 p-3 rounded overflow-auto max-h-40">
-                {item.code}
-              </pre>
-              <button
-                type="button"
-                onClick={() => insertDefault(item)}
-                className="text-xs font-jp px-3 py-1.5 border border-stone-300 rounded hover:bg-stone-100"
-              >
-                挿入
-              </button>
-            </div>
-          ) : (
-            <DraftTemplateForm
-              key={item.id}
-              item={item}
-              referenced={isPropReferenced(model, item.id)}
-              onDirtyChange={onDirtyChange}
-              onSave={saveProp}
-              onDelete={() => deleteProp(item.id)}
+          </span>
+        )
+      }
+      renderDetail={(item, tab) =>
+        tab === "default" ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold font-jp">{item.title}</h3>
+            <PropPartsPreview code={item.code} themeKey={themeKey} />
+            <pre className="text-[10px] font-mono bg-stone-900 text-stone-100 p-3 rounded overflow-auto max-h-40">
+              {item.code}
+            </pre>
+            <button
+              type="button"
+              onClick={() => insertDefault(item)}
+              className="text-xs font-jp px-3 py-1.5 border border-stone-300 rounded hover:bg-stone-100"
             >
-              {({ draft, patch }) => (
-                <PropForm prop={draft} themeKey={themeKey} onPatch={patch} />
-              )}
-            </DraftTemplateForm>
-          )
-        }
-      />
-    </GuiSideModal>
+              挿入
+            </button>
+          </div>
+        ) : (
+          <DraftTemplateForm
+            key={item.id}
+            item={item}
+            referenced={isPropReferenced(model, item.id)}
+            onDirtyChange={onDirtyChange}
+            onSave={saveProp}
+            onDelete={() => deleteProp(item.id)}
+          >
+            {({ draft, patch }) => (
+              <PropForm prop={draft} themeKey={themeKey} onPatch={patch} />
+            )}
+          </DraftTemplateForm>
+        )
+      }
+    />
   );
 }
 

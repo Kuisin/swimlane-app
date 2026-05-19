@@ -5,6 +5,7 @@ import "./index.css";
 import { EditorProvider } from "./context/editor-context";
 import { EditorPage } from "./pages/editor-page";
 import { GuiPage } from "./pages/gui-page";
+import { TemplatePopupPage } from "./pages/template-popup-page";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")).render(
         <Routes>
           <Route path="/" element={<EditorPage />} />
           <Route path="/gui" element={<GuiPage />} />
+          <Route path="/gui/templates/:kind" element={<TemplatePopupPage />} />
         </Routes>
       </EditorProvider>
     </BrowserRouter>

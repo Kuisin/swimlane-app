@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Diagram } from "@kai-swimlane/core";
 import { Toolbar } from "../components/toolbar";
 import { DocumentTabs } from "../components/document-tabs";
@@ -10,9 +10,7 @@ import { TitleField } from "../components/gui/title-field";
 import { FlowStepList } from "../components/gui/flow-step-list";
 import { StepInspector } from "../components/gui/step-inspector";
 import { BranchInspector } from "../components/gui/branch-inspector";
-import { RolesModal } from "../components/gui/roles-modal";
-import { BlocksModal } from "../components/gui/blocks-modal";
-import { PropsModal } from "../components/gui/props-modal";
+import { openTemplatePopup } from "../lib/open-template-popup";
 
 export function GuiPage() {
   const editor = useEditor();
@@ -36,18 +34,16 @@ export function GuiPage() {
     model,
     hasUnsavedChanges,
     updateActiveDocumentSrc,
-    replaceActiveDocumentSrc,
     saveDocuments,
     addDocumentTab,
     closeDocumentTab,
     deleteDocumentFromStorage,
     documents,
     helpMd,
-    templateMd,
   } = editor;
 
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
-  const [modal, setModal] = useState(null);
+  const templatePopupRefs = useRef({});
 
   const selectedRow =
     selectedRowIndex != null ? model.rows[selectedRowIndex] : null;
@@ -74,19 +70,6 @@ export function GuiPage() {
     });
   }
 
-  function handleReplaceDocument(code) {
-    if (
-      !window.confirm(
-        "現在のドキュメントをテンプレートで置き換えます。よろしいですか？"
-      )
-    ) {
-      return;
-    }
-    replaceActiveDocumentSrc(code);
-    setModal(null);
-    setSelectedRowIndex(null);
-  }
-
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 flex flex-col">
       <style>{`
@@ -109,21 +92,21 @@ export function GuiPage() {
           <>
             <button
               type="button"
-              onClick={() => setModal("roles")}
+              onClick={() => openTemplatePopup("roles", templatePopupRefs)}
               className="text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200"
             >
               役割
             </button>
             <button
               type="button"
-              onClick={() => setModal("blocks")}
+              onClick={() => openTemplatePopup("blocks", templatePopupRefs)}
               className="text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200"
             >
               ブロック
             </button>
             <button
               type="button"
-              onClick={() => setModal("props")}
+              onClick={() => openTemplatePopup("props", templatePopupRefs)}
               className="text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200"
             >
               プロップ
@@ -208,35 +191,6 @@ export function GuiPage() {
           )}
         </div>
       </div>
-
-      <RolesModal
-        open={modal === "roles"}
-        onClose={() => setModal(null)}
-        templateMd={templateMd}
-        model={model}
-        themeKey={themeKey}
-        src={src}
-        onUpdateSrc={updateActiveDocumentSrc}
-        onReplaceDocument={handleReplaceDocument}
-      />
-      <BlocksModal
-        open={modal === "blocks"}
-        onClose={() => setModal(null)}
-        templateMd={templateMd}
-        model={model}
-        themeKey={themeKey}
-        src={src}
-        onUpdateSrc={updateActiveDocumentSrc}
-      />
-      <PropsModal
-        open={modal === "props"}
-        onClose={() => setModal(null)}
-        templateMd={templateMd}
-        model={model}
-        themeKey={themeKey}
-        src={src}
-        onUpdateSrc={updateActiveDocumentSrc}
-      />
 
       {showHelp && (
         <HelpModal

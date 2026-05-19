@@ -1,4 +1,4 @@
-import { GuiSideModal } from "./gui-side-modal";
+import { useEffect } from "react";
 import { BlockPartsPreview } from "./template-preview";
 import { TemplateListPanel } from "./template-list-panel";
 import { DraftTemplateForm } from "./draft-template-form";
@@ -17,24 +17,17 @@ import {
 } from "../../lib/template-catalog";
 import { applyModelEdit } from "../../lib/gui-model";
 import { useUnsavedGuard } from "../../hooks/use-unsaved-guard";
+import { useEditor } from "../../hooks/use-editor";
 
-export function BlocksModal({
-  open,
-  onClose,
-  templateMd,
-  model,
-  themeKey,
-  src,
-  onUpdateSrc,
-}) {
+export function BlocksTemplatePanel({ registerGuardUnsaved }) {
+  const { templateMd, model, themeKey, src, updateActiveDocumentSrc } = useEditor();
   const defaults = getDefaultTemplates(templateMd);
   const inDoc = getInDocTemplates(model);
   const { onDirtyChange, guardUnsaved } = useUnsavedGuard();
 
-  function handleClose() {
-    if (!guardUnsaved()) return;
-    onClose();
-  }
+  useEffect(() => {
+    registerGuardUnsaved?.(guardUnsaved);
+  }, [guardUnsaved, registerGuardUnsaved]);
 
   function insertDefault(item) {
     const idMatch = item.code?.match(/<([^>]+)>/);
@@ -42,13 +35,13 @@ export function BlocksModal({
     if (id && model.blocks[id] && !window.confirm(`ブロック ${id} を上書きしますか？`)) {
       return;
     }
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (draft) => mergeBlockProp(draft, item))
     );
   }
 
   function saveBlock(draft) {
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (m) => {
         m.blocks[draft.id] = { ...draft };
       })
@@ -58,7 +51,7 @@ export function BlocksModal({
   function deleteBlock(blockId) {
     if (isBlockReferenced(model, blockId)) return;
     if (!window.confirm("このブロックを削除しますか？")) return;
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (draft) => {
         delete draft.blocks[blockId];
       })
@@ -67,7 +60,7 @@ export function BlocksModal({
 
   function addBlock() {
     const id = `block_${Date.now()}`;
-    onUpdateSrc(
+    updateActiveDocumentSrc(
       applyModelEdit(src, (draft) => {
         draft.blocks[id] = {
           id,
@@ -82,59 +75,57 @@ export function BlocksModal({
   }
 
   return (
-    <GuiSideModal title="ブロック" open={open} onClose={handleClose}>
-      <TemplateListPanel
-        defaultItems={defaults.blocks}
-        docItems={inDoc.blocks}
-        onAddDoc={addBlock}
-        addDocLabel="ブロックを追加"
-        guardUnsaved={guardUnsaved}
-        renderListItem={(item, tab) =>
-          tab === "default" ? (
-            <span className="truncate font-jp">{item.title}</span>
-          ) : (
-            <span className="flex items-center gap-1.5 truncate font-jp text-[11px]">
-              <span
-                className="w-2.5 h-2.5 rounded-sm shrink-0 border border-stone-300"
-                style={{ background: item.bg || "#ccc" }}
-              />
-              <span className="truncate">{item.label || item.id}</span>
-            </span>
-          )
-        }
-        renderDetail={(item, tab) =>
-          tab === "default" ? (
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold font-jp">{item.title}</h3>
-              <BlockPartsPreview code={item.code} themeKey={themeKey} />
-              <pre className="text-[10px] font-mono bg-stone-900 text-stone-100 p-3 rounded overflow-auto max-h-40">
-                {item.code}
-              </pre>
-              <button
-                type="button"
-                onClick={() => insertDefault(item)}
-                className="text-xs font-jp px-3 py-1.5 border border-stone-300 rounded hover:bg-stone-100"
-              >
-                挿入
-              </button>
-            </div>
-          ) : (
-            <DraftTemplateForm
-              key={item.id}
-              item={item}
-              referenced={isBlockReferenced(model, item.id)}
-              onDirtyChange={onDirtyChange}
-              onSave={saveBlock}
-              onDelete={() => deleteBlock(item.id)}
+    <TemplateListPanel
+      defaultItems={defaults.blocks}
+      docItems={inDoc.blocks}
+      onAddDoc={addBlock}
+      addDocLabel="ブロックを追加"
+      guardUnsaved={guardUnsaved}
+      renderListItem={(item, tab) =>
+        tab === "default" ? (
+          <span className="truncate font-jp">{item.title}</span>
+        ) : (
+          <span className="flex items-center gap-1.5 truncate font-jp text-[11px]">
+            <span
+              className="w-2.5 h-2.5 rounded-sm shrink-0 border border-stone-300"
+              style={{ background: item.bg || "#ccc" }}
+            />
+            <span className="truncate">{item.label || item.id}</span>
+          </span>
+        )
+      }
+      renderDetail={(item, tab) =>
+        tab === "default" ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold font-jp">{item.title}</h3>
+            <BlockPartsPreview code={item.code} themeKey={themeKey} />
+            <pre className="text-[10px] font-mono bg-stone-900 text-stone-100 p-3 rounded overflow-auto max-h-40">
+              {item.code}
+            </pre>
+            <button
+              type="button"
+              onClick={() => insertDefault(item)}
+              className="text-xs font-jp px-3 py-1.5 border border-stone-300 rounded hover:bg-stone-100"
             >
-              {({ draft, patch }) => (
-                <BlockForm block={draft} themeKey={themeKey} onPatch={patch} />
-              )}
-            </DraftTemplateForm>
-          )
-        }
-      />
-    </GuiSideModal>
+              挿入
+            </button>
+          </div>
+        ) : (
+          <DraftTemplateForm
+            key={item.id}
+            item={item}
+            referenced={isBlockReferenced(model, item.id)}
+            onDirtyChange={onDirtyChange}
+            onSave={saveBlock}
+            onDelete={() => deleteBlock(item.id)}
+          >
+            {({ draft, patch }) => (
+              <BlockForm block={draft} themeKey={themeKey} onPatch={patch} />
+            )}
+          </DraftTemplateForm>
+        )
+      }
+    />
   );
 }
 
