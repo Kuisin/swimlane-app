@@ -472,6 +472,139 @@ export function findAdjacentCaseIndex(rows, rowIndex, direction) {
   return ranges[movable[pos + 1]].caseStart;
 }
 
+function getMovableUnitRange(rows, index) {
+  const row = rows[index];
+  if (!row) return null;
+  if (isReorderableStep(row)) {
+    return { kind: "step", start: index, end: index };
+  }
+  if (row.kind === "branchCase" && !isElseBranchCase(row)) {
+    const branchStart = findEnclosingBranchStart(rows, index);
+    if (branchStart < 0) return null;
+    const ranges = getCaseBlockRanges(rows, branchStart);
+    const block = ranges.find((r) => r.caseStart === index);
+    if (!block) return null;
+    return { kind: "case", start: block.caseStart, end: block.caseEnd };
+  }
+  if (row.kind === "branchStart") {
+    const endIdx = findBranchEndIndex(rows, index);
+    if (endIdx < 0) return null;
+    return { kind: "branch", start: index, end: endIdx };
+  }
+  return null;
+}
+
+function isNoOpInsert(unit, insertBefore) {
+  return insertBefore === unit.start || insertBefore === unit.end + 1;
+}
+
+function moveTargetLabel(rows, insertBefore, lanes) {
+  const row = rows[insertBefore];
+  if (!row) return "先頭";
+  return `${rowSummaryText(row, lanes)} の前`;
+}
+
+/** Valid insertion points for moving a step, case block, or whole if block. */
+export function getMoveToTargets(rows, fromIndex, lanes) {
+  const unit = getMovableUnitRange(rows, fromIndex);
+  if (!unit) return [];
+  const options = [];
+
+  if (unit.kind === "step") {
+    const { frameStart, frameEnd } = getStepReorderFrame(rows, fromIndex);
+    const stepIndices = [];
+    for (let i = frameStart; i <= frameEnd; i++) {
+      if (isReorderableStep(rows[i])) stepIndices.push(i);
+    }
+    for (const idx of stepIndices) {
+      if (!isNoOpInsert(unit, idx)) {
+        options.push({
+          insertBefore: idx,
+          label: moveTargetLabel(rows, idx, lanes),
+        });
+      }
+    }
+    if (stepIndices.length > 0) {
+      const endInsert = stepIndices[stepIndices.length - 1] + 1;
+      if (!isNoOpInsert(unit, endInsert)) {
+        options.push({
+          insertBefore: endInsert,
+          label: "この分岐内の末尾",
+        });
+      }
+    }
+    return options;
+  }
+
+  if (unit.kind === "case") {
+    const branchStart = findEnclosingBranchStart(rows, fromIndex);
+    const ranges = getCaseBlockRanges(rows, branchStart);
+    for (const r of ranges) {
+      if (r.caseStart === unit.start) continue;
+      if (!isNoOpInsert(unit, r.caseStart)) {
+        options.push({
+          insertBefore: r.caseStart,
+          label: moveTargetLabel(rows, r.caseStart, lanes),
+        });
+      }
+    }
+    return options;
+  }
+
+  const { frameStart, frameEnd } = getBranchReorderFrame(rows, fromIndex);
+  const units = collectFrameUnits(rows, frameStart, frameEnd);
+  for (const u of units) {
+    if (u.kind === "branch" && u.start === unit.start) continue;
+    if (!isNoOpInsert(unit, u.start)) {
+      options.push({
+        insertBefore: u.start,
+        label: moveTargetLabel(rows, u.start, lanes),
+      });
+    }
+  }
+  if (units.length > 0) {
+    const last = units[units.length - 1];
+    const endInsert = last.end + 1;
+    if (!isNoOpInsert(unit, endInsert)) {
+      options.push({
+        insertBefore: endInsert,
+        label: "この範囲の末尾",
+      });
+    }
+  }
+  return options;
+}
+
+/** Move a step, case block, or whole if block to insertBefore (splice, not swap). */
+export function moveUnitToInsertBefore(rows, fromIndex, insertBefore) {
+  const unit = getMovableUnitRange(rows, fromIndex);
+  if (!unit || isNoOpInsert(unit, insertBefore)) return rows;
+  const slice = rows.slice(unit.start, unit.end + 1);
+  const without = [
+    ...rows.slice(0, unit.start),
+    ...rows.slice(unit.end + 1),
+  ];
+  const adjusted =
+    insertBefore > unit.start
+      ? insertBefore - (unit.end - unit.start + 1)
+      : insertBefore;
+  return normalizeBranchRows([
+    ...without.slice(0, adjusted),
+    ...slice,
+    ...without.slice(adjusted),
+  ]);
+}
+
+/** Row index after moveUnitToInsertBefore (for selection highlight). */
+export function resolveMovedIndex(rows, fromIndex, insertBefore) {
+  const unit = getMovableUnitRange(rows, fromIndex);
+  if (!unit) return fromIndex;
+  if (insertBefore > unit.start) {
+    return insertBefore - (unit.end - unit.start + 1);
+  }
+  return insertBefore;
+}
+
 /** Nearest step row above/below index within the same branch frame. */
 export function findAdjacentStepIndex(rows, rowIndex, direction) {
   const row = rows[rowIndex];

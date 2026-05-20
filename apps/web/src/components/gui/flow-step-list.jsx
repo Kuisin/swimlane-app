@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, CornerLeftUp, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowRightLeft, ChevronDown, ChevronUp, CornerLeftUp, Trash2 } from "lucide-react";
 import {
   branchBodyDepthAt,
   branchCaseDepthAt,
@@ -10,10 +11,13 @@ import {
   findAdjacentCaseIndex,
   findAdjacentStepIndex,
   findBranchEndIndex,
+  getMoveToTargets,
   getReorderBounds,
   isInsideOpenBranch,
   moveBranchOutOfNest,
+  moveUnitToInsertBefore,
   nextBranchId,
+  resolveMovedIndex,
   rowBadgeLabel,
   rowKindBadgeClass,
   rowListIndentDepth,
@@ -22,6 +26,7 @@ import {
   swapCaseBlocks,
   swapStepRows,
 } from "../../lib/flow-rows";
+import { MoveRowModal } from "./move-row-modal";
 
 export function FlowStepList({
   rows,
@@ -31,6 +36,7 @@ export function FlowStepList({
   lanes,
 }) {
   const defaultRole = lanes[0]?.id || "role_applicant";
+  const [moveFromIndex, setMoveFromIndex] = useState(null);
 
   function insertAt(index, newRows) {
     onEditRows((draft) => {
@@ -196,6 +202,15 @@ export function FlowStepList({
     onSelectRow(target);
   }
 
+  function handleMoveTo(fromIndex, insertBefore) {
+    const newIndex = resolveMovedIndex(rows, fromIndex, insertBefore);
+    onEditRows((draft) => {
+      draft.rows = moveUnitToInsertBefore(draft.rows, fromIndex, insertBefore);
+    });
+    onSelectRow(newIndex);
+    setMoveFromIndex(null);
+  }
+
   function handleOutdent(index) {
     if (!canOutdentBranch(rows, index)) return;
     const endIdx = findBranchEndIndex(rows, index);
@@ -254,6 +269,8 @@ export function FlowStepList({
           const showReorder =
             isStep || isMovableBranchCase || isMovableBranchStart;
           const { canUp, canDown } = getReorderBounds(rows, i);
+          const canMoveTo =
+            showReorder && getMoveToTargets(rows, i, lanes).length > 0;
           const canOutdent = isMovableBranchStart && canOutdentBranch(rows, i);
           const summary = rowSummaryText(row, lanes);
 
@@ -307,6 +324,20 @@ export function FlowStepList({
                 <span className="text-stone-100 leading-snug line-clamp-2">
                   {summary}
                 </span>
+                {canMoveTo && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMoveFromIndex(i);
+                    }}
+                    className="shrink-0 ml-2 p-0.5 text-stone-400 hover:text-stone-100"
+                    aria-label="移動先を選ぶ"
+                    title="移動先を選ぶ"
+                  >
+                    <ArrowRightLeft size={14} />
+                  </button>
+                )}
                 {canOutdent && (
                   <button
                     type="button"
@@ -335,6 +366,14 @@ export function FlowStepList({
           );
         })}
       </ul>
+      <MoveRowModal
+        open={moveFromIndex != null}
+        fromIndex={moveFromIndex}
+        rows={rows}
+        lanes={lanes}
+        onClose={() => setMoveFromIndex(null)}
+        onPick={(insertBefore) => handleMoveTo(moveFromIndex, insertBefore)}
+      />
     </div>
   );
 }
