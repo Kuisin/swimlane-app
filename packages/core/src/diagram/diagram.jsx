@@ -1,5 +1,9 @@
 import { truncate, wrapDescriptionToVisualLines } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
+import {
+  findNextFlowStepAfterBranchEnd,
+  findNextSiblingBranchStart,
+} from "../branch-rows.js";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
 
@@ -1768,97 +1772,6 @@ export function Diagram({
         </>
       )}
 
-      {/* Connect outer flow: previous step -> decision, merge -> next step */}
-      {frames.map((f) => {
-        const startIdx = rows.findIndex(
-          (r) => r.kind === "branchStart" && r.id === f.id
-        );
-        let prevStepIdx = -1;
-        for (let j = startIdx - 1; j >= 0; j--) {
-          const row = rows[j];
-          if (row.kind === "step" && !row.empty && row.role) {
-            prevStepIdx = j;
-            break;
-          }
-          // Same-frame case header, or parent/sibling case (nested if must not
-          // connect across elseif/else into another branch).
-          if (
-            row.kind === "branchCase" &&
-            (row.id === f.id ||
-              (row.depth != null && row.depth < f.depth))
-          )
-            break;
-          if (row.kind === "branchStart" && row.depth < f.depth) break;
-          if (row.kind === "branchEnd") break;
-        }
-        const endIdx = rows.findIndex(
-          (r) => r.kind === "branchEnd" && r.id === f.id
-        );
-        let nextStepIdx = -1;
-        for (let j = endIdx + 1; j < rows.length; j++) {
-          const row = rows[j];
-          if (row.kind === "step" && !row.empty && row.role) {
-            if (f.depth === 0 || row.depth > f.depth) {
-              nextStepIdx = j;
-              break;
-            }
-            continue;
-          }
-          if (f.depth === 0 && row.kind === "branchStart") break;
-          if (f.depth > 0 && row.depth != null && row.depth <= f.depth) break;
-        }
-
-        const dCx = frameAnchorX(f);
-        const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - 25;
-        const mCx = mergeAnchorX(f);
-        const mBotY = f.yMerge + mergeH / 2 + 14;
-
-        const edges = [];
-        if (prevStepIdx >= 0) {
-          const r = rows[prevStepIdx];
-          const li = laneIndex(r.role);
-          const sx = li >= 0 ? nodeCenterX(prevStepIdx, r.role) : dCx;
-          const sy = stepBlockCenterY(prevStepIdx) + 22;
-          const bend = (sy + dTopY) / 2;
-          const d =
-            sx === dCx
-              ? `M ${sx} ${sy} L ${dCx} ${dTopY}`
-              : `M ${sx} ${sy} L ${sx} ${bend} L ${dCx} ${bend} L ${dCx} ${dTopY}`;
-          edges.push(
-            <path
-              key={`in-${f.id}`}
-              d={d}
-              fill="none"
-              stroke={theme.stroke}
-              strokeWidth="1.6"
-              markerEnd="url(#arrowhead)"
-            />
-          );
-        }
-        if (nextStepIdx >= 0) {
-          const r = rows[nextStepIdx];
-          const li = laneIndex(r.role);
-          const tx = li >= 0 ? nodeCenterX(nextStepIdx, r.role) : mCx;
-          const ty = stepBlockCenterY(nextStepIdx) - 22;
-          const bend = (mBotY + ty) / 2;
-          const d =
-            tx === mCx
-              ? `M ${mCx} ${mBotY} L ${tx} ${ty}`
-              : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${tx} ${bend} L ${tx} ${ty}`;
-          edges.push(
-            <path
-              key={`out-${f.id}`}
-              d={d}
-              fill="none"
-              stroke={theme.stroke}
-              strokeWidth="1.6"
-              markerEnd="url(#arrowhead)"
-            />
-          );
-        }
-        return <g key={`io-${f.id}`}>{edges}</g>;
-      })}
-
       {/* Step nodes: task blocks (plus empty-step dots) */}
       {rows.map((r, i) => {
         const yRow = rowMeta[i]?.y;
@@ -2035,6 +1948,120 @@ export function Diagram({
             </g>
           );
         });
+      })}
+
+      {/* Connect outer flow: previous step -> decision, merge -> next step/if */}
+      {frames.map((f) => {
+        const startIdx = rows.findIndex(
+          (r) => r.kind === "branchStart" && r.id === f.id,
+        );
+        if (startIdx < 0) return null;
+
+        let prevStepIdx = -1;
+        for (let j = startIdx - 1; j >= 0; j--) {
+          const row = rows[j];
+          if (row.kind === "step" && !row.empty && row.role) {
+            prevStepIdx = j;
+            break;
+          }
+          if (
+            row.kind === "branchCase" &&
+            (row.id === f.id ||
+              (row.depth != null && row.depth < f.depth))
+          )
+            break;
+          if (row.kind === "branchStart" && row.depth < f.depth) break;
+          if (row.kind === "branchEnd") break;
+        }
+
+        const endIdx = rows.findIndex(
+          (r) => r.kind === "branchEnd" && r.id === f.id,
+        );
+        if (endIdx < 0) return null;
+
+        const nextStepIdx = findNextFlowStepAfterBranchEnd(
+          rows,
+          startIdx,
+          endIdx,
+        );
+        const nextBranchStartIdx = findNextSiblingBranchStart(
+          rows,
+          startIdx,
+          endIdx,
+        );
+
+        const dCx = frameAnchorX(f);
+        const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - 25;
+        const mCx = mergeAnchorX(f);
+        const mBotY = f.yMerge + mergeH / 2 + 14;
+
+        const edges = [];
+        if (prevStepIdx >= 0) {
+          const r = rows[prevStepIdx];
+          const li = laneIndex(r.role);
+          const sx = li >= 0 ? nodeCenterX(prevStepIdx, r.role) : dCx;
+          const sy = stepBlockCenterY(prevStepIdx) + 22;
+          const bend = (sy + dTopY) / 2;
+          const d =
+            sx === dCx
+              ? `M ${sx} ${sy} L ${dCx} ${dTopY}`
+              : `M ${sx} ${sy} L ${sx} ${bend} L ${dCx} ${bend} L ${dCx} ${dTopY}`;
+          edges.push(
+            <path
+              key={`in-${f.id}`}
+              d={d}
+              fill="none"
+              stroke={theme.stroke}
+              strokeWidth="1.6"
+              markerEnd="url(#arrowhead)"
+            />,
+          );
+        }
+        if (nextStepIdx >= 0) {
+          const r = rows[nextStepIdx];
+          const li = laneIndex(r.role);
+          const tx = li >= 0 ? nodeCenterX(nextStepIdx, r.role) : mCx;
+          const ty = stepBlockCenterY(nextStepIdx) - 22;
+          const bend = (mBotY + ty) / 2;
+          const d =
+            tx === mCx
+              ? `M ${mCx} ${mBotY} L ${tx} ${ty}`
+              : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${tx} ${bend} L ${tx} ${ty}`;
+          edges.push(
+            <path
+              key={`out-${f.id}`}
+              d={d}
+              fill="none"
+              stroke={theme.stroke}
+              strokeWidth="1.6"
+              markerEnd="url(#arrowhead)"
+            />,
+          );
+        } else if (nextBranchStartIdx >= 0) {
+          const nextFrame = frameById.get(rows[nextBranchStartIdx].id);
+          const nextRowY = rowMeta[nextBranchStartIdx]?.y;
+          if (nextFrame && nextRowY != null) {
+            const nextCx = frameAnchorX(nextFrame);
+            const nextTopY =
+              nextRowY + diamondH / 2 + decisionYOffset - 25;
+            const bend = (mBotY + nextTopY) / 2;
+            const d =
+              Math.abs(nextCx - mCx) < 0.5
+                ? `M ${mCx} ${mBotY} L ${nextCx} ${nextTopY}`
+                : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${nextCx} ${bend} L ${nextCx} ${nextTopY}`;
+            edges.push(
+              <path
+                key={`out-if-${f.id}-${rows[nextBranchStartIdx].id}`}
+                d={d}
+                fill="none"
+                stroke={theme.stroke}
+                strokeWidth="1.6"
+                markerEnd="url(#arrowhead)"
+              />,
+            );
+          }
+        }
+        return edges.length > 0 ? <g key={`io-${f.id}`}>{edges}</g> : null;
       })}
 
       {interactive &&

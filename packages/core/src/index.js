@@ -1,3 +1,10 @@
+export {
+  findBranchEndIndex,
+  findEnclosingBranchStart,
+  branchNestLevel,
+  findNextSiblingBranchStart,
+  findNextFlowStepAfterBranchEnd,
+} from "./branch-rows.js";
 export { parseDSL, parseDSLParts, unescapeDslLine, buildStepRowDisplayInfo } from "./parser.js";
 export { serializeDSL } from "./serializer.js";
 export { normalizeFullFenceDSL, normalizePartsFenceDSL } from "./fence.js";

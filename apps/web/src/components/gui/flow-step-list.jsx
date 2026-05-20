@@ -16,6 +16,7 @@ import {
   nextBranchId,
   rowBadgeLabel,
   rowKindBadgeClass,
+  rowListIndentDepth,
   rowSummaryText,
   swapFrameUnits,
   swapCaseBlocks,
@@ -227,12 +228,9 @@ export function FlowStepList({
       <div className="px-2 py-2 border-b border-stone-700/60 flex flex-wrap gap-1">
         <p className="w-full text-[10px] font-jp text-stone-500 mb-1">手順一覧</p>
         <ToolBtn onClick={handleAddStep}>＋ 手順</ToolBtn>
-        <ToolBtn onClick={handleAddIf}>＋ 条件分岐</ToolBtn>
+        <ToolBtn onClick={handleAddIf}>＋ 条件</ToolBtn>
         <ToolBtn onClick={handleAddElseIf} disabled={!canBranch}>
-          ＋ 分岐を追加
-        </ToolBtn>
-        <ToolBtn onClick={handleAddElse} disabled={!canBranch}>
-          ＋ その他
+          ＋ 分岐
         </ToolBtn>
         <ToolBtn onClick={handleAddLoop} disabled={!canLoop}>
           ＋ ループ
@@ -247,7 +245,7 @@ export function FlowStepList({
         {rows.map((row, i) => {
           const badge = rowBadgeLabel(row);
           const isSelected = selectedRowIndex === i;
-          const depth = row.depth ?? 0;
+          const depth = rowListIndentDepth(rows, i);
           const isStep = row.kind === "step" && !row.empty;
           const isMovableBranchCase =
             row.kind === "branchCase" &&
@@ -262,27 +260,12 @@ export function FlowStepList({
           return (
             <li
               key={`row-${i}`}
-              className={`flex items-center gap-1 border-b border-stone-800/80 ${
-                isSelected ? "bg-stone-700" : "hover:bg-stone-800/60"
-              }`}
+              className={`flex items-center gap-1 border-b border-stone-800/80 ${isSelected ? "bg-stone-700" : "hover:bg-stone-800/60"
+                }`}
               style={{ paddingLeft: `${8 + depth * 14}px` }}
             >
               {showReorder && (
                 <span className="flex flex-col shrink-0">
-                  {canOutdent && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOutdent(i);
-                      }}
-                      className="p-0.5 text-stone-400 hover:text-stone-100"
-                      aria-label="ネストから出す"
-                      title="ネストから出す"
-                    >
-                      <CornerLeftUp size={14} />
-                    </button>
-                  )}
                   <button
                     type="button"
                     disabled={!canUp}
@@ -324,6 +307,20 @@ export function FlowStepList({
                 <span className="text-stone-100 leading-snug line-clamp-2">
                   {summary}
                 </span>
+                {canOutdent && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOutdent(i);
+                    }}
+                    className="ml-2 p-0.5 text-stone-400 hover:text-stone-100"
+                    aria-label="ネストから出す"
+                    title="ネストから出す"
+                  >
+                    <CornerLeftUp size={14} />
+                  </button>
+                )}
               </button>
               <button
                 type="button"

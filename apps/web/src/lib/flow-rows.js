@@ -1,4 +1,11 @@
-import { BRANCH_COLOR_STYLES } from "@kai-swimlane/core";
+import {
+  BRANCH_COLOR_STYLES,
+  branchNestLevel,
+  findBranchEndIndex,
+  findEnclosingBranchStart,
+} from "@kai-swimlane/core";
+
+export { findBranchEndIndex, findEnclosingBranchStart, branchNestLevel };
 
 /** Move branchStart.firstCase into a following branchCase row (GUI list shape). */
 export function normalizeBranchRows(rows) {
@@ -19,7 +26,7 @@ export function normalizeBranchRows(rows) {
           label: firstCase,
           branchColor: row.branchColor ?? null,
           id: row.id,
-          depth: row.depth ?? 0,
+          depth: (row.depth ?? 0) + 1,
         });
       }
       continue;
@@ -29,15 +36,15 @@ export function normalizeBranchRows(rows) {
   return normalizeBranchDepths(out);
 }
 
-/** if/endif depth at index; nested if is one indent inside parent case body. */
+/** DSL/stored depth for if/endif: 0 at root, +1 per nesting level. */
 export function branchMarkerDepthForRow(rows, rowIndex) {
   const anchor = Math.max(0, rowIndex - 1);
-  const enclosing = findEnclosingBranchStart(rows, anchor);
-  if (enclosing < 0) return 0;
-  return (rows[enclosing].depth ?? 0) + 1;
+  const parent = findEnclosingBranchStart(rows, anchor);
+  if (parent < 0) return 0;
+  return branchNestLevel(rows, parent) + 1;
 }
 
-/** if/elseif/endif share marker depth; case body is one indent deeper. */
+/** if/endif at marker depth; cases one below; case body one below cases (DSL export depth). */
 export function normalizeBranchDepths(rows) {
   const out = rows.map((row) => ({ ...row }));
   for (let i = 0; i < out.length; i++) {
@@ -52,7 +59,7 @@ export function normalizeBranchDepths(rows) {
       out[endIdx] = { ...out[endIdx], depth: markerDepth };
     }
 
-    const caseDepth = markerDepth;
+    const caseDepth = markerDepth + 1;
     const bodyDepth = markerDepth + 1;
     for (let j = i + 1; j < endIdx; j++) {
       const row = out[j];
@@ -82,44 +89,54 @@ export function nextBranchId(rows) {
   return max + 1;
 }
 
-/** Find paired branchEnd index for branchStart at startIndex. */
-export function findBranchEndIndex(rows, startIndex) {
-  const start = rows[startIndex];
-  if (!start || start.kind !== "branchStart") return -1;
-  let depth = 0;
-  for (let i = startIndex; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.kind === "branchStart") depth += 1;
-    if (row.kind === "branchEnd") {
-      depth -= 1;
-      if (depth === 0 && row.id === start.id) return i;
-    }
-  }
-  return -1;
-}
-
-/** Innermost branchStart index whose frame contains rowIndex, or -1. */
-export function findEnclosingBranchStart(rows, rowIndex) {
-  let best = -1;
-  for (let i = 0; i <= rowIndex; i++) {
-    if (rows[i].kind !== "branchStart") continue;
-    const endIdx = findBranchEndIndex(rows, i);
-    if (endIdx >= rowIndex) best = i;
-  }
-  return best;
-}
-
 /** Depth for branchStart / branchEnd at insertIndex (nested if increments). */
 export function branchMarkerDepthAt(rows, insertIndex) {
   return branchMarkerDepthForRow(rows, insertIndex);
 }
 
-/** Depth for branchCase rows (same level as if/endif for that branch). */
+/** Depth for branchCase rows (one indent below if/endif for that branch). */
 export function branchCaseDepthAt(rows, insertIndex) {
   const anchor = Math.max(0, insertIndex - 1);
   const enclosing = findEnclosingBranchStart(rows, anchor);
-  if (enclosing < 0) return 0;
-  return rows[enclosing].depth ?? 0;
+  if (enclosing < 0) return 1;
+  return (rows[enclosing].depth ?? 0) + 1;
+}
+
+function findBranchStartForId(rows, rowIndex) {
+  const row = rows[rowIndex];
+  if (!row?.id) return -1;
+  if (row.kind === "branchStart") return rowIndex;
+  for (let j = rowIndex; j >= 0; j--) {
+    if (rows[j].kind === "branchStart" && rows[j].id === row.id) return j;
+  }
+  return -1;
+}
+
+/**
+ * GUI step list indent from branch nesting (not DSL export depth):
+ * if/endif at 2n, cases at 2n+1, case body at 2n+2.
+ */
+export function rowListIndentDepth(rows, rowIndex) {
+  const row = rows[rowIndex];
+  if (row.kind === "branchStart") {
+    return branchNestLevel(rows, rowIndex) * 2;
+  }
+  if (row.kind === "branchEnd") {
+    const startIdx = findBranchStartForId(rows, rowIndex);
+    if (startIdx < 0) return row.depth ?? 0;
+    return branchNestLevel(rows, startIdx) * 2;
+  }
+  if (row.kind === "branchCase") {
+    const startIdx = findBranchStartForId(rows, rowIndex);
+    if (startIdx < 0) return row.depth ?? 0;
+    return branchNestLevel(rows, startIdx) * 2 + 1;
+  }
+  if (row.kind === "step" || row.kind === "branchLoop") {
+    const enclosing = findEnclosingBranchStart(rows, rowIndex);
+    if (enclosing < 0) return row.depth ?? 0;
+    return branchNestLevel(rows, enclosing) * 2 + 2;
+  }
+  return row.depth ?? 0;
 }
 
 /** Depth for steps and loops inside a branch frame (one indent below markers). */
@@ -306,11 +323,11 @@ export function moveBranchOutOfNest(rows, branchStartIndex) {
   if (parentEnd < 0) return rows;
 
   const insertAt = parentEnd + 1;
-  return [
+  return normalizeBranchRows([
     ...without.slice(0, insertAt),
     ...block,
     ...without.slice(insertAt),
-  ];
+  ]);
 }
 
 function frameUnitRange(rows, startIndex) {
