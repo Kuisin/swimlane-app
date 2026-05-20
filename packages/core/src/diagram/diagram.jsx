@@ -285,6 +285,24 @@ export function Diagram({
     });
   }
 
+  /** First direct step in a case body after a nested if's endif (same-case continuation). */
+  function firstDirectStepAfterChild(c) {
+    const child = c.childFrame;
+    if (!child) return null;
+    const childEndIdx =
+      child.endRow ??
+      rows.findIndex((r) => r.kind === "branchEnd" && r.id === child.id);
+    return c.rowIndices.find((idx) => {
+      const row = rows[idx];
+      return (
+        row?.kind === "step" &&
+        !row.empty &&
+        row.role &&
+        (childEndIdx < 0 || idx > childEndIdx)
+      );
+    });
+  }
+
   /** First step row in a case, including empty `:` placeholders. */
   function firstStepIdxInCase(c) {
     return c.rowIndices.find((idx) => rows[idx]?.kind === "step");
@@ -1482,11 +1500,9 @@ export function Diagram({
             {/* Branch fan-out: decision -> each case path */}
             {f.cases.map((c, ci) => {
               const child = c.childFrame;
-              const directStepIdx = firstDirectStepIdx(c);
               const firstStepIdx = firstStepIdxInCase(c);
               const stubCase = isStubCase(c, f.id);
-              const targetsNestedDecision =
-                child != null && directStepIdx == null;
+              const targetsNestedDecision = child != null;
 
               const startX = dCx;
               const startY = dCy + dH / 2;
@@ -1637,6 +1653,34 @@ export function Diagram({
                   fill="none"
                   stroke={theme.stroke}
                   strokeWidth="1.6"
+                />
+              );
+            })}
+
+            {/* Nested endif -> next step in the same case (e.g. elseif body) */}
+            {f.cases.map((c, ci) => {
+              const child = c.childFrame;
+              const afterIdx = firstDirectStepAfterChild(c);
+              if (child?.yMerge == null || afterIdx == null) return null;
+              const stepTarget = caseStepLineTarget(afterIdx, c);
+              if (!stepTarget) return null;
+              const fromX = mergeAnchorX(child);
+              const fromY = child.yMerge + mergeH / 2 + 14;
+              const toX = stepTarget.x;
+              const toY = stepTarget.y;
+              const mid = (fromY + toY) / 2;
+              const d =
+                Math.abs(fromX - toX) < 0.5
+                  ? `M ${fromX} ${fromY} L ${toX} ${toY}`
+                  : `M ${fromX} ${fromY} L ${fromX} ${mid} L ${toX} ${mid} L ${toX} ${toY}`;
+              return (
+                <path
+                  key={`nested-out-${f.id}-${ci}`}
+                  d={d}
+                  fill="none"
+                  stroke={theme.stroke}
+                  strokeWidth="1.6"
+                  markerEnd="url(#arrowhead)"
                 />
               );
             })}
