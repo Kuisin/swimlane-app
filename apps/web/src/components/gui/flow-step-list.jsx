@@ -1,5 +1,7 @@
+import { BRANCH_COLOR_STYLES } from "@kai-swimlane/core";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import {
+  branchMarkerDepthAt,
   canAddElseIf,
   findAdjacentStepIndex,
   findBranchEndIndex,
@@ -9,6 +11,8 @@ import {
   rowBadgeLabel,
   rowSummaryText,
   swapStepRows,
+  rowKindBadgeClass,
+  branchCaseBadgeStyle
 } from "../../lib/flow-rows";
 
 export function FlowStepList({
@@ -45,7 +49,7 @@ export function FlowStepList({
   function handleAddIf() {
     const idx =
       selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
-    const depth = rows[Math.max(0, idx - 1)]?.depth ?? 0;
+    const depth = branchMarkerDepthAt(rows, idx);
     const branchId = nextBranchId(rows);
     insertAt(idx, [
       {
@@ -231,13 +235,17 @@ export function FlowStepList({
                   </button>
                 </span>
               )}
-              {!isStep && <span className="w-[28px] shrink-0" />}
+              {!isStep && <span className="w-[18px] shrink-0" />}
+              {!isStep && row.kind === "branchCase" && <span className="w-1 shrink-0" />}
               <button
                 type="button"
                 onClick={() => onSelectRow(i)}
                 className="flex-1 text-left py-1.5 min-w-0 flex flex-row"
               >
-                <span className="inline-block rounded px-1.5 py-0.5 text-[9px] font-medium bg-stone-600 text-stone-100 mr-1.5 shrink-0">
+                <span
+                  className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium text-stone-100 mr-1.5 shrink-0 ${rowKindBadgeClass(row)}`}
+                  style={branchCaseBadgeStyle(row)}
+                >
                   {badge}
                 </span>
                 <span className="text-stone-100 leading-snug line-clamp-2">

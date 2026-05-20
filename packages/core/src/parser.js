@@ -179,6 +179,10 @@ export function parseDSL(src) {
 
   const rows = [];
   const stack = [];
+  /** Marker depth for if/endif in the current parent frame (matches branchCase). */
+  function branchMarkerDepth() {
+    return Math.max(0, stack.length - 1);
+  }
   let branchCounter = 0;
   let lastRealStepIndex = -1;
   let autoIdCounter = 0;
@@ -192,14 +196,15 @@ export function parseDSL(src) {
     if (m) {
       branchCounter++;
       const id = branchCounter;
-      stack.push({ id, depth: stack.length });
+      const depth = branchMarkerDepth();
+      stack.push({ id, depth });
       rows.push({
         kind: "branchStart",
         cond: m[1].trim(),
         firstCase: m[2].trim(),
         branchColor: m[3] ? m[3].trim().toLowerCase() : null,
         id,
-        depth: stack.length - 1,
+        depth,
       });
       continue;
     }

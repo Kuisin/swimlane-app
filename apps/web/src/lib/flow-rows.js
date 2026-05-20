@@ -64,6 +64,14 @@ export function findEnclosingBranchStart(rows, rowIndex) {
   return best;
 }
 
+/** Depth for branchStart / branchCase / branchEnd in the frame at insertIndex. */
+export function branchMarkerDepthAt(rows, insertIndex) {
+  const anchor = Math.max(0, insertIndex - 1);
+  const enclosing = findEnclosingBranchStart(rows, anchor);
+  if (enclosing < 0) return 0;
+  return rows[enclosing].depth ?? 0;
+}
+
 /** Inclusive frame bounds for step reorder (between branch markers). */
 export function getStepReorderFrame(rows, rowIndex) {
   const branchStart = findEnclosingBranchStart(rows, rowIndex);
@@ -193,14 +201,14 @@ export function rowSummaryText(row, lanes) {
     }
     case "branchStart": {
       const cond = (row.cond || "").trim() || "条件";
-      return `「${cond}」`;
+      return `${cond}`;
     }
     case "branchCase": {
       if (/^else$/i.test((row.label || "").trim())) {
         return "上記以外の場合";
       }
       const label = (row.label || "").trim() || "ケース";
-      return `「${label}」の場合`;
+      return `${label}`;
     }
     case "branchEnd":
       return "条件分岐の終わり";
@@ -209,4 +217,29 @@ export function rowSummaryText(row, lanes) {
     default:
       return "";
   }
+}
+
+
+export function rowKindBadgeClass(row) {
+  switch (row.kind) {
+    case "step":
+      return "bg-stone-600";
+    case "branchStart":
+    case "branchEnd":
+      return "bg-green-700";
+    case "branchCase":
+      return row.branchColor ? "" : "bg-amber-800";
+    case "branchLoop":
+      return "bg-stone-600";
+    default:
+      return "bg-stone-600";
+  }
+}
+
+/** Matches diagram case chips; uses row.branchColor key (blue, green, …). */
+export function branchCaseBadgeStyle(row) {
+  if (row.kind !== "branchCase" || !row.branchColor) return undefined;
+  const palette = BRANCH_COLOR_STYLES[row.branchColor];
+  if (!palette) return undefined;
+  return { backgroundColor: palette.stroke };
 }
