@@ -179,9 +179,18 @@ export function parseDSL(src) {
 
   const rows = [];
   const stack = [];
-  /** Marker depth for if/endif in the current parent frame (matches branchCase). */
+  /** if/endif depth; nested if is indented inside parent case body (+2). */
   function branchMarkerDepth() {
-    return Math.max(0, stack.length - 1);
+    if (stack.length === 0) return 0;
+    return stack[stack.length - 1].depth + 2;
+  }
+  function branchCaseDepth() {
+    if (stack.length === 0) return 0;
+    return stack[stack.length - 1].depth + 1;
+  }
+  function branchBodyDepth() {
+    if (stack.length === 0) return 0;
+    return stack[stack.length - 1].depth + 2;
   }
   let branchCounter = 0;
   let lastRealStepIndex = -1;
@@ -220,7 +229,7 @@ export function parseDSL(src) {
         label: m[1].trim(),
         branchColor: m[2] ? m[2].trim().toLowerCase() : null,
         id: top.id,
-        depth: top.depth,
+        depth: branchCaseDepth(),
       });
       continue;
     }
@@ -234,7 +243,7 @@ export function parseDSL(src) {
         kind: "branchCase",
         label: "else",
         id: top.id,
-        depth: top.depth,
+        depth: branchCaseDepth(),
       });
       continue;
     }
@@ -253,7 +262,7 @@ export function parseDSL(src) {
         kind: "step",
         role: null,
         text: "",
-        depth: stack.length,
+        depth: branchBodyDepth(),
         empty: true,
         stepId: null,
       });
@@ -327,7 +336,7 @@ export function parseDSL(src) {
       rows.push({
         kind: "branchLoop",
         loopBranchId: stack[stack.length - 1].id,
-        depth: stack.length,
+        depth: branchBodyDepth(),
       });
       continue;
     }
@@ -352,7 +361,7 @@ export function parseDSL(src) {
         kind: "step",
         role,
         text: txt,
-        depth: stack.length,
+        depth: branchBodyDepth(),
         blockRef: blockRef || null,
         stepId,
       });

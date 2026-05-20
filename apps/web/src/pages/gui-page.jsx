@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Diagram } from "@kai-swimlane/core";
 import { Toolbar } from "../components/toolbar";
 import { DocumentTabs } from "../components/document-tabs";
@@ -8,9 +8,8 @@ import { useEditor } from "../hooks/use-editor";
 import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
 import { TitleField } from "../components/gui/title-field";
 import { FlowStepList } from "../components/gui/flow-step-list";
-import { StepInspector } from "../components/gui/step-inspector";
-import { BranchInspector } from "../components/gui/branch-inspector";
 import { ToolbarTemplateActions } from "../components/toolbar-template-actions";
+import { openStepInspectorPopup } from "../lib/open-step-inspector-popup";
 
 export function GuiPage() {
   const editor = useEditor();
@@ -41,29 +40,16 @@ export function GuiPage() {
     documents,
     helpMd,
     templateMd,
+    isHydrated,
   } = editor;
 
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
+  const stepInspectorPopupRef = useRef(null);
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
 
-  const selectedRow =
-    selectedRowIndex != null ? guiModel.rows[selectedRowIndex] : null;
-  const isBranchRow =
-    selectedRow &&
-    ["branchStart", "branchCase", "branchEnd", "branchLoop"].includes(
-      selectedRow.kind
-    );
-
   function onEditRows(editFn) {
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
-  }
-
-  function patchSelectedRow(patch) {
-    if (selectedRowIndex == null) return;
-    onEditRows((draft) => {
-      Object.assign(draft.rows[selectedRowIndex], patch);
-    });
   }
 
   function handleTitleChange(title) {
@@ -71,6 +57,26 @@ export function GuiPage() {
       draft.title = title;
     });
   }
+
+  function handleSelectRow(index) {
+    setSelectedRowIndex(index);
+    if (isHydrated && index != null) {
+      openStepInspectorPopup(
+        activeDocumentId,
+        index,
+        stepInspectorPopupRef
+      );
+    }
+  }
+
+  useEffect(() => {
+    if (!isHydrated || selectedRowIndex == null) return;
+    openStepInspectorPopup(
+      activeDocumentId,
+      selectedRowIndex,
+      stepInspectorPopupRef
+    );
+  }, [isHydrated, activeDocumentId, selectedRowIndex]);
 
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 flex flex-col">
@@ -115,7 +121,7 @@ export function GuiPage() {
               mergeAtPreviousBlock={mergeAtPreviousBlock}
               interactive
               selectedRowIndex={selectedRowIndex}
-              onRowSelect={setSelectedRowIndex}
+              onRowSelect={handleSelectRow}
             />
           </div>
         </div>
@@ -125,28 +131,10 @@ export function GuiPage() {
           <FlowStepList
             rows={guiModel.rows}
             selectedRowIndex={selectedRowIndex}
-            onSelectRow={setSelectedRowIndex}
+            onSelectRow={handleSelectRow}
             onEditRows={onEditRows}
             lanes={guiModel.lanes}
           />
-          <div className="border-t border-stone-700/60 max-h-[40%] overflow-y-auto shrink-0">
-            {isBranchRow ? (
-              <BranchInspector
-                row={selectedRow}
-                rows={guiModel.rows}
-                onPatch={patchSelectedRow}
-              />
-            ) : (
-              <StepInspector
-                row={selectedRow}
-                lanes={model.lanes}
-                blocks={model.blocks}
-                props={model.props}
-                themeKey={themeKey}
-                onPatch={patchSelectedRow}
-              />
-            )}
-          </div>
           {model.errors?.length > 0 && (
             <div className="px-3 py-2 border-t border-red-900/50 bg-red-950/40 text-[10px] font-mono text-red-300 max-h-24 overflow-y-auto shrink-0">
               {model.errors.map((err, i) => (

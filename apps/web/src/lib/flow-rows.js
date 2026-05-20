@@ -19,12 +19,55 @@ export function normalizeBranchRows(rows) {
           label: firstCase,
           branchColor: row.branchColor ?? null,
           id: row.id,
-          depth: row.depth,
+          depth: (row.depth ?? 0) + 1,
         });
       }
       continue;
     }
     out.push(row);
+  }
+  return normalizeBranchDepths(out);
+}
+
+/** if/endif depth at index; nested if uses parent marker + 2. */
+export function branchMarkerDepthForRow(rows, rowIndex) {
+  const anchor = Math.max(0, rowIndex - 1);
+  const enclosing = findEnclosingBranchStart(rows, anchor);
+  if (enclosing < 0) return 0;
+  return (rows[enclosing].depth ?? 0) + 2;
+}
+
+/** branchCase is one level deeper than if/endif; case body one level deeper still. */
+export function normalizeBranchDepths(rows) {
+  const out = rows.map((row) => ({ ...row }));
+  for (let i = 0; i < out.length; i++) {
+    if (out[i].kind !== "branchStart") continue;
+    const markerDepth = branchMarkerDepthForRow(out, i);
+    const branchId = out[i].id;
+    const endIdx = findBranchEndIndex(out, i);
+    if (endIdx < 0) continue;
+
+    out[i] = { ...out[i], depth: markerDepth };
+    if (out[endIdx].kind === "branchEnd" && out[endIdx].id === branchId) {
+      out[endIdx] = { ...out[endIdx], depth: markerDepth };
+    }
+
+    const caseDepth = markerDepth + 1;
+    const bodyDepth = markerDepth + 2;
+    for (let j = i + 1; j < endIdx; j++) {
+      const row = out[j];
+      if (row.kind === "branchStart" || row.kind === "branchEnd") continue;
+      if (row.kind === "branchCase" && row.id === branchId) {
+        if ((row.depth ?? 0) !== caseDepth) {
+          out[j] = { ...row, depth: caseDepth };
+        }
+      } else if (
+        (row.kind === "step" || row.kind === "branchLoop") &&
+        (row.depth ?? 0) < bodyDepth
+      ) {
+        out[j] = { ...row, depth: bodyDepth };
+      }
+    }
   }
   return out;
 }
@@ -66,12 +109,25 @@ export function findEnclosingBranchStart(rows, rowIndex) {
   return best;
 }
 
-/** Depth for branchStart / branchCase / branchEnd in the frame at insertIndex. */
+/** Depth for branchStart / branchEnd at insertIndex (nested if increments). */
 export function branchMarkerDepthAt(rows, insertIndex) {
+  return branchMarkerDepthForRow(rows, insertIndex);
+}
+
+/** Depth for branchCase rows (one level deeper than if/endif). */
+export function branchCaseDepthAt(rows, insertIndex) {
+  const anchor = Math.max(0, insertIndex - 1);
+  const enclosing = findEnclosingBranchStart(rows, anchor);
+  if (enclosing < 0) return 1;
+  return (rows[enclosing].depth ?? 0) + 1;
+}
+
+/** Depth for steps and loops inside a branch frame. */
+export function branchBodyDepthAt(rows, insertIndex) {
   const anchor = Math.max(0, insertIndex - 1);
   const enclosing = findEnclosingBranchStart(rows, anchor);
   if (enclosing < 0) return 0;
-  return rows[enclosing].depth ?? 0;
+  return (rows[enclosing].depth ?? 0) + 2;
 }
 
 /** Inclusive frame bounds for step reorder (between branch markers). */

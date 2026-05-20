@@ -6,6 +6,7 @@ import { EditorProvider } from "./context/editor-context";
 import { EditorPage } from "./pages/editor-page";
 import { GuiPage } from "./pages/gui-page";
 import { TemplatePopupPage } from "./pages/template-popup-page";
+import { StepInspectorPopupPage } from "./pages/step-inspector-popup-page";
 import { restoreSpaPathFrom404 } from "./lib/spa-redirect";
 
 restoreSpaPathFrom404();
@@ -20,6 +21,7 @@ createRoot(document.getElementById("root")).render(
           <Route path="/" element={<EditorPage />} />
           <Route path="/gui" element={<GuiPage />} />
           <Route path="/gui/templates/:kind" element={<TemplatePopupPage />} />
+          <Route path="/gui/step-inspector" element={<StepInspectorPopupPage />} />
         </Routes>
       </EditorProvider>
     </BrowserRouter>

@@ -1,5 +1,7 @@
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import {
+  branchBodyDepthAt,
+  branchCaseDepthAt,
   branchMarkerDepthAt,
   branchCaseBadgeStyle,
   canAddElseIf,
@@ -50,7 +52,8 @@ export function FlowStepList({
   function handleAddIf() {
     const idx =
       selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
-    const depth = branchMarkerDepthAt(rows, idx);
+    const markerDepth = branchMarkerDepthAt(rows, idx);
+    const caseDepth = branchCaseDepthAt(rows, idx);
     const branchId = nextBranchId(rows);
     insertAt(idx, [
       {
@@ -59,26 +62,26 @@ export function FlowStepList({
         firstCase: "",
         branchColor: null,
         id: branchId,
-        depth,
+        depth: markerDepth,
       },
       {
         kind: "branchCase",
         label: "ケース1",
         branchColor: null,
         id: branchId,
-        depth,
+        depth: caseDepth,
       },
       {
         kind: "branchCase",
         label: "ケース2",
         branchColor: null,
         id: branchId,
-        depth,
+        depth: caseDepth,
       },
       {
         kind: "branchEnd",
         id: branchId,
-        depth,
+        depth: markerDepth,
       },
     ]);
     onSelectRow(idx);
@@ -87,14 +90,14 @@ export function FlowStepList({
   function handleAddElseIf() {
     if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex)) return;
     const idx = selectedRowIndex + 1;
-    const depth = rows[selectedRowIndex]?.depth ?? 0;
+    const caseDepth = branchCaseDepthAt(rows, idx);
     insertAt(idx, [
       {
         kind: "branchCase",
         label: "ケース",
         branchColor: null,
         id: rows[findEnclosingStart(rows, selectedRowIndex)]?.id,
-        depth,
+        depth: caseDepth,
       },
     ]);
     onSelectRow(idx);
@@ -103,13 +106,13 @@ export function FlowStepList({
   function handleAddElse() {
     if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex)) return;
     const idx = selectedRowIndex + 1;
-    const depth = rows[selectedRowIndex]?.depth ?? 0;
+    const caseDepth = branchCaseDepthAt(rows, idx);
     insertAt(idx, [
       {
         kind: "branchCase",
         label: "else",
         id: rows[findEnclosingStart(rows, selectedRowIndex)]?.id,
-        depth,
+        depth: caseDepth,
       },
     ]);
     onSelectRow(idx);
@@ -128,7 +131,7 @@ export function FlowStepList({
       {
         kind: "branchLoop",
         loopBranchId: branchId,
-        depth: rows[selectedRowIndex]?.depth ?? 0,
+        depth: branchBodyDepthAt(rows, idx),
       },
     ]);
     onSelectRow(idx);

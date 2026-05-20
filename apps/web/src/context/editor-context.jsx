@@ -130,9 +130,13 @@ export function EditorProvider({ children }) {
   }, [hasUnsavedChanges]);
 
   function updateActiveDocumentSrc(nextSrc) {
+    updateDocumentSrc(activeDocumentId, nextSrc);
+  }
+
+  function updateDocumentSrc(documentId, nextSrc) {
     setDocuments((currentDocuments) =>
       currentDocuments.map((document) =>
-        document.id === activeDocumentId
+        document.id === documentId
           ? { ...document, src: nextSrc }
           : document
       )
@@ -238,6 +242,7 @@ export function EditorProvider({ children }) {
     model,
     hasUnsavedChanges,
     updateActiveDocumentSrc,
+    updateDocumentSrc,
     replaceActiveDocumentSrc,
     saveDocuments,
     addDocumentTab,
