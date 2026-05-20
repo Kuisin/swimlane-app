@@ -1,3 +1,5 @@
+import { BRANCH_COLOR_STYLES } from "@kai-swimlane/core";
+
 /** Move branchStart.firstCase into a following branchCase row (GUI list shape). */
 export function normalizeBranchRows(rows) {
   const out = [];
@@ -97,11 +99,60 @@ export function canAddElseIf(rows, rowIndex) {
   return endIdx > rowIndex;
 }
 
-export function getReorderBounds(rows, rowIndex) {
+function isElseBranchCase(row) {
+  return (
+    row?.kind === "branchCase" && /^else$/i.test((row.label || "").trim())
+  );
+}
+
+/** Each case block: branchCase row through row before next case or branchEnd. */
+export function getCaseBlockRanges(rows, branchStartIndex) {
+  const start = rows[branchStartIndex];
+  if (!start || start.kind !== "branchStart") return [];
+  const endIdx = findBranchEndIndex(rows, branchStartIndex);
+  if (endIdx < 0) return [];
+
+  const branchId = start.id;
+  const caseStarts = [];
+  for (let i = branchStartIndex + 1; i < endIdx; i++) {
+    if (rows[i].kind === "branchCase" && rows[i].id === branchId) {
+      caseStarts.push(i);
+    }
+  }
+
+  return caseStarts.map((caseStart, k) => ({
+    caseStart,
+    caseEnd:
+      k + 1 < caseStarts.length ? caseStarts[k + 1] - 1 : endIdx - 1,
+    isElse: isElseBranchCase(rows[caseStart]),
+  }));
+}
+
+function getBranchCaseReorderBounds(rows, rowIndex) {
   const row = rows[rowIndex];
-  if (!row || row.kind !== "step" || row.empty) {
+  if (row?.kind !== "branchCase" || isElseBranchCase(row)) {
     return { canUp: false, canDown: false };
   }
+
+  const branchStart = findEnclosingBranchStart(rows, rowIndex);
+  if (branchStart < 0) return { canUp: false, canDown: false };
+
+  const ranges = getCaseBlockRanges(rows, branchStart);
+  const caseIndex = ranges.findIndex((r) => r.caseStart === rowIndex);
+  if (caseIndex < 0) return { canUp: false, canDown: false };
+
+  const movable = ranges
+    .map((r, i) => (r.isElse ? -1 : i))
+    .filter((i) => i >= 0);
+  const pos = movable.indexOf(caseIndex);
+
+  return {
+    canUp: pos > 0,
+    canDown: pos >= 0 && pos < movable.length - 1,
+  };
+}
+
+function getStepReorderBounds(rows, rowIndex) {
   const { frameStart, frameEnd } = getStepReorderFrame(rows, rowIndex);
   let firstStep = -1;
   let lastStep = -1;
@@ -117,6 +168,17 @@ export function getReorderBounds(rows, rowIndex) {
   };
 }
 
+export function getReorderBounds(rows, rowIndex) {
+  const row = rows[rowIndex];
+  if (row?.kind === "branchCase") {
+    return getBranchCaseReorderBounds(rows, rowIndex);
+  }
+  if (!row || row.kind !== "step" || row.empty) {
+    return { canUp: false, canDown: false };
+  }
+  return getStepReorderBounds(rows, rowIndex);
+}
+
 export function swapStepRows(rows, indexA, indexB) {
   const next = [...rows];
   const tmp = next[indexA];
@@ -127,6 +189,64 @@ export function swapStepRows(rows, indexA, indexB) {
 
 function isReorderableStep(row) {
   return row?.kind === "step" && !row.empty && row.role;
+}
+
+/** Swap two adjacent case blocks (branchCase + following rows) within one if. */
+export function swapCaseBlocks(rows, caseStartA, caseStartB) {
+  const branchStart = findEnclosingBranchStart(rows, caseStartA);
+  if (branchStart < 0 || findEnclosingBranchStart(rows, caseStartB) !== branchStart) {
+    return rows;
+  }
+
+  const ranges = getCaseBlockRanges(rows, branchStart);
+  const blockA = ranges.find((r) => r.caseStart === caseStartA);
+  const blockB = ranges.find((r) => r.caseStart === caseStartB);
+  if (!blockA || !blockB) return rows;
+
+  const sliceA = rows.slice(blockA.caseStart, blockA.caseEnd + 1);
+  const sliceB = rows.slice(blockB.caseStart, blockB.caseEnd + 1);
+
+  if (blockA.caseStart < blockB.caseStart) {
+    return [
+      ...rows.slice(0, blockA.caseStart),
+      ...sliceB,
+      ...sliceA,
+      ...rows.slice(blockB.caseEnd + 1),
+    ];
+  }
+
+  return [
+    ...rows.slice(0, blockB.caseStart),
+    ...sliceA,
+    ...sliceB,
+    ...rows.slice(blockA.caseEnd + 1),
+  ];
+}
+
+/** Nearest movable branchCase above/below (else stays last; moves whole case block). */
+export function findAdjacentCaseIndex(rows, rowIndex, direction) {
+  const row = rows[rowIndex];
+  if (row?.kind !== "branchCase" || isElseBranchCase(row)) return -1;
+
+  const branchStart = findEnclosingBranchStart(rows, rowIndex);
+  if (branchStart < 0) return -1;
+
+  const ranges = getCaseBlockRanges(rows, branchStart);
+  const caseIndex = ranges.findIndex((r) => r.caseStart === rowIndex);
+  if (caseIndex < 0) return -1;
+
+  const movable = ranges
+    .map((r, i) => (r.isElse ? -1 : i))
+    .filter((i) => i >= 0);
+  const pos = movable.indexOf(caseIndex);
+
+  if (direction === "up") {
+    if (pos <= 0) return -1;
+    return ranges[movable[pos - 1]].caseStart;
+  }
+
+  if (pos < 0 || pos >= movable.length - 1) return -1;
+  return ranges[movable[pos + 1]].caseStart;
 }
 
 /** Nearest step row above/below index within the same branch frame. */

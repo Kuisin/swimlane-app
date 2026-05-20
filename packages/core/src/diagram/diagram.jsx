@@ -88,7 +88,7 @@ export function Diagram({
 
   const diamondH = 90;
   const mergeH = 60;
-  const branchLoopH = 24;
+  const branchLoopH = 12;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   const stepBoxH = 44;
@@ -1053,8 +1053,8 @@ export function Diagram({
         if (meta != null) stepRowDividerYs.push(meta.y + mergeH);
         return;
       }
-      if (row.kind !== "step" || row.empty || !row.role || i === lastStepRowIndex)
-        return;
+      if (row.kind !== "step" || row.empty || !row.role) return;
+      if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
 
@@ -1067,6 +1067,11 @@ export function Diagram({
       if (next?.kind === "branchStart") {
         const branchMeta = rowMeta[i + 1];
         if (branchMeta != null) yLine = branchMeta.y + diamondH;
+      }
+      /** If the next row is [loop], draw the line below the loop row, not above it. */
+      if (next?.kind === "branchLoop") {
+        const loopMeta = rowMeta[i + 1];
+        if (loopMeta != null) yLine = loopMeta.y + branchLoopH;
       }
       stepRowDividerYs.push(yLine);
     });

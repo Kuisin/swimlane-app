@@ -1,18 +1,19 @@
-import { BRANCH_COLOR_STYLES } from "@kai-swimlane/core";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import {
   branchMarkerDepthAt,
+  branchCaseBadgeStyle,
   canAddElseIf,
+  findAdjacentCaseIndex,
   findAdjacentStepIndex,
   findBranchEndIndex,
   getReorderBounds,
   isInsideOpenBranch,
   nextBranchId,
   rowBadgeLabel,
-  rowSummaryText,
-  swapStepRows,
   rowKindBadgeClass,
-  branchCaseBadgeStyle
+  rowSummaryText,
+  swapCaseBlocks,
+  swapStepRows,
 } from "../../lib/flow-rows";
 
 export function FlowStepList({
@@ -157,6 +158,18 @@ export function FlowStepList({
     const { canUp, canDown } = getReorderBounds(rows, index);
     if (direction === "up" && !canUp) return;
     if (direction === "down" && !canDown) return;
+
+    const row = rows[index];
+    if (row.kind === "branchCase") {
+      const target = findAdjacentCaseIndex(rows, index, direction);
+      if (target < 0) return;
+      onEditRows((draft) => {
+        draft.rows = swapCaseBlocks(draft.rows, index, target);
+      });
+      onSelectRow(target);
+      return;
+    }
+
     const target = findAdjacentStepIndex(rows, index, direction);
     if (target < 0) return;
     onEditRows((draft) => {
@@ -196,6 +209,10 @@ export function FlowStepList({
           const isSelected = selectedRowIndex === i;
           const depth = row.depth ?? 0;
           const isStep = row.kind === "step" && !row.empty;
+          const isMovableBranchCase =
+            row.kind === "branchCase" &&
+            !/^else$/i.test((row.label || "").trim());
+          const showReorder = isStep || isMovableBranchCase;
           const { canUp, canDown } = getReorderBounds(rows, i);
           const summary = rowSummaryText(row, lanes);
 
@@ -207,7 +224,7 @@ export function FlowStepList({
               }`}
               style={{ paddingLeft: `${8 + depth * 14}px` }}
             >
-              {isStep && (
+              {showReorder && (
                 <span className="flex flex-col shrink-0">
                   <button
                     type="button"
@@ -235,8 +252,7 @@ export function FlowStepList({
                   </button>
                 </span>
               )}
-              {!isStep && <span className="w-[18px] shrink-0" />}
-              {!isStep && row.kind === "branchCase" && <span className="w-1 shrink-0" />}
+              {!showReorder && <span className="w-[18px] shrink-0" />}
               <button
                 type="button"
                 onClick={() => onSelectRow(i)}
