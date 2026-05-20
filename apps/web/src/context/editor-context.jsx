@@ -10,6 +10,7 @@ import {
   parseStoredEditorState,
   applyStoredEditorState,
 } from "../lib/editor-storage";
+import { getDocumentTitleFromSrc } from "../lib/document-title.js";
 
 function createDocument(id, name, src) {
   return { id, name, src, savedSrc: src };
@@ -172,6 +173,18 @@ export function EditorProvider({ children }) {
     setActiveDocumentId(id);
   }
 
+  function importDocumentFromSrc(nextSrc, preferredName) {
+    const id = createDocumentId();
+    const fallbackName = createNextDocumentName(documents);
+    const name =
+      preferredName?.trim() ||
+      getDocumentTitleFromSrc(nextSrc, fallbackName);
+    const newDocument = createDocument(id, name, nextSrc);
+    setDocuments((currentDocuments) => [...currentDocuments, newDocument]);
+    setOpenDocumentIds((currentOpenIds) => [...currentOpenIds, id]);
+    setActiveDocumentId(id);
+  }
+
   function closeDocumentTab(documentId) {
     setOpenDocumentIds((currentOpenIds) => {
       if (!currentOpenIds.includes(documentId)) return currentOpenIds;
@@ -248,6 +261,7 @@ export function EditorProvider({ children }) {
     replaceActiveDocumentSrc,
     saveDocuments,
     addDocumentTab,
+    importDocumentFromSrc,
     closeDocumentTab,
     deleteDocumentFromStorage,
     helpMd: HELP_MD,

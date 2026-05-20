@@ -38,6 +38,7 @@ export function GuiPage() {
     addDocumentTab,
     closeDocumentTab,
     deleteDocumentFromStorage,
+    importDocumentFromSrc,
     documents,
     helpMd,
     templateMd,
@@ -144,7 +145,7 @@ export function GuiPage() {
         </div>
 
         <div className="w-[45%] min-w-0 flex flex-col bg-stone-900 text-stone-100 border-l border-stone-300">
-          <TitleField title={model.title} onChange={handleTitleChange} />
+          <TitleField title={model.title} onChange={handleTitleChange} src={src} modelTitle={model.title} themeBg={theme.bg} />
           <FlowStepList
             rows={guiModel.rows}
             selectedRowIndex={selectedRowIndex}
@@ -197,6 +198,10 @@ export function GuiPage() {
             setShowFileList(false);
           }}
           onDeleteDocument={deleteDocumentFromStorage}
+          onImportDocument={(nextSrc, preferredName) => {
+            importDocumentFromSrc(nextSrc, preferredName);
+            setShowFileList(false);
+          }}
           onClose={() => setShowFileList(false)}
         />
       )}

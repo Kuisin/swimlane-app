@@ -30,6 +30,7 @@ export function EditorPage() {
     addDocumentTab,
     closeDocumentTab,
     deleteDocumentFromStorage,
+    importDocumentFromSrc,
     documents,
     setOpenDocumentIds,
     helpMd,
@@ -118,6 +119,10 @@ export function EditorPage() {
             setShowFileList(false);
           }}
           onDeleteDocument={deleteDocumentFromStorage}
+          onImportDocument={(nextSrc, preferredName) => {
+            importDocumentFromSrc(nextSrc, preferredName);
+            setShowFileList(false);
+          }}
           onClose={() => setShowFileList(false)}
         />
       )}

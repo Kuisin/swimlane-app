@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, Save } from "lucide-react";
+import { Check, Copy, Save } from "lucide-react";
 import { applyTabIndent } from "../lib/editor-indent.js";
-import { downloadPNG, downloadSVG } from "../lib/export.js";
+import { ExportMenu } from "./export-menu.jsx";
 
 export function EditorPanel({
   src,
@@ -78,8 +78,8 @@ export function EditorPanel({
 
   return (
     <div className="flex flex-col min-h-0 h-full">
-      <div className="px-4 py-2 border-b border-stone-700/60 flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-4 min-w-0">
+      <div className="relative z-20 px-4 py-2 border-b border-stone-700/60 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
+        <div className="flex items-center gap-4 min-w-0 basis-full sm:basis-auto">
           {/* <span className="font-mono text-xs text-stone-400 tracking-wider uppercase">
             editor
           </span> */}
@@ -92,35 +92,18 @@ export function EditorPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 ml-auto">
+          <ExportMenu src={src} modelTitle={modelTitle} themeBg={themeBg} />
           <button
+            type="button"
             onClick={copyDSL}
             className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-700 rounded-sm text-stone-300 hover:bg-stone-800 transition"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "済" : "コピー"}
           </button>
-          <details className="relative">
-            <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-700 rounded-sm text-stone-300 hover:bg-stone-800 transition">
-              <Download size={14} /> 出力 <ChevronDown size={13} />
-            </summary>
-            <div className="absolute right-0 mt-1 w-28 rounded-sm border border-stone-700 bg-stone-900 shadow-lg overflow-hidden z-10">
-              <button
-                onClick={() => downloadSVG(modelTitle)}
-                className="w-full text-left px-3 py-2 text-xs font-jp text-stone-200 hover:bg-stone-800"
-              >
-                SVG
-              </button>
-              <button
-                onClick={() => downloadPNG(modelTitle, themeBg)}
-                className="w-full text-left px-3 py-2 text-xs font-jp text-stone-200 hover:bg-stone-800"
-              >
-                PNG
-              </button>
-            </div>
-          </details>
-          {/* move copy text button here */}
           <button
+            type="button"
             onClick={onSave}
             className={`flex items-center gap-1.5 text-xs font-jp px-3 py-2 border rounded-sm transition ${hasUnsavedChanges
                 ? "border-amber-500 text-amber-300 bg-amber-950/40 hover:bg-amber-900/40"

@@ -285,6 +285,58 @@ export function Diagram({
     });
   }
 
+  /** First step row in a case, including empty `:` placeholders. */
+  function firstStepIdxInCase(c) {
+    return c.rowIndices.find((idx) => rows[idx]?.kind === "step");
+  }
+
+  /** Last step row in a case, including empty placeholders. */
+  function lastStepIdxInCase(c) {
+    for (let k = c.rowIndices.length - 1; k >= 0; k--) {
+      const idx = c.rowIndices[k];
+      if (rows[idx]?.kind === "step") return idx;
+    }
+    return null;
+  }
+
+  function caseStepLineTarget(stepIdx, caseHint) {
+    const row = rows[stepIdx];
+    if (!row || row.kind !== "step") return null;
+    if (row.empty) {
+      const c = caseHint ?? findCaseForStep(stepIdx);
+      return {
+        x: c ? caseAnchorX(c) : width / 2,
+        y: stepBlockCenterY(stepIdx),
+        showArrow: false,
+      };
+    }
+    if (!row.role) return null;
+    const li = laneIndex(row.role);
+    return {
+      x: li >= 0 ? nodeCenterX(stepIdx, row.role) : width / 2,
+      y: stepBlockCenterY(stepIdx) - 22,
+      showArrow: true,
+    };
+  }
+
+  function caseStepLineSource(stepIdx, caseHint) {
+    const row = rows[stepIdx];
+    if (!row || row.kind !== "step") return null;
+    if (row.empty) {
+      const c = caseHint ?? findCaseForStep(stepIdx);
+      return {
+        x: c ? caseAnchorX(c) : width / 2,
+        y: stepBlockCenterY(stepIdx) + 8,
+      };
+    }
+    if (!row.role) return null;
+    const li = laneIndex(row.role);
+    return {
+      x: li >= 0 ? nodeCenterX(stepIdx, row.role) : width / 2,
+      y: stepBlockCenterY(stepIdx) + 22,
+    };
+  }
+
   /** Where a case path meets the merge diamond (after nested if, if any). */
   function caseMergeAnchor(c) {
     const childFrame = c.childFrame;
@@ -294,24 +346,15 @@ export function Diagram({
         rows.findIndex(
           (r) => r.kind === "branchEnd" && r.id === childFrame.id,
         );
-      const stepsAfterChild = c.rowIndices.filter((idx) => {
-        const row = rows[idx];
-        return (
-          row?.kind === "step" &&
-          !row.empty &&
-          row.role &&
-          (childEndIdx < 0 || idx > childEndIdx)
-        );
-      });
+      const stepsAfterChild = c.rowIndices.filter(
+        (idx) =>
+          rows[idx]?.kind === "step" &&
+          (childEndIdx < 0 || idx > childEndIdx),
+      );
       const lastAfterChild = stepsAfterChild[stepsAfterChild.length - 1];
       if (lastAfterChild != null) {
-        const r = rows[lastAfterChild];
-        const li = laneIndex(r.role);
-        return {
-          fromX:
-            li >= 0 ? nodeCenterX(lastAfterChild, r.role) : caseAnchorX(c),
-          fromY: stepBlockCenterY(lastAfterChild) + 22,
-        };
+        const src = caseStepLineSource(lastAfterChild, c);
+        if (src) return { fromX: src.x, fromY: src.y };
       }
       return {
         fromX: mergeAnchorX(childFrame),
@@ -333,6 +376,11 @@ export function Diagram({
           li >= 0 ? nodeCenterX(lastDirectStepIdx, r.role) : caseAnchorX(c),
         fromY: stepBlockCenterY(lastDirectStepIdx) + 22,
       };
+    }
+    const lastAnyStepIdx = lastStepIdxInCase(c);
+    if (lastAnyStepIdx != null) {
+      const src = caseStepLineSource(lastAnyStepIdx);
+      if (src) return { fromX: src.x, fromY: src.y };
     }
     return null;
   }
@@ -618,6 +666,31 @@ export function Diagram({
 
   function caseAnchorX(c) {
     return (c.x ?? width / 2) + (c.offset || 0);
+  }
+
+  function findCaseForStep(stepIdx) {
+    function searchFrame(frame) {
+      for (const c of frame.cases) {
+        if (c.rowIndices.includes(stepIdx)) return c;
+        if (c.childFrame) {
+          const hit = searchFrame(c.childFrame);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    }
+    for (const f of frames) {
+      const hit = searchFrame(f);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  /** Case with no steps and no nested if — needs stub path into merge diamond. */
+  function isStubCase(c, branchId) {
+    if (loopAnchorInCase(c.rowIndices, branchId)) return false;
+    if (c.childFrame) return false;
+    return firstStepIdxInCase(c) == null;
   }
 
   function frameAnchorX(f) {
@@ -1053,7 +1126,23 @@ export function Diagram({
         if (meta != null) stepRowDividerYs.push(meta.y + mergeH);
         return;
       }
-      if (row.kind !== "step" || row.empty || !row.role) return;
+      if (row.kind === "step" && row.empty) {
+        const meta = rowMeta[i];
+        if (meta == null) return;
+        const next = rows[i + 1];
+        let yLine = meta.y + (stepRowHeightByIndex.get(i) ?? rowH);
+        if (next?.kind === "branchStart") {
+          const branchMeta = rowMeta[i + 1];
+          if (branchMeta != null) yLine = branchMeta.y + diamondH;
+        }
+        if (next?.kind === "branchLoop") {
+          const loopMeta = rowMeta[i + 1];
+          if (loopMeta != null) yLine = loopMeta.y + branchLoopH;
+        }
+        stepRowDividerYs.push(yLine);
+        return;
+      }
+      if (row.kind !== "step" || !row.role) return;
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
@@ -1394,8 +1483,14 @@ export function Diagram({
             {f.cases.map((c, ci) => {
               const child = c.childFrame;
               const directStepIdx = firstDirectStepIdx(c);
+              const firstStepIdx = firstStepIdxInCase(c);
+              const stubCase = isStubCase(c, f.id);
               const targetsNestedDecision =
                 child != null && directStepIdx == null;
+
+              const startX = dCx;
+              const startY = dCy + dH / 2;
+              const bendY = startY + branchCaseBendYOffset;
 
               let targetY;
               let targetX = caseAnchorX(c);
@@ -1408,25 +1503,25 @@ export function Diagram({
                   child.yDecision + diamondH / 2 + decisionYOffset - 22;
                 const li = laneIndexForX(targetX);
                 if (li >= 0) caseLaneWidth = laneWidth(li);
-              } else if (directStepIdx != null) {
-                targetY = stepBlockCenterY(directStepIdx) - 22;
-                const r = rows[directStepIdx];
-                if (r.role) {
-                  const li = laneIndex(r.role);
-                  if (li >= 0) {
-                    targetX = nodeCenterX(directStepIdx, r.role);
-                    caseLaneWidth = laneWidth(li);
-                  }
+              } else if (firstStepIdx != null) {
+                const stepTarget = caseStepLineTarget(firstStepIdx, c);
+                if (stepTarget) {
+                  targetX = stepTarget.x;
+                  targetY = stepTarget.y;
+                  showArrow = stepTarget.showArrow;
+                  const li = laneIndexForX(targetX);
+                  if (li >= 0) caseLaneWidth = laneWidth(li);
+                } else {
+                  targetY = bendY;
                 }
-                showArrow = true;
+              } else if (stubCase) {
+                targetX = caseAnchorX(c);
+                targetY = bendY;
               } else {
                 targetY = mCy - mH / 2 - 4;
               }
 
-              const startX = dCx;
-              const startY = dCy + dH / 2;
               const sideOffset = c.offset || 0;
-              const bendY = startY + branchCaseBendYOffset;
               const sideX = targetX;
               const laneSafeMin = targetX - caseLaneWidth / 2 + 16;
               const laneSafeMax = targetX + caseLaneWidth / 2 - 16;
@@ -1458,6 +1553,10 @@ export function Diagram({
 
             {/* Branch fan-in: each case path -> merge or loop back to decision */}
             {f.cases.map((c, ci) => {
+              const stubCase = isStubCase(c, f.id);
+              const startY = dCy + dH / 2;
+              const caseRailY = startY + branchCaseBendYOffset;
+
               const anchor = loopAnchorInCase(c.rowIndices, f.id);
               if (anchor) {
                 let fromX;
@@ -1502,19 +1601,32 @@ export function Diagram({
               const mergeFrom = caseMergeAnchor(c);
               let fromX;
               let fromY;
-              if (mergeFrom) {
+              if (stubCase) {
+                fromX = caseAnchorX(c);
+                fromY = caseRailY;
+              } else if (mergeFrom) {
                 fromX = mergeFrom.fromX;
                 fromY = mergeFrom.fromY;
               } else {
-                fromX = caseAnchorX(c);
-                fromY = f.yDecision + diamondH - 4;
+                const lastStepIdx = lastStepIdxInCase(c);
+                const stepSource =
+                  lastStepIdx != null
+                    ? caseStepLineSource(lastStepIdx, c)
+                    : null;
+                if (stepSource) {
+                  fromX = stepSource.x;
+                  fromY = stepSource.y;
+                } else {
+                  fromX = caseAnchorX(c);
+                  fromY = caseRailY;
+                }
               }
               const toX = mCx;
               const toY = mCy - mH / 2;
               const bendY2 = toY - 14;
               const sideOffset = c.offset || 0;
               const needsMergeElbow =
-                Math.abs(fromX - toX) > 0.5 || sideOffset !== 0;
+                Math.abs(fromX - toX) > 0.5 || sideOffset !== 0 || stubCase;
               const d = needsMergeElbow
                 ? `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
                 : `M ${fromX} ${fromY} L ${toX} ${toY}`;
@@ -1709,10 +1821,12 @@ export function Diagram({
         if (yRow == null || r.kind !== "step") return null;
 
         if (r.empty) {
+          const emptyCase = findCaseForStep(i);
+          const cx = emptyCase ? caseAnchorX(emptyCase) : width / 2;
           return (
             <circle
               key={`step-${i}`}
-              cx={width / 2}
+              cx={cx}
               cy={stepBlockCenterY(i)}
               r="5"
               fill={theme.stroke}
@@ -1826,18 +1940,16 @@ export function Diagram({
         return f.cases.map((c, ci) => {
           if (/^else$/i.test((c.label || "").trim())) return null;
 
-          const firstStepIdx = c.rowIndices.find(
-            (idx) => rows[idx].kind === "step"
-          );
+          const firstStepIdx = firstStepIdxInCase(c);
           let targetY;
           let targetX = c.x;
           if (firstStepIdx != null) {
-            const sy = rowMeta[firstStepIdx]?.y;
-            targetY = stepBlockCenterY(firstStepIdx) - 22;
-            const r = rows[firstStepIdx];
-            if (r.role) {
-              const li = laneIndex(r.role);
-              if (li >= 0) targetX = nodeCenterX(firstStepIdx, r.role);
+            const stepTarget = caseStepLineTarget(firstStepIdx, c);
+            if (stepTarget) {
+              targetX = stepTarget.x;
+              targetY = stepTarget.y;
+            } else {
+              targetY = stepBlockCenterY(firstStepIdx) - 22;
             }
           } else {
             const mCy = f.yMerge + mergeH / 2;
@@ -1953,15 +2065,10 @@ export function Diagram({
             const bendY = startY + branchCaseBendYOffset;
             const labelY = bendY + 18;
             let targetX = c.x;
-            const firstStepIdx = c.rowIndices.find(
-              (idx) => rows[idx]?.kind === "step"
-            );
+            const firstStepIdx = firstStepIdxInCase(c);
             if (firstStepIdx != null) {
-              const sr = rows[firstStepIdx];
-              if (sr.role) {
-                const li = laneIndex(sr.role);
-                if (li >= 0) targetX = nodeCenterX(firstStepIdx, sr.role);
-              }
+              const stepTarget = caseStepLineTarget(firstStepIdx, c);
+              if (stepTarget) targetX = stepTarget.x;
             }
             return (
               <RowHitTarget

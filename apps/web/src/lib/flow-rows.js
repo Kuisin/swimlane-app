@@ -224,10 +224,160 @@ function getStepReorderBounds(rows, rowIndex) {
   };
 }
 
+/** Case body (or root list) where a whole if block may move among steps / nested ifs. */
+function getBranchReorderFrame(rows, branchStartIndex) {
+  const parentStart = findEnclosingBranchStart(rows, branchStartIndex - 1);
+  if (parentStart < 0) {
+    return { frameStart: 0, frameEnd: rows.length - 1 };
+  }
+  const ranges = getCaseBlockRanges(rows, parentStart);
+  for (const r of ranges) {
+    if (branchStartIndex >= r.caseStart && branchStartIndex <= r.caseEnd) {
+      return { frameStart: r.caseStart + 1, frameEnd: r.caseEnd };
+    }
+  }
+  const parentEnd = findBranchEndIndex(rows, parentStart);
+  return {
+    frameStart: parentStart + 1,
+    frameEnd: parentEnd >= 0 ? parentEnd - 1 : rows.length - 1,
+  };
+}
+
+/** Top-level movable units inside a branch reorder frame. */
+function collectFrameUnits(rows, frameStart, frameEnd) {
+  const units = [];
+  let i = frameStart;
+  while (i <= frameEnd) {
+    const row = rows[i];
+    if (row?.kind === "branchStart") {
+      const end = findBranchEndIndex(rows, i);
+      if (end < 0) break;
+      units.push({ kind: "branch", start: i, end });
+      i = end + 1;
+      continue;
+    }
+    if (isReorderableStep(row)) {
+      units.push({ kind: "step", start: i, end: i });
+    }
+    i += 1;
+  }
+  return units;
+}
+
+function getBranchBlockReorderBounds(rows, branchStartIndex) {
+  const row = rows[branchStartIndex];
+  if (row?.kind !== "branchStart") {
+    return { canUp: false, canDown: false };
+  }
+  const { frameStart, frameEnd } = getBranchReorderFrame(rows, branchStartIndex);
+  const units = collectFrameUnits(rows, frameStart, frameEnd);
+  const pos = units.findIndex((u) => u.kind === "branch" && u.start === branchStartIndex);
+  if (pos < 0) return { canUp: false, canDown: false };
+  return {
+    canUp: pos > 0,
+    canDown: pos >= 0 && pos < units.length - 1,
+  };
+}
+
+export function canOutdentBranch(rows, branchStartIndex) {
+  const row = rows[branchStartIndex];
+  if (row?.kind !== "branchStart") return false;
+  return findEnclosingBranchStart(rows, branchStartIndex - 1) >= 0;
+}
+
+/** Move nested if block to after its parent endif (one nesting level up). */
+export function moveBranchOutOfNest(rows, branchStartIndex) {
+  const row = rows[branchStartIndex];
+  if (row?.kind !== "branchStart") return rows;
+
+  const parentStart = findEnclosingBranchStart(rows, branchStartIndex - 1);
+  if (parentStart < 0) return rows;
+
+  const endIdx = findBranchEndIndex(rows, branchStartIndex);
+  if (endIdx < 0) return rows;
+
+  const block = rows.slice(branchStartIndex, endIdx + 1);
+  const without = [
+    ...rows.slice(0, branchStartIndex),
+    ...rows.slice(endIdx + 1),
+  ];
+
+  const parentEnd = findBranchEndIndex(without, parentStart);
+  if (parentEnd < 0) return rows;
+
+  const insertAt = parentEnd + 1;
+  return [
+    ...without.slice(0, insertAt),
+    ...block,
+    ...without.slice(insertAt),
+  ];
+}
+
+function frameUnitRange(rows, startIndex) {
+  const row = rows[startIndex];
+  if (row?.kind === "branchStart") {
+    const end = findBranchEndIndex(rows, startIndex);
+    if (end < 0) return null;
+    return { start: startIndex, end };
+  }
+  if (isReorderableStep(row)) {
+    return { start: startIndex, end: startIndex };
+  }
+  return null;
+}
+
+/** Swap a whole if block with an adjacent step or another if block. */
+export function swapFrameUnits(rows, startA, startB) {
+  const unitA = frameUnitRange(rows, startA);
+  const unitB = frameUnitRange(rows, startB);
+  if (!unitA || !unitB) return rows;
+
+  const sliceA = rows.slice(unitA.start, unitA.end + 1);
+  const sliceB = rows.slice(unitB.start, unitB.end + 1);
+
+  if (unitA.start < unitB.start) {
+    return [
+      ...rows.slice(0, unitA.start),
+      ...sliceB,
+      ...sliceA,
+      ...rows.slice(unitB.end + 1),
+    ];
+  }
+
+  return [
+    ...rows.slice(0, unitB.start),
+    ...sliceA,
+    ...sliceB,
+    ...rows.slice(unitA.end + 1),
+  ];
+}
+
+/** Nearest step or whole-if block above/below in the same case (or root list). */
+export function findAdjacentBranchBlockIndex(rows, branchStartIndex, direction) {
+  const row = rows[branchStartIndex];
+  if (row?.kind !== "branchStart") return -1;
+
+  const { frameStart, frameEnd } = getBranchReorderFrame(rows, branchStartIndex);
+  const units = collectFrameUnits(rows, frameStart, frameEnd);
+  const pos = units.findIndex((u) => u.kind === "branch" && u.start === branchStartIndex);
+  if (pos < 0) return -1;
+
+  if (direction === "up") {
+    if (pos <= 0) return -1;
+    return units[pos - 1].start;
+  }
+
+  if (pos >= units.length - 1) return -1;
+  return units[pos + 1].start;
+}
+
 export function getReorderBounds(rows, rowIndex) {
   const row = rows[rowIndex];
   if (row?.kind === "branchCase") {
     return getBranchCaseReorderBounds(rows, rowIndex);
+  }
+  if (row?.kind === "branchStart") {
+    return getBranchBlockReorderBounds(rows, rowIndex);
   }
   if (!row || row.kind !== "step" || row.empty) {
     return { canUp: false, canDown: false };

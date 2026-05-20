@@ -1,19 +1,23 @@
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CornerLeftUp, Trash2 } from "lucide-react";
 import {
   branchBodyDepthAt,
   branchCaseDepthAt,
   branchMarkerDepthAt,
   branchCaseBadgeStyle,
   canAddElseIf,
+  canOutdentBranch,
+  findAdjacentBranchBlockIndex,
   findAdjacentCaseIndex,
   findAdjacentStepIndex,
   findBranchEndIndex,
   getReorderBounds,
   isInsideOpenBranch,
+  moveBranchOutOfNest,
   nextBranchId,
   rowBadgeLabel,
   rowKindBadgeClass,
   rowSummaryText,
+  swapFrameUnits,
   swapCaseBlocks,
   swapStepRows,
 } from "../../lib/flow-rows";
@@ -173,12 +177,45 @@ export function FlowStepList({
       return;
     }
 
+    if (row.kind === "branchStart") {
+      const target = findAdjacentBranchBlockIndex(rows, index, direction);
+      if (target < 0) return;
+      onEditRows((draft) => {
+        draft.rows = swapFrameUnits(draft.rows, index, target);
+      });
+      onSelectRow(target);
+      return;
+    }
+
     const target = findAdjacentStepIndex(rows, index, direction);
     if (target < 0) return;
     onEditRows((draft) => {
       draft.rows = swapStepRows(draft.rows, index, target);
     });
     onSelectRow(target);
+  }
+
+  function handleOutdent(index) {
+    if (!canOutdentBranch(rows, index)) return;
+    const endIdx = findBranchEndIndex(rows, index);
+    if (endIdx < 0) return;
+    const removedLen = endIdx - index + 1;
+    let parentStart = -1;
+    for (let i = index - 1; i >= 0; i--) {
+      if (rows[i].kind === "branchStart") {
+        parentStart = i;
+        break;
+      }
+    }
+    const parentEnd =
+      parentStart >= 0 ? findBranchEndIndex(rows, parentStart) : -1;
+    const newIndex =
+      parentEnd >= 0 ? parentEnd + 1 - removedLen : index;
+
+    onEditRows((draft) => {
+      draft.rows = moveBranchOutOfNest(draft.rows, index);
+    });
+    onSelectRow(Math.max(0, newIndex));
   }
 
   const canBranch = selectedRowIndex != null && canAddElseIf(rows, selectedRowIndex);
@@ -215,8 +252,11 @@ export function FlowStepList({
           const isMovableBranchCase =
             row.kind === "branchCase" &&
             !/^else$/i.test((row.label || "").trim());
-          const showReorder = isStep || isMovableBranchCase;
+          const isMovableBranchStart = row.kind === "branchStart";
+          const showReorder =
+            isStep || isMovableBranchCase || isMovableBranchStart;
           const { canUp, canDown } = getReorderBounds(rows, i);
+          const canOutdent = isMovableBranchStart && canOutdentBranch(rows, i);
           const summary = rowSummaryText(row, lanes);
 
           return (
@@ -229,6 +269,20 @@ export function FlowStepList({
             >
               {showReorder && (
                 <span className="flex flex-col shrink-0">
+                  {canOutdent && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOutdent(i);
+                      }}
+                      className="p-0.5 text-stone-400 hover:text-stone-100"
+                      aria-label="ネストから出す"
+                      title="ネストから出す"
+                    >
+                      <CornerLeftUp size={14} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={!canUp}
