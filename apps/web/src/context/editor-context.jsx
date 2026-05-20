@@ -119,6 +119,8 @@ export function EditorProvider({ children }) {
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    if (window.location.pathname === `${base}/gui/step-inspector`) return;
 
     function handleBeforeUnload(event) {
       event.preventDefault();

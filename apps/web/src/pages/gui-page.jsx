@@ -10,6 +10,7 @@ import { TitleField } from "../components/gui/title-field";
 import { FlowStepList } from "../components/gui/flow-step-list";
 import { ToolbarTemplateActions } from "../components/toolbar-template-actions";
 import { openStepInspectorPopup } from "../lib/open-step-inspector-popup";
+import { isStepInspectorMessage } from "../lib/step-inspector-channel";
 
 export function GuiPage() {
   const editor = useEditor();
@@ -77,6 +78,22 @@ export function GuiPage() {
       stepInspectorPopupRef
     );
   }, [isHydrated, activeDocumentId, selectedRowIndex]);
+
+  useEffect(() => {
+    function onMessage(event) {
+      if (event.origin !== window.location.origin) return;
+      if (!isStepInspectorMessage(event.data)) return;
+      if (
+        event.data.type === "select-revert" &&
+        event.data.rowIndex != null
+      ) {
+        setSelectedRowIndex(event.data.rowIndex);
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 flex flex-col">

@@ -1,3 +1,8 @@
+import {
+  STEP_INSPECTOR_CHANNEL,
+  postStepInspectorMessage,
+} from "./step-inspector-channel";
+
 const POPUP_FEATURES = "popup,width=440,height=640,resizable=yes,scrollbars=yes";
 const WINDOW_NAME = "swimlane-step-inspector";
 
@@ -12,16 +17,18 @@ export function getStepInspectorPopupUrl(documentId, rowIndex) {
 
 export function openStepInspectorPopup(documentId, rowIndex, popupRef) {
   const existing = popupRef?.current;
-  const url = getStepInspectorPopupUrl(documentId, rowIndex);
 
   if (existing && !existing.closed) {
-    if (existing.location.href !== url) {
-      existing.location.href = url;
-    }
+    postStepInspectorMessage(existing, {
+      type: "navigate",
+      documentId,
+      rowIndex,
+    });
     existing.focus();
     return existing;
   }
 
+  const url = getStepInspectorPopupUrl(documentId, rowIndex);
   const popup = window.open(url, WINDOW_NAME, POPUP_FEATURES);
 
   if (!popup) {
@@ -34,3 +41,5 @@ export function openStepInspectorPopup(documentId, rowIndex, popupRef) {
   if (popupRef) popupRef.current = popup;
   return popup;
 }
+
+export { STEP_INSPECTOR_CHANNEL };
