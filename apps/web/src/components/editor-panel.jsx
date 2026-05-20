@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Save } from "lucide-react";
+import { AlignLeft, Check, Copy, Save } from "lucide-react";
 import { applyTabIndent } from "../lib/editor-indent.js";
+import { formatDsl } from "../lib/format-dsl.js";
 import { ExportMenu } from "./export-menu.jsx";
 
 export function EditorPanel({
@@ -70,6 +71,14 @@ export function EditorPanel({
   }
   const blockCount = Object.keys(model.blocks || {}).length;
 
+  const canFormat = model.errors.length === 0;
+
+  function handleFormat() {
+    const result = formatDsl(src);
+    if (!result.ok || result.value === src) return;
+    onChange(result.value);
+  }
+
   async function copyDSL() {
     await navigator.clipboard.writeText(src);
     setCopied(true);
@@ -94,6 +103,20 @@ export function EditorPanel({
 
         <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 ml-auto">
           <ExportMenu src={src} modelTitle={modelTitle} themeBg={themeBg} />
+          <button
+            type="button"
+            onClick={handleFormat}
+            disabled={!canFormat}
+            title={
+              canFormat
+                ? "DSLを整形"
+                : "解析エラーを修正してから整形できます"
+            }
+            className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-700 rounded-sm text-stone-300 hover:bg-stone-800 transition disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent"
+          >
+            <AlignLeft size={14} />
+            整形
+          </button>
           <button
             type="button"
             onClick={copyDSL}

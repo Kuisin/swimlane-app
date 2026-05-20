@@ -179,18 +179,18 @@ export function parseDSL(src) {
 
   const rows = [];
   const stack = [];
-  /** if/endif depth; nested if is indented inside parent case body (+2). */
+  /** if / elseif / endif share one level; case body is one indent (2 spaces) deeper. */
   function branchMarkerDepth() {
-    if (stack.length === 0) return 0;
-    return stack[stack.length - 1].depth + 2;
-  }
-  function branchCaseDepth() {
     if (stack.length === 0) return 0;
     return stack[stack.length - 1].depth + 1;
   }
+  function branchControlDepth() {
+    if (stack.length === 0) return 0;
+    return stack[stack.length - 1].depth;
+  }
   function branchBodyDepth() {
     if (stack.length === 0) return 0;
-    return stack[stack.length - 1].depth + 2;
+    return stack[stack.length - 1].depth + 1;
   }
   let branchCounter = 0;
   let lastRealStepIndex = -1;
@@ -229,7 +229,7 @@ export function parseDSL(src) {
         label: m[1].trim(),
         branchColor: m[2] ? m[2].trim().toLowerCase() : null,
         id: top.id,
-        depth: branchCaseDepth(),
+        depth: branchControlDepth(),
       });
       continue;
     }
@@ -243,7 +243,7 @@ export function parseDSL(src) {
         kind: "branchCase",
         label: "else",
         id: top.id,
-        depth: branchCaseDepth(),
+        depth: branchControlDepth(),
       });
       continue;
     }

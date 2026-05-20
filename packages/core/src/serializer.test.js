@@ -34,6 +34,57 @@ function normalizeModel(model) {
   };
 }
 
+describe("serializeDSL branch indentation", () => {
+  it("aligns if, elseif, and endif; indents case body by one level (2 spaces)", () => {
+    const src = [
+      "@kai-swimlane",
+      "",
+      "/title/",
+      "t",
+      "",
+      "/role/",
+      "",
+      "<r>",
+      "label: R;",
+      "",
+      "/line/",
+      "",
+      "if (a) is (x) than",
+      "  [r: one]",
+      "    elseif (y) than",
+      "  [r: two]",
+      "endif",
+      "",
+      "@end",
+    ].join("\n");
+
+    const out = serializeDSL(parseDSL(src));
+    const lineSection = out.split("/line/")[1].split("@end")[0].trimEnd();
+    const lines = lineSection.split("\n").map((l) => l.replace(/\r$/, ""));
+
+    expect(lines).toContain("if (a) is (x) than");
+    expect(lines).toContain("elseif (y) than");
+    expect(lines).toContain("endif");
+    expect(lines).toContain("  [r: one]");
+    expect(lines).toContain("  [r: two]");
+
+    const ifLine = lines.find((l) => l.startsWith("if "));
+    const elseifLine = lines.find((l) => l.startsWith("elseif "));
+    const endifLine = lines.find((l) => l === "endif");
+    const stepLine = lines.find((l) => l.includes("[r: one]"));
+
+    expect(leadingSpaces(ifLine)).toBe(0);
+    expect(leadingSpaces(elseifLine)).toBe(0);
+    expect(leadingSpaces(endifLine)).toBe(0);
+    expect(leadingSpaces(stepLine)).toBe(2);
+  });
+});
+
+function leadingSpaces(line) {
+  const m = line.match(/^ */);
+  return m ? m[0].length : 0;
+}
+
 describe("serializeDSL round-trip", () => {
   for (const fixture of ["sample.txt", "default-tab-template.txt"]) {
     it(`parse → serialize → parse (${fixture})`, () => {

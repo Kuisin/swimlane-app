@@ -87,6 +87,20 @@ function indent(depth, line) {
   return INDENT.repeat(Math.max(0, depth ?? 0)) + line;
 }
 
+/** if / elseif / else / endif share the branchStart depth. */
+function branchControlDepth(rows, rowIndex) {
+  const row = rows[rowIndex];
+  if (row.kind === "branchStart") return row.depth ?? 0;
+  if (row.kind === "branchCase" || row.kind === "branchEnd") {
+    for (let j = rowIndex; j >= 0; j--) {
+      if (rows[j].kind === "branchStart" && rows[j].id === row.id) {
+        return rows[j].depth ?? 0;
+      }
+    }
+  }
+  return row.depth ?? 0;
+}
+
 function pushBlankLine(out) {
   if (out.length > 0 && out[out.length - 1] !== "") {
     out.push("");
@@ -115,6 +129,7 @@ function serializeLineRows(rows) {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const depth = row.depth ?? 0;
+    const controlDepth = branchControlDepth(rows, i);
 
     if (row.kind === "branchStart") {
       if (
@@ -125,7 +140,9 @@ function serializeLineRows(rows) {
       }
       const color = serializeBranchColor(row.branchColor);
       const firstCase = firstBranchCaseLabel(rows, i);
-      out.push(indent(depth, `if (${row.cond}) is (${firstCase}) than${color}`));
+      out.push(
+        indent(controlDepth, `if (${row.cond}) is (${firstCase}) than${color}`),
+      );
       prevKind = "branchStart";
       continue;
     }
@@ -138,17 +155,17 @@ function serializeLineRows(rows) {
       pushBlankLine(out);
       const label = (row.label || "").trim();
       if (/^else$/i.test(label)) {
-        out.push(indent(depth, "else"));
+        out.push(indent(controlDepth, "else"));
       } else {
         const color = serializeBranchColor(row.branchColor);
-        out.push(indent(depth, `elseif (${label}) than${color}`));
+        out.push(indent(controlDepth, `elseif (${label}) than${color}`));
       }
       prevKind = "branchCase";
       continue;
     }
 
     if (row.kind === "branchEnd") {
-      out.push(indent(depth, "endif"));
+      out.push(indent(controlDepth, "endif"));
       prevKind = "branchEnd";
       const next = rows[i + 1];
       if (
