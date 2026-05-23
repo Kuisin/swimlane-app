@@ -302,10 +302,17 @@ export function FlowStepList({
                 </span>
               )}
               {!showReorder && <span className="w-[18px] shrink-0" />}
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectRow(i)}
-                className="flex-1 text-left py-1.5 min-w-0 flex flex-row"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectRow(i);
+                  }
+                }}
+                className="flex-1 text-left py-1.5 min-w-0 flex flex-row items-center cursor-pointer"
               >
                 <span
                   className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium text-stone-100 mr-1.5 shrink-0 ${rowKindBadgeClass(row)}`}
@@ -313,38 +320,32 @@ export function FlowStepList({
                 >
                   {badge}
                 </span>
-                <span className="text-stone-100 leading-snug line-clamp-2">
+                <span className="flex-1 text-stone-100 leading-snug line-clamp-2">
                   {summary}
                 </span>
-                {canMoveTo && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMoveFromIndex(i);
-                    }}
-                    className="shrink-0 ml-2 p-0.5 text-stone-400 hover:text-stone-100"
-                    aria-label="移動先を選ぶ"
-                    title="移動先を選ぶ"
-                  >
-                    <ArrowRightLeft size={14} />
-                  </button>
-                )}
-                {canOutdent && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOutdent(i);
-                    }}
-                    className="ml-2 p-0.5 text-stone-400 hover:text-stone-100"
-                    aria-label="ネストから出す"
-                    title="ネストから出す"
-                  >
-                    <CornerLeftUp size={14} />
-                  </button>
-                )}
-              </button>
+              </div>
+              {canMoveTo && (
+                <button
+                  type="button"
+                  onClick={() => setMoveFromIndex(i)}
+                  className="shrink-0 p-0.5 text-stone-400 hover:text-stone-100"
+                  aria-label="移動先を選ぶ"
+                  title="移動先を選ぶ"
+                >
+                  <ArrowRightLeft size={14} />
+                </button>
+              )}
+              {canOutdent && (
+                <button
+                  type="button"
+                  onClick={() => handleOutdent(i)}
+                  className="shrink-0 p-0.5 text-stone-400 hover:text-stone-100"
+                  aria-label="ネストから出す"
+                  title="ネストから出す"
+                >
+                  <CornerLeftUp size={14} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleDelete(i)}
