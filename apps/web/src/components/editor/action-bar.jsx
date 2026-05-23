@@ -1,6 +1,7 @@
 import { Save } from "lucide-react";
 import { ExportMenu } from "./export-menu";
 import { ToolbarTemplateActions } from "../gui/toolbar-template-actions";
+import { FormatActions } from "../text-mode/format-actions";
 
 export function EditorActionBar({
   src,
@@ -11,6 +12,8 @@ export function EditorActionBar({
   hasUnsavedChanges,
   onSave,
   modelType = "gui",
+  onChange,
+  canFormat = false,
 }) {
   return (
     <div className="relative z-10 px-3 sm:px-4 py-2 border-b border-stone-700/60 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
@@ -34,6 +37,9 @@ export function EditorActionBar({
           themeBg={themeBg}
           showStepBlockCaptions={showStepBlockCaptions}
         />
+        {modelType === "text" && (
+          <FormatActions src={src} onChange={onChange} canFormat={canFormat} />
+        )}
         <button
           type="button"
           onClick={onSave}
