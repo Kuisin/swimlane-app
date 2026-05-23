@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BlockPartsPreview, PropPartsPreview } from "./template-preview";
+import { BlockPartsPreview, PropPartsPreview } from "./templates/preview";
 import { PreviewPickModal } from "./preview-pick-modal";
 
 const selectClass =

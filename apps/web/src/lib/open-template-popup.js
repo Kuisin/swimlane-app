@@ -1,4 +1,5 @@
-const POPUP_FEATURES = "popup,width=960,height=720,resizable=yes,scrollbars=yes";
+import { openAppPopup } from "./open-app-popup";
+
 const WINDOW_NAMES = {
   roles: "swimlane-templates-roles",
   blocks: "swimlane-templates-blocks",
@@ -18,14 +19,12 @@ export function openTemplatePopup(kind, popupRefs) {
   }
 
   const url = getTemplatePopupUrl(kind);
-  const popup = window.open(url, WINDOW_NAMES[kind], POPUP_FEATURES);
+  const popup = openAppPopup(url, WINDOW_NAMES[kind], {
+    width: 960,
+    height: 720,
+  });
 
-  if (!popup) {
-    window.alert(
-      "ポップアップを開けませんでした。ブラウザのポップアップブロックを解除してください。"
-    );
-    return null;
-  }
+  if (!popup) return null;
 
   popupRefs.current[kind] = popup;
   return popup;

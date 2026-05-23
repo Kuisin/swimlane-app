@@ -1,5 +1,5 @@
 import { parseDSL, serializeDSL } from "@kai-swimlane/core";
-import { normalizeBranchRows } from "./flow-rows.js";
+import { normalizeBranchRows } from "./flow-rows";
 
 /** Parse and re-serialize DSL into canonical indentation and section layout. */
 export function formatDsl(src) {

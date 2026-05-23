@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { X } from "lucide-react";
-import { RolesTemplatePanel } from "../components/gui/roles-modal";
-import { BlocksTemplatePanel } from "../components/gui/blocks-modal";
-import { PropsTemplatePanel } from "../components/gui/props-modal";
+import {
+  BlocksTemplatePanel,
+  PropsTemplatePanel,
+  RolesTemplatePanel,
+} from "../components/gui/templates/panels";
 import { useEditor } from "../hooks/use-editor";
 
 const KIND_CONFIG = {

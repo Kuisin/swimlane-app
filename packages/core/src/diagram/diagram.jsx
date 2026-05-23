@@ -20,6 +20,7 @@ export const BRANCH_COLOR_STYLES = {
 function RowSelectionHighlight({ x, y, w, h }) {
   return (
     <rect
+      data-export-hide
       x={x}
       y={y}
       width={w}
@@ -37,6 +38,7 @@ function RowSelectionHighlight({ x, y, w, h }) {
 function RowHitTarget({ rowIndex, x, y, w, h, selected, onSelect }) {
   return (
     <rect
+      data-export-hide
       x={x}
       y={y}
       width={w}
@@ -47,6 +49,24 @@ function RowHitTarget({ rowIndex, x, y, w, h, selected, onSelect }) {
       stroke={selected ? "#2563eb" : "none"}
       strokeWidth={selected ? 2.5 : 0}
       rx={4}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect?.(rowIndex);
+      }}
+    />
+  );
+}
+
+function PathHitTarget({ rowIndex, d, onSelect }) {
+  return (
+    <path
+      data-export-hide
+      d={d}
+      fill="none"
+      stroke="transparent"
+      strokeWidth="18"
+      pointerEvents="stroke"
+      cursor="pointer"
       onClick={(event) => {
         event.stopPropagation();
         onSelect?.(rowIndex);
@@ -796,6 +816,67 @@ export function Diagram({
     });
   });
 
+  function buildCaseFanOutEdgeD(f, c) {
+    const dCx = frameAnchorX(f);
+    const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+    const dH = 50;
+    const mCy = f.yMerge + mergeH / 2;
+    const mH = 28;
+
+    const child = c.childFrame;
+    const firstStepIdx = firstStepIdxInCase(c);
+    const stubCase = isStubCase(c, f.id);
+    const targetsNestedDecision = child != null;
+
+    const startX = dCx;
+    const startY = dCy + dH / 2;
+    const bendY = startY + branchCaseBendYOffset;
+
+    let targetY;
+    let targetX = caseAnchorX(c);
+    let caseLaneWidth = minLaneW;
+    let showArrow = false;
+
+    if (targetsNestedDecision) {
+      targetX = frameAnchorX(child);
+      targetY = child.yDecision + diamondH / 2 + decisionYOffset - 22;
+      const li = laneIndexForX(targetX);
+      if (li >= 0) caseLaneWidth = laneWidth(li);
+    } else if (firstStepIdx != null) {
+      const stepTarget = caseStepLineTarget(firstStepIdx, c);
+      if (stepTarget) {
+        targetX = stepTarget.x;
+        targetY = stepTarget.y;
+        showArrow = stepTarget.showArrow;
+        const li = laneIndexForX(targetX);
+        if (li >= 0) caseLaneWidth = laneWidth(li);
+      } else {
+        targetY = bendY;
+      }
+    } else if (stubCase) {
+      targetX = caseAnchorX(c);
+      targetY = bendY;
+    } else {
+      targetY = mCy - mH / 2 - 4;
+    }
+
+    const sideOffset = c.offset || 0;
+    const sideX = targetX;
+    const laneSafeMin = targetX - caseLaneWidth / 2 + 16;
+    const laneSafeMax = targetX + caseLaneWidth / 2 - 16;
+    const clampedSideX = Math.max(
+      laneSafeMin,
+      Math.min(laneSafeMax, sideX),
+    );
+    const needsElbow =
+      Math.abs(targetX - startX) > 0.5 || (showArrow && sideOffset !== 0);
+    return showArrow && sideOffset !== 0
+      ? `M ${startX} ${startY} L ${startX} ${bendY} L ${clampedSideX} ${bendY} L ${clampedSideX} ${targetY}`
+      : needsElbow
+        ? `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${targetY}`
+        : `M ${startX} ${startY} L ${targetX} ${targetY}`;
+  }
+
   const stepRows = rows
     .map((r, i) => ({ r, i, y: rowMeta[i]?.y, meta: rowMeta[i] }))
     .filter((x) => x.r.kind === "step" && !x.r.empty && x.r.role);
@@ -1503,60 +1584,11 @@ export function Diagram({
 
             {/* Branch fan-out: decision -> each case path */}
             {f.cases.map((c, ci) => {
-              const child = c.childFrame;
+              const edgeD = buildCaseFanOutEdgeD(f, c);
               const firstStepIdx = firstStepIdxInCase(c);
-              const stubCase = isStubCase(c, f.id);
-              const targetsNestedDecision = child != null;
-
-              const startX = dCx;
-              const startY = dCy + dH / 2;
-              const bendY = startY + branchCaseBendYOffset;
-
-              let targetY;
-              let targetX = caseAnchorX(c);
-              let caseLaneWidth = minLaneW;
-              let showArrow = false;
-
-              if (targetsNestedDecision) {
-                targetX = frameAnchorX(child);
-                targetY =
-                  child.yDecision + diamondH / 2 + decisionYOffset - 22;
-                const li = laneIndexForX(targetX);
-                if (li >= 0) caseLaneWidth = laneWidth(li);
-              } else if (firstStepIdx != null) {
-                const stepTarget = caseStepLineTarget(firstStepIdx, c);
-                if (stepTarget) {
-                  targetX = stepTarget.x;
-                  targetY = stepTarget.y;
-                  showArrow = stepTarget.showArrow;
-                  const li = laneIndexForX(targetX);
-                  if (li >= 0) caseLaneWidth = laneWidth(li);
-                } else {
-                  targetY = bendY;
-                }
-              } else if (stubCase) {
-                targetX = caseAnchorX(c);
-                targetY = bendY;
-              } else {
-                targetY = mCy - mH / 2 - 4;
-              }
-
-              const sideOffset = c.offset || 0;
-              const sideX = targetX;
-              const laneSafeMin = targetX - caseLaneWidth / 2 + 16;
-              const laneSafeMax = targetX + caseLaneWidth / 2 - 16;
-              const clampedSideX = Math.max(
-                laneSafeMin,
-                Math.min(laneSafeMax, sideX),
-              );
-              const needsElbow =
-                Math.abs(targetX - startX) > 0.5 || (showArrow && sideOffset !== 0);
-              const edgeD =
-                showArrow && sideOffset !== 0
-                  ? `M ${startX} ${startY} L ${startX} ${bendY} L ${clampedSideX} ${bendY} L ${clampedSideX} ${targetY}`
-                  : needsElbow
-                    ? `M ${startX} ${startY} L ${startX} ${bendY} L ${targetX} ${bendY} L ${targetX} ${targetY}`
-                    : `M ${startX} ${startY} L ${targetX} ${targetY}`;
+              const showArrow =
+                firstStepIdx != null &&
+                caseStepLineTarget(firstStepIdx, c)?.showArrow;
 
               return (
                 <g key={`case-${f.id}-${ci}`}>
@@ -1843,6 +1875,7 @@ export function Diagram({
             </text>
             {showStepBlockCaptions && r.blockRef && (
               <text
+                data-export-caption="block-ref"
                 x={cx + boxW / 2 - 4}
                 y={cy - boxH / 2 - 5}
                 textAnchor="end"
@@ -1855,6 +1888,7 @@ export function Diagram({
             )}
             {showStepBlockCaptions && shape && (
               <text
+                data-export-caption="shape"
                 x={cx - boxW / 2 + 4}
                 y={cy - boxH / 2 - 5}
                 textAnchor="start"
@@ -2141,17 +2175,24 @@ export function Diagram({
               const stepTarget = caseStepLineTarget(firstStepIdx, c);
               if (stepTarget) targetX = stepTarget.x;
             }
+            const edgeD = buildCaseFanOutEdgeD(f, c);
             return (
-              <RowHitTarget
-                key={`hit-${i}`}
-                rowIndex={i}
-                x={targetX - labelW / 2 - 8}
-                y={labelY - 14}
-                w={labelW + 16}
-                h={28}
-                selected={selectedRowIndex === i}
-                onSelect={onRowSelect}
-              />
+              <g key={`hit-${i}`}>
+                <PathHitTarget
+                  rowIndex={i}
+                  d={edgeD}
+                  onSelect={onRowSelect}
+                />
+                <RowHitTarget
+                  rowIndex={i}
+                  x={targetX - labelW / 2 - 8}
+                  y={labelY - 14}
+                  w={labelW + 16}
+                  h={28}
+                  selected={selectedRowIndex === i}
+                  onSelect={onRowSelect}
+                />
+              </g>
             );
           }
 

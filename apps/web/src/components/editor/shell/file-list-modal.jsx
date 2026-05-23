@@ -2,8 +2,8 @@ import { useRef } from "react";
 import { FileText, FileUp, Trash2, X } from "lucide-react";
 import {
   documentNameFromFile,
-  getDocumentTitleFromSrc,
-} from "../lib/document-title.js";
+  extractDocumentTitle,
+} from "../../../lib/document-title";
 
 export function FileListModal({
   documents,
@@ -76,7 +76,7 @@ export function FileListModal({
           {documents.map((document) => {
             const isActive = document.id === activeDocumentId;
             const isDirty = document.src !== document.savedSrc;
-            const title = getDocumentTitleFromSrc(document.src, document.name);
+            const title = extractDocumentTitle(document.src, document.name);
 
             return (
               <div

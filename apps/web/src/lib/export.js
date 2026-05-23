@@ -1,7 +1,11 @@
-export function getSerializedSVG() {
+export function getSerializedSVG({ includeStepBlockCaptions = true } = {}) {
   const svg = document.getElementById("swimlane-svg");
   if (!svg) return null;
   const clone = svg.cloneNode(true);
+  clone.querySelectorAll("[data-export-hide]").forEach((node) => node.remove());
+  if (!includeStepBlockCaptions) {
+    clone.querySelectorAll("[data-export-caption]").forEach((node) => node.remove());
+  }
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
   const vb = (svg.getAttribute("viewBox") || "0 0 800 600")
@@ -32,15 +36,15 @@ export function triggerDownload(blob, filename) {
   }, 100);
 }
 
-export function downloadSVG(title) {
-  const data = getSerializedSVG();
+export function downloadSVG(title, { includeStepBlockCaptions = true } = {}) {
+  const data = getSerializedSVG({ includeStepBlockCaptions });
   if (!data) return;
   const blob = new Blob([data.str], { type: "image/svg+xml;charset=utf-8" });
   triggerDownload(blob, `${title || "swimlane"}.svg`);
 }
 
-export function downloadPNG(title, bgColor) {
-  const data = getSerializedSVG();
+export function downloadPNG(title, bgColor, { includeStepBlockCaptions = true } = {}) {
+  const data = getSerializedSVG({ includeStepBlockCaptions });
   if (!data) return;
   const { str, w, h } = data;
   const dataUrl =

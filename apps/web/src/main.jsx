@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./index.css";
-import { EditorProvider } from "./context/editor-context";
+import { EditorProvider } from "./context/editor-provider";
 import { EditorPage } from "./pages/editor-page";
 import { GuiPage } from "./pages/gui-page";
 import { TemplatePopupPage } from "./pages/template-popup-page";

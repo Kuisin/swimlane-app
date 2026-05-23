@@ -114,21 +114,6 @@ export function FlowStepList({
     onSelectRow(idx);
   }
 
-  function handleAddElse() {
-    if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex)) return;
-    const idx = selectedRowIndex + 1;
-    const caseDepth = branchCaseDepthAt(rows, idx);
-    insertAt(idx, [
-      {
-        kind: "branchCase",
-        label: "else",
-        id: rows[findEnclosingStart(rows, selectedRowIndex)]?.id,
-        depth: caseDepth,
-      },
-    ]);
-    onSelectRow(idx);
-  }
-
   function handleAddLoop() {
     if (
       selectedRowIndex == null ||

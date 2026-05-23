@@ -1,7 +1,9 @@
-import { triggerDownload } from "./export.js";
+import { triggerDownload } from "./export";
 
 function dslFileBaseName(title) {
   const base = (title || "swimlane").trim() || "swimlane";
+  // Strip OS-reserved filename chars and ASCII control range.
+  // eslint-disable-next-line no-control-regex
   return base.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 120);
 }
 

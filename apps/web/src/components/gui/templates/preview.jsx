@@ -5,7 +5,10 @@ import {
   blockToPartsCode,
   laneFromRoleCode,
   propToPartsCode,
-} from "../../lib/template-catalog";
+} from "../../../lib/template-catalog";
+
+const PARTS_PREVIEW_CLASS =
+  "rounded-md border border-stone-300 overflow-auto max-h-48 mb-3";
 
 export function RoleLanePreview({ lane }) {
   if (!lane) return null;
@@ -32,16 +35,8 @@ export function RoleCodePreview({ code }) {
   return <RoleLanePreview lane={lane} />;
 }
 
-const defaultPartsPreviewClass =
-  "rounded-md border border-stone-300 overflow-auto max-h-48 mb-3";
-
-export function BlockPartsPreview({
-  block,
-  code,
-  themeKey,
-  className = defaultPartsPreviewClass,
-}) {
-  const partsCode = code || (block ? blockToPartsCode(block) : "");
+function PartsPreview({ entity, code, toCode, themeKey, className = PARTS_PREVIEW_CLASS }) {
+  const partsCode = code || (entity ? toCode(entity) : "");
   if (!partsCode.trim()) return null;
   return (
     <KaiSwimlanePartsPreview
@@ -52,17 +47,24 @@ export function BlockPartsPreview({
   );
 }
 
-export function PropPartsPreview({
-  prop,
-  code,
-  themeKey,
-  className = defaultPartsPreviewClass,
-}) {
-  const partsCode = code || (prop ? propToPartsCode(prop) : "");
-  if (!partsCode.trim()) return null;
+export function BlockPartsPreview({ block, code, themeKey, className }) {
   return (
-    <KaiSwimlanePartsPreview
-      code={partsCode}
+    <PartsPreview
+      code={code}
+      entity={block}
+      toCode={blockToPartsCode}
+      themeKey={themeKey}
+      className={className}
+    />
+  );
+}
+
+export function PropPartsPreview({ prop, code, themeKey, className }) {
+  return (
+    <PartsPreview
+      code={code}
+      entity={prop}
+      toCode={propToPartsCode}
       themeKey={themeKey}
       className={className}
     />

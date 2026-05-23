@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Download } from "lucide-react";
-import { downloadDslTxt } from "../lib/dsl-file.js";
-import { downloadPNG, downloadSVG } from "../lib/export.js";
+import { downloadDslTxt } from "../../lib/dsl-file";
+import { downloadPNG, downloadSVG } from "../../lib/export";
 
-export function ExportMenu({ src, modelTitle, themeBg, className = "" }) {
+export function ExportMenu({
+  src,
+  modelTitle,
+  themeBg,
+  showStepBlockCaptions = true,
+  className = "",
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -19,12 +25,14 @@ export function ExportMenu({ src, modelTitle, themeBg, className = "" }) {
   }, [open]);
 
   function handleDownloadSvg() {
-    downloadSVG(modelTitle);
+    downloadSVG(modelTitle, { includeStepBlockCaptions: showStepBlockCaptions });
     setOpen(false);
   }
 
   function handleDownloadPng() {
-    downloadPNG(modelTitle, themeBg);
+    downloadPNG(modelTitle, themeBg, {
+      includeStepBlockCaptions: showStepBlockCaptions,
+    });
     setOpen(false);
   }
 

@@ -93,9 +93,9 @@ export function Toolbar({
                   }
                 />
                 <span>
-                  ステップの本文とブロック参照を表示
+                  出力にステップの本文とブロック参照を含める
                   <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
-                    Step title and block ref
+                    Include in SVG/PNG export (preview always shows)
                   </span>
                 </span>
               </label>

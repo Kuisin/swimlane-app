@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { EditorContext } from "../context/editor-context-state.js";
+import { EditorContext } from "../context/editor-context";
 
 export function useEditor() {
   const ctx = useContext(EditorContext);

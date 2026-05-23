@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useTemplateDraft } from "../../hooks/use-template-draft";
+import { DraftActions } from "./draft-actions";
 import { StepInspector } from "./step-inspector";
 import { BranchInspector } from "./branch-inspector";
 
@@ -32,11 +33,7 @@ export function InspectorDraftPanel({
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {isBranchRow ? (
-        <BranchInspector
-          row={draft}
-          rows={guiModel.rows}
-          onPatch={patch}
-        />
+        <BranchInspector row={draft} rows={guiModel.rows} onPatch={patch} />
       ) : (
         <StepInspector
           row={draft}
@@ -47,23 +44,13 @@ export function InspectorDraftPanel({
           onPatch={patch}
         />
       )}
-      <div className="px-3 py-3 border-t border-stone-700 flex flex-wrap gap-2 shrink-0">
-        <button
-          type="button"
-          disabled={!isDirty}
-          onClick={() => onSave(draft)}
-          className="text-xs font-jp px-3 py-1.5 rounded border border-stone-500 bg-stone-100 text-stone-900 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          保存
-        </button>
-        <button
-          type="button"
-          disabled={!isDirty}
-          onClick={reset}
-          className="text-xs font-jp px-3 py-1.5 rounded border border-stone-600 text-stone-300 hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          元に戻す
-        </button>
+      <div className="px-3 py-3 shrink-0">
+        <DraftActions
+          isDirty={isDirty}
+          onSave={() => onSave(draft)}
+          onReset={reset}
+          variant="dark"
+        />
       </div>
     </div>
   );

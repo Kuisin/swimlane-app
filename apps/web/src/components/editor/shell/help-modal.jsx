@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, Copy, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { parseHelpMd, parseTemplateMd, THEMES } from "@kai-swimlane/core";
-import { laneFromRoleCode } from "../lib/template-catalog";
+import { laneFromRoleCode } from "../../../lib/template-catalog";
 import { KaiSwimlanePreview } from "kai-swimlane";
 import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
 

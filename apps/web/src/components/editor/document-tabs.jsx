@@ -1,4 +1,4 @@
-import { extractTitleFromSource } from "../lib/document-utils";
+import { extractDocumentTitle } from "../../lib/document-title";
 
 export function DocumentTabs({
   openDocuments,
@@ -15,8 +15,7 @@ export function DocumentTabs({
       {openDocuments.map((document) => {
         const isActive = document.id === activeDocumentId;
         const isDirty = document.src !== document.savedSrc;
-        const documentTitle =
-          extractTitleFromSource(document.src) || document.name;
+        const documentTitle = extractDocumentTitle(document.src, document.name);
         return (
           <div
             key={document.id}
