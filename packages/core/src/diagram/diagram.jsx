@@ -1463,22 +1463,19 @@ export function Diagram({
                   stroke={txt}
                   strokeWidth="1.2"
                 />
-                <text
-                  x={x + 28}
-                  y={topPad + headerH / 2 + 5}
-                  textAnchor="middle"
-                  fontSize="14"
-                  fill={txt}
-                  fontFamily="'Noto Sans JP',sans-serif"
-                  fontWeight="600"
-                >
-                  {lane.label?.[0] || lane.id[0]}
-                </text>
+                <BlockIcon
+                  icon={lane.icon}
+                  x={x + 12}
+                  y={topPad + headerH / 2}
+                  size={22}
+                  color={txt}
+                  shape="rounded"
+                />
               </g>
             )}
             <text
               x={lane.icon ? x + 54 : x + currentLaneW / 2}
-              y={topPad + headerH / 2 + (lane.icon ? 0 : 6)}
+              y={topPad + headerH / 2 + 6}
               textAnchor={lane.icon ? "start" : "middle"}
               fill={txt}
               fontFamily="'Noto Sans JP',sans-serif"
@@ -1488,19 +1485,6 @@ export function Diagram({
             >
               {lane.label}
             </text>
-            {lane.icon && (
-              <text
-                x={x + 54}
-                y={topPad + headerH / 2 + 18}
-                textAnchor="start"
-                fill={txt}
-                fontFamily="'JetBrains Mono',monospace"
-                fontSize="10"
-                opacity="0.7"
-              >
-                {lane.id}
-              </text>
-            )}
             <line
               style={{ color: "red" }}
               x1={x}

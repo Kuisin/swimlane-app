@@ -173,6 +173,20 @@ function LucideIconPreview({ name, size = 18, className = "" }) {
   return <Icon size={size} strokeWidth={2} className={className} aria-hidden />;
 }
 
+export function LucideIconMark({ icon, size = 18, className = "" }) {
+  if (!icon?.trim()) return null;
+  const name = lucideNameFromValue(icon);
+  if (name && getLucideIcon(name)) {
+    return <LucideIconPreview name={name} size={size} className={className} />;
+  }
+  const display = icon.startsWith("#") ? icon.slice(1) : icon;
+  return (
+    <span className={className} style={{ fontSize: size }} aria-hidden>
+      {display}
+    </span>
+  );
+}
+
 function IconSwatchGrid({ value, onChange }) {
   const current = lucideNameFromValue(value);
 

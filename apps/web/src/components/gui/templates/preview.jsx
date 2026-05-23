@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
 import { KaiSwimlanePreview } from "kai-swimlane";
+import { LucideIconMark } from "../parts-form-fields";
 import {
   blockToPartsCode,
   laneFromRoleCode,
@@ -18,10 +19,11 @@ export function RoleLanePreview({ lane }) {
   return (
     <div className="rounded-md border border-stone-300 overflow-hidden mb-3 bg-white">
       <div
-        className="px-4 py-2.5 font-jp text-sm font-medium"
+        className="px-4 py-2.5 font-jp text-sm font-medium flex items-center gap-2"
         style={{ background: bg, color }}
       >
-        {lane.label || lane.id}
+        <LucideIconMark icon={lane.icon} size={18} className="shrink-0" />
+        <span className="truncate">{lane.label || lane.id}</span>
       </div>
       <p className="px-3 py-1.5 font-mono text-[10px] text-stone-500 border-t border-stone-200">
         {lane.id}

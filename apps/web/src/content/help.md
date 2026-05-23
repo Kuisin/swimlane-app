@@ -37,7 +37,7 @@ Sample text
 label: 営業;
 text-color: #0066cc;
 background-color: #e6f2ff;
-icon: sample.svg;
+icon: #user;
 ```
 
 <roleId> の下にプロパティ。label / text-color / background-color / icon。各行は `;` で終えます。

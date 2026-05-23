@@ -3,6 +3,7 @@ import { Check, Copy, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { parseHelpMd, parseTemplateMd, THEMES } from "@kai-swimlane/core";
+import { LucideIconMark } from "../../gui/parts-form-fields";
 import { laneFromRoleCode } from "../../../lib/template-catalog";
 import { KaiSwimlanePreview } from "kai-swimlane";
 import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
@@ -132,10 +133,11 @@ function RoleLanePreview({ code, theme }) {
       style={{ background: theme.bg }}
     >
       <div
-        className="px-4 py-2.5 font-jp text-sm font-medium"
+        className="px-4 py-2.5 font-jp text-sm font-medium flex items-center gap-2"
         style={{ background: bg, color }}
       >
-        {role.label || role.id}
+        <LucideIconMark icon={role.icon} size={18} className="shrink-0" />
+        <span className="truncate">{role.label || role.id}</span>
       </div>
       <p className="px-3 py-1.5 font-mono text-[10px] text-stone-500 border-t border-stone-100 bg-white/60">
         {role.id}
