@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ArrowRightLeft, ChevronDown, ChevronUp, CornerLeftUp, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  ChevronDown,
+  ChevronUp,
+  CornerLeftUp,
+  Trash2,
+} from "lucide-react";
 import {
   branchBodyDepthAt,
   branchCaseDepthAt,
@@ -45,8 +51,7 @@ export function FlowStepList({
   }
 
   function handleAddStep() {
-    const idx =
-      selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
+    const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
     insertAt(idx, [
       {
         kind: "step",
@@ -61,8 +66,7 @@ export function FlowStepList({
   }
 
   function handleAddIf() {
-    const idx =
-      selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
+    const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
     const markerDepth = branchMarkerDepthAt(rows, idx);
     const caseDepth = branchCaseDepthAt(rows, idx);
     const branchId = nextBranchId(rows);
@@ -99,7 +103,8 @@ export function FlowStepList({
   }
 
   function handleAddElseIf() {
-    if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex)) return;
+    if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex))
+      return;
     const idx = selectedRowIndex + 1;
     const caseDepth = branchCaseDepthAt(rows, idx);
     insertAt(idx, [
@@ -115,10 +120,7 @@ export function FlowStepList({
   }
 
   function handleAddLoop() {
-    if (
-      selectedRowIndex == null ||
-      !isInsideOpenBranch(rows, selectedRowIndex)
-    )
+    if (selectedRowIndex == null || !isInsideOpenBranch(rows, selectedRowIndex))
       return;
     const idx = selectedRowIndex + 1;
     const start = findEnclosingStart(rows, selectedRowIndex);
@@ -210,8 +212,7 @@ export function FlowStepList({
     }
     const parentEnd =
       parentStart >= 0 ? findBranchEndIndex(rows, parentStart) : -1;
-    const newIndex =
-      parentEnd >= 0 ? parentEnd + 1 - removedLen : index;
+    const newIndex = parentEnd >= 0 ? parentEnd + 1 - removedLen : index;
 
     onEditRows((draft) => {
       draft.rows = moveBranchOutOfNest(draft.rows, index);
@@ -219,14 +220,17 @@ export function FlowStepList({
     onSelectRow(Math.max(0, newIndex));
   }
 
-  const canBranch = selectedRowIndex != null && canAddElseIf(rows, selectedRowIndex);
+  const canBranch =
+    selectedRowIndex != null && canAddElseIf(rows, selectedRowIndex);
   const canLoop =
     selectedRowIndex != null && isInsideOpenBranch(rows, selectedRowIndex);
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <div className="px-2 py-2 border-b border-stone-700/60 flex flex-wrap gap-1">
-        <p className="w-full text-[10px] font-jp text-stone-500 mb-1">手順一覧</p>
+        <p className="w-full text-[10px] font-jp text-stone-500 mb-1">
+          手順一覧
+        </p>
         <ToolBtn onClick={handleAddStep}>＋ 手順</ToolBtn>
         <ToolBtn onClick={handleAddIf}>＋ 条件</ToolBtn>
         <ToolBtn onClick={handleAddElseIf} disabled={!canBranch}>
@@ -262,9 +266,12 @@ export function FlowStepList({
           return (
             <li
               key={`row-${i}`}
-              className={`flex items-center gap-1 border-b border-stone-800/80 ${isSelected ? "bg-stone-700" : "hover:bg-stone-800/60"
-                }`}
-              style={{ paddingLeft: `${8 + depth * 14}px` }}
+              className={`flex items-center gap-1 border-b border-stone-800/80 pr-2 ${
+                isSelected ? "bg-stone-700" : "hover:bg-stone-800/60"
+              }`}
+              style={{
+                paddingLeft: `${8 + depth * 14}px`
+              }}
             >
               {showReorder && (
                 <span className="flex flex-col shrink-0">
@@ -382,4 +389,3 @@ function findEnclosingStart(rows, rowIndex) {
   }
   return -1;
 }
-
