@@ -2,28 +2,6 @@
 
 レーン ID は `role_` + 役割名（英語）にします。例: `role_applicant` = 申請者。図ごとに ID を増やしても構いません。
 
-| ID | 用途 |
-|----|------|
-| `role_category` | 区分列（見出し・`skip;` 用） |
-| `role_applicant` | 申請者・起票者 |
-| `role_approver` | 承認者 |
-| `role_accounting` | 経理・財務 |
-| `role_hr` | 人事 |
-| `role_system` | システム・自動処理 |
-| `role_legal` | 法務・コンプライアンス |
-| `role_partner` | 取引先・顧客（社外） |
-
-### 区分列
-
-左カラムの見出し用レーン。手順番号を付けない行（`skip;`）と組み合わせます。
-
-```
-<role_category>
-label: 区分;
-text-color: #444444;
-background-color: #f5f5f4;
-```
-
 ### 申請者
 
 申請・起票を行う担当者のレーン。
@@ -37,7 +15,7 @@ background-color: #ffffff;
 
 ### 承認者
 
-上長や承認権限者のレーン。緑系で「承認」ブロックと揃えると分かりやすいです。
+上長や承認権限者のレーン。
 
 ```
 <role_approver>

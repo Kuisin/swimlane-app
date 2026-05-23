@@ -1,20 +1,21 @@
 import { useMemo, useState } from "react";
 import { Check, Copy, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { parseHelpMd, parseTemplateMd, THEMES } from "@kai-swimlane/core";
 import { laneFromRoleCode } from "../../../lib/template-catalog";
 import { KaiSwimlanePreview } from "kai-swimlane";
 import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
 
 const CATEGORY_LABELS = {
-  role: "役割",
+  role: "ロール",
   block: "ブロック",
-  prop: "プロップ",
+  prop: "ドキュメント",
   set: "セット",
 };
 
 const CARD_CLASS =
-  "rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm";
+  "h-full rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm";
 
 const MARKDOWN_COMPONENTS = {
   a: ({ ...props }) => (
@@ -31,6 +32,27 @@ const MARKDOWN_COMPONENTS = {
       className="rounded bg-stone-100 px-1 py-0.5 font-mono text-[0.78rem] text-stone-800"
     />
   ),
+  table: ({ ...props }) => (
+    <div className="my-3 overflow-x-auto">
+      <table
+        {...props}
+        className="w-full min-w-[20rem] border-collapse text-xs text-stone-700"
+      />
+    </div>
+  ),
+  thead: ({ ...props }) => <thead {...props} className="bg-stone-100" />,
+  th: ({ ...props }) => (
+    <th
+      {...props}
+      className="border border-stone-200 px-3 py-2 text-left font-semibold text-stone-900"
+    />
+  ),
+  td: ({ ...props }) => (
+    <td {...props} className="border border-stone-200 px-3 py-2 align-top" />
+  ),
+  tr: ({ ...props }) => (
+    <tr {...props} className="even:bg-stone-50/80 odd:bg-white" />
+  ),
 };
 
 function MarkdownBody({ children, className = "" }) {
@@ -39,7 +61,9 @@ function MarkdownBody({ children, className = "" }) {
     <div
       className={`prose prose-sm prose-stone max-w-none text-stone-700 ${className}`}
     >
-      <ReactMarkdown components={MARKDOWN_COMPONENTS}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -174,6 +198,12 @@ function resolveTemplatePreview(item, categoryId) {
   return "snippet";
 }
 
+function templateItemGridClass(item, categoryId) {
+  return resolveTemplatePreview(item, categoryId) === "full"
+    ? "sm:col-span-2"
+    : "";
+}
+
 function TemplateItem({ item, categoryId, themeKey, theme, copiedId, onCopy }) {
   const preview = resolveTemplatePreview(item, categoryId);
   if (preview === "full") {
@@ -248,7 +278,9 @@ export function HelpModal({ helpMd, templateMd, themeKey, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl overflow-hidden rounded-xl border border-stone-300 bg-stone-50 shadow-2xl"
+        className={`w-full overflow-hidden rounded-xl border border-stone-300 bg-stone-50 shadow-2xl ${
+          mainTab === "templates" ? "max-w-6xl" : "max-w-4xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-stone-300 px-5 py-4">
@@ -335,17 +367,23 @@ export function HelpModal({ helpMd, templateMd, themeKey, onClose }) {
                   <MarkdownBody>{activeCategory.intro}</MarkdownBody>
                 </section>
               ) : null}
-              {(activeCategory?.items || []).map((item) => (
-                <TemplateItem
-                  key={item.id}
-                  item={item}
-                  categoryId={activeCategory?.id}
-                  themeKey={themeKey}
-                  theme={theme}
-                  copiedId={copiedTemplateId}
-                  onCopy={copyTemplate}
-                />
-              ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {(activeCategory?.items || []).map((item) => (
+                  <div
+                    key={item.id}
+                    className={templateItemGridClass(item, activeCategory?.id)}
+                  >
+                    <TemplateItem
+                      item={item}
+                      categoryId={activeCategory?.id}
+                      themeKey={themeKey}
+                      theme={theme}
+                      copiedId={copiedTemplateId}
+                      onCopy={copyTemplate}
+                    />
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </div>
