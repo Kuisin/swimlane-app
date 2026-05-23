@@ -21,7 +21,7 @@ export function Toolbar({
   guiActions = null,
 }) {
   return (
-    <header className="border-b border-stone-300 bg-stone-50">
+    <header className="relative z-40 border-b border-stone-300 bg-stone-50">
       <div className="mx-auto px-6 py-5 flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-baseline gap-4 flex-wrap">
           <h1 className="font-display text-xl font-bold tracking-tight">
@@ -52,7 +52,7 @@ export function Toolbar({
             <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition">
               テーマ: {THEMES[themeKey]?.name || "Theme"} <ChevronDown size={13} />
             </summary>
-            <div className="absolute right-0 mt-1 min-w-36 rounded-sm border border-stone-300 bg-stone-50 shadow-lg overflow-hidden z-10">
+            <div className="absolute right-0 mt-1 min-w-36 rounded-sm border border-stone-300 bg-stone-50 shadow-lg overflow-hidden z-50">
               {Object.entries(THEMES).map(([key, t]) => (
                 <button
                   key={key}
@@ -82,7 +82,7 @@ export function Toolbar({
             <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition">
               <Settings size={14} /> 設定 <ChevronDown size={13} />
             </summary>
-            <div className="absolute right-0 mt-1 min-w-56 rounded-sm border border-stone-300 bg-stone-50 shadow-lg overflow-hidden z-10 p-2">
+            <div className="absolute right-0 mt-1 min-w-56 rounded-sm border border-stone-300 bg-stone-50 shadow-lg overflow-hidden z-50 p-2">
               <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
                 <input
                   type="checkbox"

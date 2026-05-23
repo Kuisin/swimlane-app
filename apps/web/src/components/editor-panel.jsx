@@ -87,7 +87,7 @@ export function EditorPanel({
 
   return (
     <div className="flex flex-col min-h-0 h-full">
-      <div className="relative z-20 px-4 py-2 border-b border-stone-700/60 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
+      <div className="relative z-10 px-4 py-2 border-b border-stone-700/60 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
         <div className="flex items-center gap-4 min-w-0 basis-full sm:basis-auto">
           {/* <span className="font-mono text-xs text-stone-400 tracking-wider uppercase">
             editor

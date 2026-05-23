@@ -153,7 +153,7 @@ export function GuiPage() {
             onAddDocument={addDocumentTab}
           />
           <div className="flex flex-col min-h-0 flex-1">
-            <div className="relative z-20 px-3 sm:px-4 py-2 border-b border-stone-700/60 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
+            <div className="relative z-10 px-3 sm:px-4 py-2 border-b border-stone-700/60 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 shrink-0">
               <div className="flex items-center gap-1 font-mono text-[10px] text-stone-500 min-w-0 basis-full sm:basis-auto">
                 <span>{guiModel.lanes.length} roles</span>
                 <span className="text-stone-700">·</span>
