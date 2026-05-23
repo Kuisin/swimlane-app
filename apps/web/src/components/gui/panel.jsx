@@ -22,6 +22,7 @@ export function GuiModePanel({
   return (
     <div className="flex flex-col min-h-0 h-full">
       <EditorActionBar
+        modelType="gui"
         src={src}
         modelTitle={model.title}
         themeBg={themeBg}

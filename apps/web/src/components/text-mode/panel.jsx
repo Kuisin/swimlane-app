@@ -26,6 +26,7 @@ export function TextModePanel({
   return (
     <div className="flex flex-col min-h-0 h-full">
       <EditorActionBar
+        modelType="text"
         src={src}
         modelTitle={modelTitle}
         themeBg={themeBg}
