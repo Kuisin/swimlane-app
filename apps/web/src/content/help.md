@@ -1,0 +1,149 @@
+## 必須構文
+
+```
+@kai-swimlane
+・・・
+@end
+```
+@行の間の文字列が処理されます
+
+## セクション
+
+```
+/title/
+/role/
+/block/
+/prop/
+/line/
+```
+
+5つのセクションに分けて記述します。
+
+## タイトル
+
+```
+/title/
+Sample text
+```
+
+図のタイトル。
+
+## 役割(レーン)
+
+```
+/role/
+
+<role01>
+label: 営業;
+text-color: #0066cc;
+background-color: #e6f2ff;
+icon: sample.svg;
+```
+
+<roleId> の下にプロパティ。label / text-color / background-color / icon。各行は `;` で終えます。
+
+## ブロック(再利用デザイン)
+
+```
+/block/
+
+<block01>
+background-color: #ffe0b3;
+text-color: #6b2a00;
+border-color: #aa5500;
+shape: hex;
+icon: #zap;
+```
+
+再利用可能なステップのスタイル定義。shape: rect / rounded / hex / ellipse / cloud / note / subroutine。プロパティ行は `;` で終えます。
+
+## プロップ(再利用ドキュメント)
+
+```
+/prop/
+
+<RQ>
+label: 申請書;
+side: right;
+
+<LG>
+label: 承認ログ;
+side: left;
+background-color: #f1f5f9;
+border-color: #64748b;
+text-color: #0f172a;
+title: 監査用に保存される承認履歴;
+max-chars: 10;
+```
+
+ステップに紐づける再利用可能なドキュメント定義。プロパティ行は `;` で終えます。
+
+- `label` — チップに表示する短い名前
+- `side` — `left` / `right`（省略時 `right`）
+- `background-color` — チップの塗り
+- `border-color` — チップの枠線
+- `text-color` — ラベル文字色
+- `title` または `hint` — ホバー時の説明（SVG の `<title>`。未指定時は `label` などにフォールバック）
+- `max-chars` — 表示名の最大文字数（正の整数。省略時は 9）
+
+## アイコン (icon)
+
+```
+icon: #check;
+icon: #alert-triangle;
+icon: ★;
+icon: 🔥;
+```
+
+`#` 付きで [Lucide アイコン名](https://lucide.dev/icons/) を指定(例: `#check`, `#star`, `#mail`, `#lock`, `#zap`, `#circle-check`, `#alert-triangle`, `#database`, `#cloud`, `#settings`, `#user`, `#file-text`, `#send`, `#rocket`, `#shield-check` など 100+ 種)。`#` 無しは絵文字・文字としてそのまま表示。
+
+## ステップ
+
+1 行目にレーンと本文。`[roleId: 本文]`。行末に `<blockId>` を付けると `/block/` のデザインが当たります。
+
+次の行以降（必ず直後のステップにだけ効く）:
+
+- `label: 名前;` — 左カラム用の表示名
+- `desc: 説明;` — 左カラム用の小さめ説明
+- `skip;` — 段階番号を付けない（見出し用）
+- `props: A,B,C;` — `/prop/` のドキュメントをステップ下部の左右に表示
+
+```
+[role02: ここに手続きを入れる]
+label: Step name;
+desc: 左カラムに表示される説明;
+props: A,B;
+
+[role02: ここに次のステップ] <block02>
+props: C;
+```
+
+## 分岐(split & merge)
+
+分岐内の行は必須ではありませんが、可読性のため先頭に半角スペース2つのインデントを推奨します。
+
+```
+if (条件) is (成功 ) than #blue
+  [role01: 成功処理] <block02>
+elseif (失敗) than #gray
+  [role02: エラー] <block03>
+endif
+
+if (○○有無) is (あり) than
+  [role01: 成功処理] <block02>
+elseif (なし) than
+  [role02: エラー] <block03>
+endif
+
+if (再試行) is (する) than
+  [role01: 項目を処理] <block02>
+  [loop]
+elseif (しない) than
+  [role01: 完了] <block03>
+endif
+```
+
+if〜endif で分岐。各ステップ行は上記と同じく `[roleId: 本文]` 形式。`than` の後ろに `#色名` を付けると条件ブロック色を指定できます。
+色指定がない場合は現在のテーマ既定色を使います。使える色：blue, green, red, orange, purple, gray, black
+
+分岐ケースの末尾に `[loop]` を置くと、そのケースはマージへ進まず同じ if の条件ダイヤモンドへ戻る矢印を描きます（`if` の外では使えません）。直前のステップから矢印が出ます。ステップが無いケースではケース位置から戻ります。

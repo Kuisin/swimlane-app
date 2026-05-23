@@ -1,0 +1,109 @@
+@kai-swimlane
+
+/title/
+経費申請フロー（propsサンプル）
+
+/role/
+
+<role_category>
+label: 区分;
+text-color: #444444;
+background-color: #f5f5f4;
+
+<role_system>
+label: システム;
+text-color: #3730a3;
+background-color: #eef2ff;
+icon: #database;
+
+<role_applicant>
+label: 申請者;
+text-color: #1e293b;
+background-color: #ffffff;
+
+/block/
+
+<block_apply>
+background-color: #dbeafe;
+text-color: #1e40af;
+border-color: #2563eb;
+shape: rounded;
+icon: #zap;
+
+<block_system>
+background-color: #e0e7ff;
+text-color: #3730a3;
+border-color: #4f46e5;
+shape: rect;
+icon: #database;
+
+<block_condition>
+background-color: #f3e8ff;
+text-color: #6b21a8;
+border-color: #9333ea;
+shape: subroutine;
+icon: #git-branch;
+
+<block_reject>
+background-color: #fee2e2;
+text-color: #991b1b;
+border-color: #dc2626;
+shape: hex;
+icon: #alert-triangle;
+
+/prop/
+
+<REQ_DOC>
+label: 経費申請書;
+side: right;
+title: 会社所定フォーマットの申請書;
+max-chars: 8;
+
+<APPR_LOG>
+label: 承認ログ;
+side: left;
+background-color: #f8fafc;
+border-color: #64748b;
+text-color: #334155;
+title: 誰がいつ承認・差し戻ししたかの記録;
+
+<NOTIFY>
+label: 通知メール;
+side: right;
+background-color: #f0f9ff;
+border-color: #0284c7;
+text-color: #075985;
+
+<RECEIPT>
+label: 領収書;
+side: left;
+background-color: #f8fafc;
+border-color: #94a3b8;
+text-color: #334155;
+hint: 金額・日付が読める画像またはPDF;
+
+/line/
+
+[role_category: 申請開始]
+skip;
+
+[role_applicant: 領収書を添付して申請] <block_apply>
+label: 申請入力;
+desc: 入力内容を確認して送信する;
+props: REQ_DOC,RECEIPT;
+
+[role_system: 申請を受け付ける] <block_system>
+props: APPR_LOG;
+
+if (再試行) is (する) than
+  [role_system: 項目を処理] <block_condition>
+  [loop]
+elseif (しない) than
+  [role_system: 完了] <block_reject>
+props: NOTIFY;
+endif
+
+[role_applicant: 申請結果を確認]
+props: NOTIFY;
+
+@end

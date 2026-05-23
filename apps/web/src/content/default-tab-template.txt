@@ -1,0 +1,42 @@
+@kai-swimlane
+/title/
+新規ファイル
+
+/role/
+
+<role_category>
+label: 区分;
+text-color: #444444;
+background-color: #f5f5f4;
+
+<role_applicant>
+label: 申請者;
+text-color: #1e293b;
+background-color: #ffffff;
+
+/block/
+
+<block_apply>
+background-color: #dbeafe;
+text-color: #1e40af;
+border-color: #2563eb;
+shape: rounded;
+icon: #zap;
+
+/prop/
+
+<REQ_DOC>
+label: 経費申請書;
+side: right;
+
+/line/
+
+[role_category: 区分見出し]
+skip;
+
+[role_applicant: 手続きを記述する] <block_apply>
+label: ステップ名;
+desc: 左カラムに表示する説明;
+props: REQ_DOC;
+
+@end
