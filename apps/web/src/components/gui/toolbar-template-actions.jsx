@@ -1,35 +1,44 @@
 import { useRef } from "react";
+import { ChevronDown } from "lucide-react";
+import { useEditor } from "../../hooks/use-editor";
+import { getModelCounts } from "../editor/model-counts";
 import { openTemplatePopup } from "../../lib/open-template-popup";
 
-const buttonClass =
-  "text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200";
+const TEMPLATE_MENU = [
+  { kind: "roles", label: "ロール" },
+  { kind: "blocks", label: "ブロック" },
+  { kind: "props", label: "ドキュメント" },
+];
 
 export function ToolbarTemplateActions() {
   const templatePopupRefs = useRef({});
+  const { model } = useEditor();
+  const counts = getModelCounts(model);
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => openTemplatePopup("roles", templatePopupRefs)}
-        className={buttonClass}
+    <details className="relative">
+      <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-700 rounded-sm text-stone-300 hover:bg-stone-800 transition whitespace-nowrap">
+        テンプレート <ChevronDown size={13} />
+      </summary>
+      <div
+        role="menu"
+        className="absolute right-0 mt-1 min-w-32 rounded-sm border border-stone-700 bg-stone-900 shadow-lg overflow-hidden z-50"
       >
-        役割
-      </button>
-      <button
-        type="button"
-        onClick={() => openTemplatePopup("blocks", templatePopupRefs)}
-        className={buttonClass}
-      >
-        ブロック
-      </button>
-      <button
-        type="button"
-        onClick={() => openTemplatePopup("props", templatePopupRefs)}
-        className={buttonClass}
-      >
-        プロップ
-      </button>
-    </>
+        {TEMPLATE_MENU.map(({ kind, label }) => (
+          <button
+            key={kind}
+            type="button"
+            role="menuitem"
+            onClick={() => openTemplatePopup(kind, templatePopupRefs)}
+            className="w-full flex items-center justify-between gap-3 font-jp text-xs px-3 py-2 text-stone-200 hover:bg-stone-800 transition"
+          >
+            <span>{label}</span>
+            <span className="shrink-0 text-center rounded-full bg-stone-100 text-stone-900 text-[10px] font-mono px-1.5 py-0.5 tabular-nums">
+              {counts[kind]}
+            </span>
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }

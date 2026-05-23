@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorLayout } from "../components/editor/layout";
 import { GuiModePanel } from "../components/gui/panel";
-import { ToolbarTemplateActions } from "../components/gui/toolbar-template-actions";
 import { useEditor } from "../hooks/use-editor";
 import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
 import {
@@ -75,7 +74,6 @@ export function GuiPage() {
         selectedRowIndex,
         onRowSelect: handleSelectRow,
       }}
-      toolbarExtras={<ToolbarTemplateActions />}
     >
       <GuiModePanel
         src={src}
