@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getLucideIcon } from "@kai-swimlane/core";
 import { ICON_OPTIONS } from "../../lib/parts-form-options";
 import { COLOR_PRESET_GROUPS, normalizeHexColor } from "../../lib/color-presets";
 
@@ -161,15 +162,89 @@ function normalizeIconValue(value) {
   return `#${v}`;
 }
 
-export function IconSelectField({ label, value, onChange }) {
+function lucideNameFromValue(value) {
+  const normalized = normalizeIconValue(value);
+  return normalized ? normalized.slice(1) : "";
+}
+
+function LucideIconPreview({ name, size = 18, className = "" }) {
+  const Icon = name ? getLucideIcon(name) : null;
+  if (!Icon) return null;
+  return <Icon size={size} strokeWidth={2} className={className} aria-hidden />;
+}
+
+function IconSwatchGrid({ value, onChange }) {
+  const current = lucideNameFromValue(value);
+
   return (
-    <SelectField
-      label={label}
-      value={normalizeIconValue(value)}
-      onChange={onChange}
-      options={ICON_OPTIONS}
-      allowEmpty
-      emptyLabel="（アイコンなし）"
-    />
+    <div className="max-h-36 overflow-y-auto pr-0.5">
+      <div className="flex flex-wrap gap-1">
+        {ICON_OPTIONS.map((opt) => {
+          const name = opt.value.slice(1);
+          const isActive = current === name;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              title={opt.label}
+              onClick={() => onChange(opt.value)}
+              className={`w-8 h-8 rounded-sm border shrink-0 flex items-center justify-center transition ${
+                isActive
+                  ? "ring-2 ring-stone-800 ring-offset-1 border-stone-800 bg-stone-100"
+                  : "border-stone-300 bg-white hover:bg-stone-50 hover:scale-105"
+              }`}
+            >
+              <LucideIconPreview name={name} size={16} className="text-stone-700" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function IconSelectField({ label, value, onChange }) {
+  const [gridOpen, setGridOpen] = useState(false);
+  const normalized = normalizeIconValue(value);
+  const iconName = lucideNameFromValue(value);
+
+  return (
+    <Field label={label}>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span
+            className="w-8 h-8 shrink-0 rounded border border-stone-300 bg-stone-50 flex items-center justify-center"
+            aria-hidden
+          >
+            {iconName ? (
+              <LucideIconPreview name={iconName} className="text-stone-700" />
+            ) : (
+              <span className="text-[9px] text-stone-400 font-jp">—</span>
+            )}
+          </span>
+          <select
+            value={normalized}
+            onChange={(e) => onChange(e.target.value || null)}
+            className={`${inputClass} font-jp flex-1 min-w-0`}
+          >
+            <option value="">（アイコンなし）</option>
+            {ICON_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setGridOpen((open) => !open)}
+            className="shrink-0 text-[10px] font-jp text-stone-500 hover:text-stone-800 underline"
+            aria-expanded={gridOpen}
+          >
+            {gridOpen ? "一覧を閉じる" : "一覧"}
+          </button>
+        </div>
+        {gridOpen && <IconSwatchGrid value={value} onChange={onChange} />}
+      </div>
+    </Field>
   );
 }
