@@ -3,6 +3,37 @@ function emitProperty(key, value) {
   return `${key}: ${value};`;
 }
 
+function emitMultilineProperty(key, value) {
+  if (value == null || value === "") return null;
+  if (!String(value).includes("\n")) return `${key}: ${value};`;
+  return [`${key}: \`\`\``, ...String(value).split("\n"), "```;"];
+}
+
+function hasPageContent(page) {
+  if (!page) return false;
+  return Object.values(page).some((v) => v && String(v).trim());
+}
+
+function serializePage(page) {
+  const out = [];
+  const entries = [
+    ["description", page.description],
+    ["header-left", page.headerLeft],
+    ["header-center", page.headerCenter],
+    ["header-right", page.headerRight],
+    ["footer-left", page.footerLeft],
+    ["footer-center", page.footerCenter],
+    ["footer-right", page.footerRight],
+  ];
+  for (const [key, value] of entries) {
+    const lines = emitMultilineProperty(key, value);
+    if (!lines) continue;
+    if (Array.isArray(lines)) out.push(...lines);
+    else out.push(lines);
+  }
+  return out;
+}
+
 function serializeRole(lane) {
   const lines = [`<${lane.id}>`];
   const props = [
@@ -115,7 +146,16 @@ function serializeStepLines(out, row, depth) {
   const blockSuffix = row.blockRef ? ` <${row.blockRef}>` : "";
   out.push(indent(depth, `[${row.role}: ${row.text}]${blockSuffix}`));
   if (row.name) out.push(indent(depth, `label: ${row.name};`));
-  if (row.description) out.push(indent(depth, `desc: ${row.description};`));
+  if (row.description) {
+    const descLines = emitMultilineProperty("desc", row.description);
+    if (Array.isArray(descLines)) {
+      out.push(indent(depth, descLines[0]));
+      descLines.slice(1, -1).forEach((l) => out.push(indent(depth, l)));
+      out.push(indent(depth, descLines[descLines.length - 1]));
+    } else {
+      out.push(indent(depth, descLines));
+    }
+  }
   if (row.skipIndex) out.push(indent(depth, "skip;"));
   if (row.props?.length) {
     out.push(indent(depth, `props: ${row.props.join(",")};`));
@@ -198,6 +238,12 @@ function serializeLineRows(rows) {
 
 export function serializeDSL(model) {
   const lines = ["@kai-swimlane", ""];
+
+  if (hasPageContent(model.page)) {
+    lines.push("/page/");
+    lines.push(...serializePage(model.page));
+    lines.push("");
+  }
 
   lines.push("/title/");
   if (model.title) lines.push(model.title);

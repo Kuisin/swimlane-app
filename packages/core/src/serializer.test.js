@@ -12,7 +12,7 @@ const repoRoot = path.resolve(
 
 function loadFixture(name) {
   return readFileSync(
-    path.join(repoRoot, "apps/web/src", name),
+    path.join(repoRoot, "apps/web/src/content", name),
     "utf8"
   );
 }
@@ -20,6 +20,7 @@ function loadFixture(name) {
 function normalizeModel(model) {
   return {
     title: model.title,
+    page: model.page,
     lanes: model.lanes,
     blocks: model.blocks,
     props: model.props,

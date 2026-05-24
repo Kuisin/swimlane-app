@@ -6,6 +6,90 @@ function parseSectionPropertyLine(text) {
   return null;
 }
 
+const PAGE_PROPERTY_MAP = {
+  description: "description",
+  "header-left": "headerLeft",
+  "header-center": "headerCenter",
+  "header-right": "headerRight",
+  "footer-left": "footerLeft",
+  "footer-center": "footerCenter",
+  "footer-right": "footerRight",
+};
+
+function emptyPage() {
+  return {
+    description: "",
+    headerLeft: "",
+    headerCenter: "",
+    headerRight: "",
+    footerLeft: "",
+    footerCenter: "",
+    footerRight: "",
+  };
+}
+
+/**
+ * Read `key: ``` … ```;` from section lines. Single-line `key: value;` when no fence.
+ * @returns {{ value?: string, error?: object, nextIndex: number } | null}
+ */
+function parseKeyedProperty(items, startIndex, key) {
+  const { text, line } = items[startIndex];
+  const t = text.trim();
+  const keyRe = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`^${keyRe}:\\s*\`\`\`\\s*$`, "i").test(t)) {
+    const parts = [];
+    let j = startIndex + 1;
+    while (j < items.length) {
+      const close = items[j].text.trim();
+      if (/^```;?\s*$/.test(close)) {
+        return { value: parts.join("\n").trim(), nextIndex: j + 1 };
+      }
+      parts.push(items[j].text);
+      j++;
+    }
+    return {
+      error: { line, text, msg: `${key}: missing closing \`\`\`` },
+      nextIndex: startIndex + 1,
+    };
+  }
+  const single = t.match(new RegExp(`^${keyRe}:\\s*(.+);\\s*$`, "i"));
+  if (single) return { value: single[1].trim(), nextIndex: startIndex + 1 };
+  if (new RegExp(`^${keyRe}:\\s*`, "i").test(t)) {
+    return {
+      error: {
+        line,
+        text,
+        msg: `${key}: line must end with ';' or use multiline \`\`\``,
+      },
+      nextIndex: startIndex + 1,
+    };
+  }
+  return null;
+}
+
+function parsePageSection(items, errors) {
+  const page = emptyPage();
+  for (let i = 0; i < items.length; i++) {
+    const { text, line } = items[i];
+    const t = text.trim();
+    if (!t) continue;
+    let matched = false;
+    for (const [dslKey, field] of Object.entries(PAGE_PROPERTY_MAP)) {
+      const parsed = parseKeyedProperty(items, i, dslKey);
+      if (!parsed) continue;
+      matched = true;
+      if (parsed.error) errors.push(parsed.error);
+      else page[field] = parsed.value || "";
+      i = parsed.nextIndex - 1;
+      break;
+    }
+    if (!matched) {
+      errors.push({ line, text, msg: "unrecognized /page/ line" });
+    }
+  }
+  return page;
+}
+
 /** Unescape so `&lt;block01&gt;` and similar are parsed like `<block01>`. */
 export function unescapeDslLine(line) {
   return line
@@ -44,6 +128,7 @@ export function parseDSL(src) {
   if (startIdx < 0) {
     return {
       title: "",
+      page: emptyPage(),
       lanes: [],
       rows: [],
       blocks: {},
@@ -53,7 +138,7 @@ export function parseDSL(src) {
   }
 
   const lines = allLines.slice(startIdx + 1, endIdx);
-  const sections = { title: [], role: [], block: [], prop: [], line: [] };
+  const sections = { page: [], title: [], role: [], block: [], prop: [], line: [] };
   let current = null;
 
   for (let i = 0; i < lines.length; i++) {
@@ -61,7 +146,7 @@ export function parseDSL(src) {
     const t = raw.trim();
     if (!t) continue;
     if (t.startsWith("***") || t.startsWith("@")) continue;
-    const sec = t.match(/^\/(title|role|option|block|prop|line)\/$/);
+    const sec = t.match(/^\/(page|title|role|option|block|prop|line)\/$/);
     if (sec) {
       current = sec[1] === "option" ? "role" : sec[1];
       continue;
@@ -69,6 +154,8 @@ export function parseDSL(src) {
     const lineNum = startIdx + 1 + i + 1;
     if (current) sections[current].push({ text: raw, line: lineNum });
   }
+
+  const page = parsePageSection(sections.page, errors);
 
   const title = sections.title
     .map((l) => l.text.trim())
@@ -196,7 +283,8 @@ export function parseDSL(src) {
   let lastRealStepIndex = -1;
   let autoIdCounter = 0;
 
-  for (const { text, line } of sections.line) {
+  for (let lineIdx = 0; lineIdx < sections.line.length; lineIdx++) {
+    const { text, line } = sections.line[lineIdx];
     if (!text.trim()) continue;
     const u = unescapeDslLine(text.trim());
     if (!u) continue;
@@ -283,16 +371,17 @@ export function parseDSL(src) {
       continue;
     }
     if (/^desc:\s*/i.test(u)) {
-      m = u.match(/^desc:\s*(.+);\s*$/i);
-      if (!m) {
-        errors.push({ line, text, msg: "desc: line must end with ';'" });
-        continue;
-      }
       if (lastRealStepIndex < 0) {
         errors.push({ line, text, msg: "desc: has no preceding step" });
         continue;
       }
-      rows[lastRealStepIndex].description = m[1].trim();
+      const fenced = parseKeyedProperty(sections.line, lineIdx, "desc");
+      if (fenced) {
+        if (fenced.error) errors.push(fenced.error);
+        else rows[lastRealStepIndex].description = fenced.value || "";
+        lineIdx = fenced.nextIndex - 1;
+        continue;
+      }
       continue;
     }
     if (/^skip/i.test(u)) {
@@ -404,7 +493,7 @@ export function parseDSL(src) {
     icon: (roles[id] && roles[id].icon) || null,
   }));
 
-  return { title, lanes, rows, blocks, props, errors };
+  return { title, page, lanes, rows, blocks, props, errors };
 }
 
 /** Parse /block/ and /prop/ fragments (wraps for parseDSL; not for clipboard). */

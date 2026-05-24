@@ -120,7 +120,7 @@ Implementation: [`apps/web/src/server/llm-handler.js`](apps/web/src/server/llm-h
 
 ## DSL quick reference
 
-Sections: `/title/`, `/role/`, `/block/`, `/prop/`, `/line/`
+Sections: `/page/`, `/title/`, `/role/`, `/block/`, `/prop/`, `/line/`
 
 ```txt
 @kai-swimlane

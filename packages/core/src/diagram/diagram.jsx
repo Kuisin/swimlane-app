@@ -1,4 +1,4 @@
-import { truncate, wrapDescriptionToVisualLines } from "../utils.js";
+import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
 import {
   findNextFlowStepAfterBranchEnd,
@@ -16,6 +16,50 @@ export const BRANCH_COLOR_STYLES = {
   gray: { stroke: "#374151", bg: "#f3f4f6" },
   black: { stroke: "#111827", bg: "#e5e7eb" },
 };
+
+function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
+  const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
+  return (
+    <>
+      {left?.trim() && (
+        <text
+          x={xPad}
+          y={y}
+          textAnchor="start"
+          fill={fill}
+          fontFamily={fontFamily}
+          fontSize={fontSize}
+        >
+          {left.trim()}
+        </text>
+      )}
+      {center?.trim() && (
+        <text
+          x={width / 2}
+          y={y}
+          textAnchor="middle"
+          fill={fill}
+          fontFamily={fontFamily}
+          fontSize={fontSize}
+        >
+          {center.trim()}
+        </text>
+      )}
+      {right?.trim() && (
+        <text
+          x={width - xPad}
+          y={y}
+          textAnchor="end"
+          fill={fill}
+          fontFamily={fontFamily}
+          fontSize={fontSize}
+        >
+          {right.trim()}
+        </text>
+      )}
+    </>
+  );
+}
 
 function RowSelectionHighlight({ x, y, w, h }) {
   return (
@@ -84,13 +128,23 @@ export function Diagram({
   selectedRowIndex = null,
   onRowSelect,
 }) {
-  const { title, lanes, rows, blocks = {}, props = {} } = model;
+  const { title, page = {}, lanes, rows, blocks = {}, props = {} } = model;
+  const pageDescription = (page.description || "").trim();
+  const hasPageHeader = Boolean(
+    page.headerLeft?.trim() ||
+      page.headerCenter?.trim() ||
+      page.headerRight?.trim(),
+  );
+  const hasPageFooter = Boolean(
+    page.footerLeft?.trim() ||
+      page.footerCenter?.trim() ||
+      page.footerRight?.trim(),
+  );
   const minLaneW = 220;
   const maxLaneW = 360;
   const nodeW = 188;
   const xPad = 40;
   const leftGutter = 300;
-  const topPad = title ? 72 : 32;
   const headerH = 72;
   const rowH = 80;
 
@@ -119,6 +173,39 @@ export function Diagram({
   const loopRouteMargin = 32;
   const loopDropPad = 14;
   /** Previous step → if: horizontal elbow closer to the diamond (below the step block), not mid-gap. */
+
+  const pageDescLines = pageDescription
+    ? wrapTextToDisplayColumns(pageDescription, 48)
+    : [];
+  const pageDescLineHeight = 16;
+  const pageFooterPad = hasPageFooter ? 28 : 0;
+
+  let pageHeaderY = null;
+  let titleY = null;
+  let pageDescStartY = null;
+  let topPad = 32;
+
+  if (!hasPageHeader && !pageDescription && title) {
+    topPad = 72;
+    titleY = 40;
+  } else if (!hasPageHeader && !pageDescription && !title) {
+    topPad = 32;
+  } else {
+    let layoutY = 14;
+    if (hasPageHeader) {
+      pageHeaderY = layoutY + 12;
+      layoutY += 22;
+    }
+    if (title) {
+      titleY = layoutY + 22;
+      layoutY += 30;
+    }
+    if (pageDescLines.length > 0) {
+      pageDescStartY = layoutY + 8;
+      layoutY += pageDescLines.length * pageDescLineHeight + 12;
+    }
+    topPad = Math.max(layoutY + 12, title || pageDescLines.length > 0 ? 72 : 32);
+  }
 
   const rowMeta = [];
   let y = topPad + headerH + 24;
@@ -676,7 +763,7 @@ export function Diagram({
   });
 
   const width = laneCursor + xPad;
-  const baseBottomPadding = 50;
+  const baseBottomPadding = 50 + pageFooterPad;
 
   function stepRowBounds(rowIndex) {
     const row = rows[rowIndex];
@@ -1311,10 +1398,23 @@ export function Diagram({
         </pattern>
       </defs>
 
-      {title && (
+      {hasPageHeader && pageHeaderY != null && (
+        <PageTriColumnText
+          y={pageHeaderY}
+          width={width}
+          xPad={xPad}
+          left={page.headerLeft}
+          center={page.headerCenter}
+          right={page.headerRight}
+          fill={theme.laneText || theme.title}
+          fontSize={11}
+        />
+      )}
+
+      {title && titleY != null && (
         <text
           x={width / 2}
-          y={40}
+          y={titleY}
           textAnchor="middle"
           fill={theme.title}
           fontFamily="'Shippori Mincho','Noto Serif JP',Georgia,serif"
@@ -1323,6 +1423,23 @@ export function Diagram({
           letterSpacing="0.05em"
         >
           {title}
+        </text>
+      )}
+
+      {pageDescLines.length > 0 && pageDescStartY != null && (
+        <text
+          x={width / 2}
+          y={pageDescStartY}
+          textAnchor="middle"
+          fill={theme.laneText || theme.title}
+          fontFamily="'Shippori Mincho','Noto Serif JP',Georgia,serif"
+          fontSize="13"
+        >
+          {pageDescLines.map((line, i) => (
+            <tspan key={i} x={width / 2} dy={i === 0 ? 0 : pageDescLineHeight}>
+              {line}
+            </tspan>
+          ))}
         </text>
       )}
 
@@ -2219,6 +2336,19 @@ export function Diagram({
 
           return null;
         })}
+
+      {hasPageFooter && (
+        <PageTriColumnText
+          y={height - 12}
+          width={width}
+          xPad={xPad}
+          left={page.footerLeft}
+          center={page.footerCenter}
+          right={page.footerRight}
+          fill={theme.laneText || theme.title}
+          fontSize={11}
+        />
+      )}
     </svg>
   );
 }

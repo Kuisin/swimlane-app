@@ -13,8 +13,8 @@ description: Create or edit Kai Swimlane DSL diagrams in kai-swimlane or kai-swi
 
 ## Instructions
 
-1. For a **full diagram**, use a `kai-swimlane` fence with sections `/title/`, `/role/`, `/block/`, `/prop/`, `/line/` (omit `@kai-swimlane` / `@end` unless the user wants explicit markers).
-2. Every property line in `/role/`, `/block/`, `/prop/` ends with `;`.
+1. For a **full diagram**, use a `kai-swimlane` fence with sections `/page/`, `/title/`, `/role/`, `/block/`, `/prop/`, `/line/` (omit `@kai-swimlane` / `@end` unless the user wants explicit markers).
+2. Every property line in `/role/`, `/block/`, `/prop/`, and `/page/` ends with `;` (or use multiline `` ``` `` fences).
 3. Steps in `/line/` use `[roleId: label]`; optional block ref `<blockId>` on the same line.
 4. For **style snippets only**, use `kai-swimlane-parts` with `/block/` and/or `/prop/`.
 5. Prefer readable role ids (`sales`, `ops`) and reuse `/block/` for warning/success styles.

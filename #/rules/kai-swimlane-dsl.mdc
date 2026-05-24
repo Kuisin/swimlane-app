@@ -43,6 +43,7 @@ label: Sales;
 
 ## Sections
 
+- `/page/` — page layout: description under title, header/footer (left, center, right)
 - `/title/` — diagram title
 - `/role/` — lanes: `<roleId>` then `label:`, `text-color:`, `background-color:`, `icon:`
 - `/block/` — reusable step styles: `shape:`, colors, `icon: #lucide-name`
@@ -51,7 +52,29 @@ label: Sales;
 
 ## Property lines
 
-In `/role/`, `/block/`, and `/prop/`, each property line must end with `;`.
+In `/role/`, `/block/`, `/prop/`, and `/page/`, each property line must end with `;` (or use multiline `` ``` `` fences).
+
+## Page layout
+
+```txt
+/page/
+description: Optional subtitle shown under the title;
+header-left: Left header;
+header-center: Center header;
+header-right: Right header;
+footer-left: Left footer;
+footer-center: Center footer;
+footer-right: Right footer;
+```
+
+Any property may use multiline `` ``` `` fences:
+
+```txt
+description: ```
+First paragraph
+Second line
+```;
+```
 
 ## Step line
 
@@ -59,6 +82,10 @@ In `/role/`, `/block/`, and `/prop/`, each property line must end with `;`.
 [roleId: Step label] <optionalBlockId>
 label: Optional;
 desc: Optional description;
+desc: ```
+Multiline
+description
+```;
 props: PROP1, PROP2;
 ```
 
