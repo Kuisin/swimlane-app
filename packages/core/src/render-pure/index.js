@@ -1,5 +1,7 @@
-// Internal — not exported from @kai-swimlane/core yet.
-// Consumers should continue using Diagram / PartsPreviewStatic from the main barrel.
+// Public entry point: `@kai-swimlane/core/render-pure`.
+// Dependency-free string renderers (no React) for headless/server use and
+// external plugins. The React components live in the main barrel
+// (`@kai-swimlane/core`).
 
 export { renderDiagramSvg, BRANCH_COLOR_STYLES } from "./diagram.js";
 export { renderStepShape, StepShape } from "./step-shape.js";

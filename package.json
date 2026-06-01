@@ -2,6 +2,24 @@
   "name": "kai-swimlane",
   "private": true,
   "version": "0.0.0",
+  "description": "DSL-based swimlane diagram editor and renderers (web app, markdown fences, VS Code/Cursor plugins) in an npm workspaces monorepo.",
+  "license": "MIT",
+  "homepage": "https://github.com/your-org/swimlane-app#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/swimlane-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/swimlane-app/issues"
+  },
+  "keywords": [
+    "swimlane",
+    "diagram",
+    "flowchart",
+    "dsl",
+    "markdown",
+    "svg"
+  ],
   "workspaces": [
     "packages/*",
     "apps/*",
