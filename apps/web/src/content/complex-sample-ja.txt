@@ -1,0 +1,124 @@
+@kai-swimlane
+
+/page/
+header-left: アクメ株式会社;
+header-center: 注文フルフィルメント;
+header-right: v2.0;
+footer-left: 社外秘;
+footer-center: 社内利用限定;
+footer-right: 2026-06-02;
+description: ```
+5つのチームにまたがる注文処理パイプライン。チャネル受付、
+検証、非同期フルフィルメント、リトライ、レシート発行を網羅します。
+```;
+
+/title/
+注文フルフィルメント フロー
+
+/role/
+<customer>
+label: 顧客;
+icon: #user;
+background-color: #e0f2fe;
+<frontend>
+label: Webフロントエンド;
+icon: #monitor;
+<api>
+label: APIゲートウェイ;
+icon: #server;
+background-color: #ede9fe;
+<worker>
+label: フルフィルメント担当;
+icon: #cpu;
+<db>
+label: データベース;
+icon: #database;
+background-color: #dcfce7;
+
+/block/
+<start>
+shape: ellipse;
+icon: #play;
+background-color: #dbeafe;
+<terminal>
+shape: ellipse;
+icon: #check;
+background-color: #dcfce7;
+<gate>
+shape: hex;
+icon: #shield;
+border-color: #c2410c;
+<job>
+shape: subroutine;
+
+/prop/
+<reqdoc>
+label: 申請;
+side: left;
+title: 受信リクエストの内容;
+<auditlog>
+label: 監査;
+side: right;
+<receipt>
+label: 受領;
+side: right;
+title: 顧客向けレシート;
+
+/line/
+if (受付チャネルは？) is (Web) than #blue
+[frontend: Webフォームを開く]
+elseif (モバイル) than #green
+[frontend: モバイルアプリを開く]
+else
+[customer: サポート窓口に電話]
+endif
+
+[customer: 注文を確定] <start>
+label: 注文送信;
+desc: ```
+顧客がカートを送信します。**配送先住所** と
+_暗号化された決済トークン_ を含みます。
+```;
+props: reqdoc;
+
+[frontend: フォームを検証] <gate>
+props: reqdoc, auditlog;
+
+if (フォームは有効？) is (有効) than #green
+[api: リクエストを受理]
+props: auditlog;
+[worker: 在庫を確保] <job>
+
+if (在庫はある？) is (在庫あり) than #blue
+[db: 在庫を減算]
+[worker: 出荷を作成] <job>
+props: receipt;
+elseif (取り寄せ) than #orange
+[worker: 取り寄せをキュー] <job>
+[customer: 遅延を通知]
+else
+[customer: 返金]
+[db: 返金を記録]
+endif
+
+[api: 注文を確定]
+elseif (回復可能) than #orange
+[frontend: 再試行を表示]
+[customer: 再送信]
+[loop]
+else
+[frontend: 致命的エラーを表示]
+skip;
+[api: 失敗メトリクスを送信]
+endif
+
+[customer: 確認を受信] <terminal>
+label: 確認済み;
+
+if (レシートは必要？) is (はい) than #purple
+[api: レシートを生成]
+props: receipt;
+[customer: レシートをダウンロード]
+endif
+
+@end
