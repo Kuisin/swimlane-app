@@ -138,4 +138,48 @@ label: Sales;
 @end
 ```
 
-See [`apps/web/src/help.md`](apps/web/src/help.md) for the full syntax guide.
+See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide.
+
+## Headless rendering (for external plugins)
+
+For tools that need an SVG **without** React (servers, CLIs, other editors'
+plugins), import the dependency-free string renderer from the
+`@kai-swimlane/core/render-pure` entry point:
+
+```js
+import { parseDSL, THEMES } from "@kai-swimlane/core";
+import { renderDiagramSvg } from "@kai-swimlane/core/render-pure";
+
+const model = parseDSL(dslText);
+const svg = renderDiagramSvg({ model, theme: THEMES.basic });
+```
+
+`render-pure` is auto-generated from the React renderer and kept byte-for-byte
+identical by a parity test, so both paths produce the same diagram. `react`,
+`react-dom`, and `lucide-react` are optional peers — only the React components
+exported from the main `@kai-swimlane/core` barrel need them.
+
+## Known limitations
+
+The flow DSL is **block-structured**: branches must be properly nested
+(`if` … `elseif`/`else` … `endif`) and cannot interleave. A few consequences
+worth knowing:
+
+- **Steps may freely change lanes within a single case** (e.g. `a → c → a → b`);
+  connectors route between lanes automatically.
+- **Branches cannot be interleaved across each other.** "Mixing" two branches
+  means nesting one inside a case of the other, or sequencing them one after the
+  next — there is no way to weave steps from two sibling branches together.
+- A flow may **start or end with a branch** (no surrounding step); the start/end
+  terminals attach to the decision/merge diamonds in that case.
+- Very wide fan-outs (many `elseif` cases sharing one lane) widen that lane to
+  keep cases from overlapping, which can make the diagram broad.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local development, the
+`diagram.jsx` → `render-pure` regeneration workflow, and testing conventions.
+
+## License
+
+[MIT](LICENSE) © Kai Swimlane contributors.
