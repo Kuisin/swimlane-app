@@ -68,12 +68,14 @@ const { code } = await esbuild.transform(source, {
   target: "es2022",
 });
 
+// esbuild already re-exports BRANCH_COLOR_STYLES via the trailing `export { … }`
+// block, so we must NOT re-add `export` to the inline const — doing so produces
+// a duplicate export that breaks native-ESM consumers (e.g. external plugins).
 const stripped = code
   .replace(/^import \{[\s\S]*?\} from "\.\.\/branch-rows\.js";\n?/m, "")
   .replace(/^import \{ StepShape \} from "\.\/step-shape\.js";\n/m, "")
   .replace(/^import \{ BlockIcon \} from "\.\/block-icon\.js";\n/m, "")
-  .replace(/^import \{ h, Fragment \} from "\.\/svg-utils\.js";\n/m, "")
-  .replace(/^const BRANCH_COLOR_STYLES = \{/m, "export const BRANCH_COLOR_STYLES = {");
+  .replace(/^import \{ h, Fragment \} from "\.\/svg-utils\.js";\n/m, "");
 
 const imports = `import {
   findNextFlowStepAfterBranchEnd,

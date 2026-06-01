@@ -10,7 +10,7 @@ import {
 import { StepShape } from "./step-shape.js";
 import { BlockIcon } from "./block-icon.js";
 import { h, Fragment } from "./svg-utils.js";
-export const BRANCH_COLOR_STYLES = {
+const BRANCH_COLOR_STYLES = {
   blue: { stroke: "#2563eb", bg: "#dbeafe" },
   green: { stroke: "#15803d", bg: "#dcfce7" },
   red: { stroke: "#b91c1c", bg: "#fee2e2" },
