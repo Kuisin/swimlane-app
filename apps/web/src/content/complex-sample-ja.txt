@@ -67,10 +67,13 @@ title: 顧客向けレシート;
 /line/
 if (受付チャネルは？) is (Web) than #blue
 [frontend: Webフォームを開く]
+skip;
 elseif (モバイル) than #green
 [frontend: モバイルアプリを開く]
+skip;
 else
 [customer: サポート窓口に電話]
+skip;
 endif
 
 [customer: 注文を確定] <start>
@@ -82,26 +85,49 @@ _暗号化された決済トークン_ を含みます。
 props: reqdoc;
 
 [frontend: フォームを検証] <gate>
+desc: ```
+必須項目を確認し、不正な入力はAPIに到達する前に
+ここで弾きます。
+```;
 props: reqdoc, auditlog;
 
 if (フォームは有効？) is (有効) than #green
 [api: リクエストを受理]
+desc: ```
+呼び出し元を認証し、注文をフルフィルメント用の
+キューに登録します。
+```;
 props: auditlog;
 [worker: 在庫を確保] <job>
+desc: ```
+出荷準備が完了するまで在庫を仮押さえします。
+```;
 
 if (在庫はある？) is (在庫あり) than #blue
 [db: 在庫を減算]
+desc: ```
+注文内の各明細について、引当可能在庫を
+アトミックに減算します。
+```;
 [worker: 出荷を作成] <job>
+desc: ```
+配送業者を割り当て、配送ラベルを生成します。
+```;
 props: receipt;
 elseif (取り寄せ) than #orange
 [worker: 取り寄せをキュー] <job>
 [customer: 遅延を通知]
+skip;
 else
 [customer: 返金]
 [db: 返金を記録]
 endif
 
 [api: 注文を確定]
+desc: ```
+最終的な注文状態を永続化し、確定イベントを
+下流の各サービスへ通知します。
+```;
 elseif (回復可能) than #orange
 [frontend: 再試行を表示]
 [customer: 再送信]
@@ -110,15 +136,25 @@ else
 [frontend: 致命的エラーを表示]
 skip;
 [api: 失敗メトリクスを送信]
+skip;
 endif
 
 [customer: 確認を受信] <terminal>
 label: 確認済み;
+desc: ```
+注文サマリーと配送予定日を含む確認画面を
+顧客に表示します。
+```;
 
 if (レシートは必要？) is (はい) than #purple
 [api: レシートを生成]
+desc: ```
+注文情報と決済記録からPDFレシートを
+生成します。
+```;
 props: receipt;
 [customer: レシートをダウンロード]
+skip;
 endif
 
 @end

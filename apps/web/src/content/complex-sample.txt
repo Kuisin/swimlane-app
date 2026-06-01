@@ -67,10 +67,13 @@ title: Customer receipt artifact;
 /line/
 if (intake channel?) is (web) than #blue
 [frontend: Open web form]
+skip;
 elseif (mobile) than #green
 [frontend: Open mobile app]
+skip;
 else
 [customer: Call support line]
+skip;
 endif
 
 [customer: Place order] <start>
@@ -82,26 +85,50 @@ and an _encrypted payment token_.
 props: reqdoc;
 
 [frontend: Validate form] <gate>
+desc: ```
+Check required fields and reject malformed input
+before it reaches the API.
+```;
 props: reqdoc, auditlog;
 
 if (form valid?) is (valid) than #green
 [api: Accept request]
+desc: ```
+Authenticate the caller and enqueue the order
+for fulfillment.
+```;
 props: auditlog;
 [worker: Reserve stock] <job>
+desc: ```
+Place a soft hold on inventory while the
+shipment is being prepared.
+```;
 
 if (stock available?) is (in stock) than #blue
 [db: Decrement inventory]
+desc: ```
+Atomically reduce the on-hand count for each
+line item in the order.
+```;
 [worker: Create shipment] <job>
+desc: ```
+Allocate a carrier and generate the shipping label.
+```;
 props: receipt;
 elseif (backorder) than #orange
 [worker: Queue backorder] <job>
 [customer: Notify delay]
+skip;
 else
 [customer: Refund]
 [db: Log refund]
 endif
 
 [api: Confirm order]
+desc: ```
+Persist the final order state and emit the
+confirmation event to downstream consumers.
+```;
 elseif (recoverable) than #orange
 [frontend: Show retry prompt]
 [customer: Resubmit]
@@ -110,15 +137,25 @@ else
 [frontend: Show fatal error]
 skip;
 [api: Emit failure metric]
+skip;
 endif
 
 [customer: Receive confirmation] <terminal>
 label: Confirmed;
+desc: ```
+Customer sees the confirmation screen with the
+order summary and estimated delivery date.
+```;
 
 if (wants receipt?) is (yes) than #purple
 [api: Render receipt]
+desc: ```
+Build the PDF receipt from the order and
+payment records.
+```;
 props: receipt;
 [customer: Download receipt]
+skip;
 endif
 
 @end
