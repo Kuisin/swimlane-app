@@ -294,7 +294,7 @@ export function parseDSL(src) {
       branchCounter++;
       const id = branchCounter;
       const depth = branchMarkerDepth();
-      stack.push({ id, depth });
+      stack.push({ id, depth, type: "if" });
       rows.push({
         kind: "branchStart",
         cond: m[1].trim(),
@@ -308,7 +308,7 @@ export function parseDSL(src) {
     m = u.match(/^elseif\s*\((.+?)\)\s*than(?:\s+#([A-Za-z]+))?$/i);
     if (m) {
       const top = stack[stack.length - 1];
-      if (!top) {
+      if (!top || top.type !== "if") {
         errors.push({ line, text, msg: "elseif without if" });
         continue;
       }
@@ -323,7 +323,7 @@ export function parseDSL(src) {
     }
     if (/^else$/i.test(u)) {
       const top = stack[stack.length - 1];
-      if (!top) {
+      if (!top || top.type !== "if") {
         errors.push({ line, text, msg: "else without if" });
         continue;
       }
@@ -336,12 +336,59 @@ export function parseDSL(src) {
       continue;
     }
     if (/^endif$/i.test(u)) {
-      const top = stack.pop();
-      if (!top) {
+      const top = stack[stack.length - 1];
+      if (!top || top.type !== "if") {
         errors.push({ line, text, msg: "endif without if" });
         continue;
       }
+      stack.pop();
       rows.push({ kind: "branchEnd", id: top.id, depth: top.depth });
+      continue;
+    }
+
+    /** Parallel split: `fork` opens, `and` adds a concurrent path, `endfork` joins. */
+    m = u.match(/^fork(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      branchCounter++;
+      const id = branchCounter;
+      const depth = branchMarkerDepth();
+      stack.push({ id, depth, type: "fork" });
+      rows.push({
+        kind: "branchStart",
+        parallel: true,
+        cond: null,
+        firstCase: null,
+        branchColor: m[1] ? m[1].trim().toLowerCase() : null,
+        id,
+        depth,
+      });
+      continue;
+    }
+    m = u.match(/^and(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      const top = stack[stack.length - 1];
+      if (!top || top.type !== "fork") {
+        errors.push({ line, text, msg: "and without fork" });
+        continue;
+      }
+      rows.push({
+        kind: "branchCase",
+        parallel: true,
+        label: "",
+        branchColor: m[1] ? m[1].trim().toLowerCase() : null,
+        id: top.id,
+        depth: branchControlDepth(),
+      });
+      continue;
+    }
+    if (/^endfork$/i.test(u)) {
+      const top = stack[stack.length - 1];
+      if (!top || top.type !== "fork") {
+        errors.push({ line, text, msg: "endfork without fork" });
+        continue;
+      }
+      stack.pop();
+      rows.push({ kind: "branchEnd", parallel: true, id: top.id, depth: top.depth });
       continue;
     }
 
@@ -418,13 +465,14 @@ export function parseDSL(src) {
     }
 
     if (/^\[loop\]\s*;?\s*$/i.test(u)) {
-      if (stack.length === 0) {
+      const top = stack[stack.length - 1];
+      if (!top || top.type !== "if") {
         errors.push({ line, text, msg: "[loop] outside if" });
         continue;
       }
       rows.push({
         kind: "branchLoop",
-        loopBranchId: stack[stack.length - 1].id,
+        loopBranchId: top.id,
         depth: branchBodyDepth(),
       });
       continue;

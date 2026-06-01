@@ -326,18 +326,30 @@ export function Diagram({
         id: r.id,
         depth: r.depth,
         cond: r.cond,
+        parallel: Boolean(r.parallel),
         yDecision: y,
         decisionColor: r.branchColor || null,
-        cases: (r.firstCase && String(r.firstCase).trim())
+        // A fork's first concurrent path opens at the `fork` line itself (no
+        // condition/firstCase), mirroring how an `if` opens its first case.
+        cases: r.parallel
           ? [
               {
-                label: r.firstCase.trim(),
+                label: "",
                 color: r.branchColor || null,
                 rowIndices: [],
                 startRow: i,
               },
             ]
-          : [],
+          : (r.firstCase && String(r.firstCase).trim())
+            ? [
+                {
+                  label: r.firstCase.trim(),
+                  color: r.branchColor || null,
+                  rowIndices: [],
+                  startRow: i,
+                },
+              ]
+            : [],
         parentCase: null,
         anchorX: null,
       };
@@ -940,9 +952,10 @@ export function Diagram({
   function buildCaseFanOutEdgeD(f, c) {
     const dCx = frameAnchorX(f);
     const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-    const dH = 50;
+    // A fork bar has almost no height, so its fan-out starts at bar center.
+    const dH = f.parallel ? 7 : 50;
     const mCy = f.yMerge + mergeH / 2;
-    const mH = 28;
+    const mH = f.parallel ? 7 : 28;
 
     const child = c.childFrame;
     const firstStepIdx = firstStepIdxInCase(c);
@@ -1759,9 +1772,10 @@ export function Diagram({
       {frames.map((f) => {
         if (f.yMerge == null) return null;
 
+        const isParallel = f.parallel;
         const dCx = frameAnchorX(f);
         const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-        const dW = Math.max(140, (f.cond.length + 4) * 9);
+        const dW = isParallel ? 0 : Math.max(140, (f.cond.length + 4) * 9);
         const dH = 50;
         const decisionStyle = resolveBranchStyle(f.decisionColor);
 
@@ -1773,25 +1787,64 @@ export function Diagram({
         const diamondPath = (cx, cy, w, h) =>
           `M ${cx} ${cy - h / 2} L ${cx + w / 2} ${cy} L ${cx} ${cy + h / 2} L ${cx - w / 2} ${cy} Z`;
 
+        // Fork/join gateway is a horizontal bar spanning every fan-out/fan-in x.
+        const barH = 7;
+        const barPad = 26;
+        const splitXs = [
+          dCx,
+          ...f.cases.map((c) => {
+            const fsi = firstStepIdxInCase(c);
+            if (fsi != null) {
+              const t = caseStepLineTarget(fsi, c);
+              if (t) return t.x;
+            }
+            return caseAnchorX(c);
+          }),
+        ];
+        const joinXs = [
+          mCx,
+          ...f.cases.map((c) => {
+            const m = caseMergeAnchor(c);
+            return m ? m.fromX : caseAnchorX(c);
+          }),
+        ];
+        const splitBarX1 = Math.min(...splitXs) - barPad;
+        const splitBarX2 = Math.max(...splitXs) + barPad;
+        const joinBarX1 = Math.min(...joinXs) - barPad;
+        const joinBarX2 = Math.max(...joinXs) + barPad;
+
         return (
           <g key={`branch-${f.id}`}>
-            <path
-              d={diamondPath(dCx, dCy, dW, dH)}
-              fill={theme.branchBg}
-              stroke={theme.branch}
-              strokeWidth="1.8"
-            />
-            <text
-              x={dCx}
-              y={dCy + 4}
-              textAnchor="middle"
-              fontFamily="'Noto Sans JP',sans-serif"
-              fontSize="13"
-              fontWeight="600"
-              fill={theme.branch}
-            >
-              {truncate(f.cond, 16)}
-            </text>
+            {isParallel ? (
+              <rect
+                x={splitBarX1}
+                y={dCy - barH / 2}
+                width={splitBarX2 - splitBarX1}
+                height={barH}
+                rx="2"
+                fill={decisionStyle.stroke}
+              />
+            ) : (
+              <>
+                <path
+                  d={diamondPath(dCx, dCy, dW, dH)}
+                  fill={theme.branchBg}
+                  stroke={theme.branch}
+                  strokeWidth="1.8"
+                />
+                <text
+                  x={dCx}
+                  y={dCy + 4}
+                  textAnchor="middle"
+                  fontFamily="'Noto Sans JP',sans-serif"
+                  fontSize="13"
+                  fontWeight="600"
+                  fill={theme.branch}
+                >
+                  {truncate(f.cond, 16)}
+                </text>
+              </>
+            )}
 
             {/* Branch fan-out: decision -> each case path */}
             {f.cases.map((c, ci) => {
@@ -1885,7 +1938,7 @@ export function Diagram({
                 }
               }
               const toX = mCx;
-              const toY = mCy - mH / 2;
+              const toY = mCy - (isParallel ? barH / 2 : mH / 2);
               const bendY2 = toY - 14;
               const sideOffset = c.offset || 0;
               const needsMergeElbow =
@@ -1932,12 +1985,23 @@ export function Diagram({
               );
             })}
 
-            <path
-              d={diamondPath(mCx, mCy, mW, mH)}
-              fill={theme.branchBg}
-              stroke={theme.branch}
-              strokeWidth="1.6"
-            />
+            {isParallel ? (
+              <rect
+                x={joinBarX1}
+                y={mCy - barH / 2}
+                width={joinBarX2 - joinBarX1}
+                height={barH}
+                rx="2"
+                fill={decisionStyle.stroke}
+              />
+            ) : (
+              <path
+                d={diamondPath(mCx, mCy, mW, mH)}
+                fill={theme.branchBg}
+                stroke={theme.branch}
+                strokeWidth="1.6"
+              />
+            )}
           </g>
         );
       })}
@@ -2140,6 +2204,8 @@ export function Diagram({
         const dH = 50;
 
         return f.cases.map((c, ci) => {
+          // Fork paths and `else` have no condition label to draw.
+          if (!(c.label || "").trim()) return null;
           if (/^else$/i.test((c.label || "").trim())) return null;
 
           const firstStepIdx = firstStepIdxInCase(c);
@@ -2236,9 +2302,12 @@ export function Diagram({
         );
 
         const dCx = frameAnchorX(f);
-        const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - 25;
+        // Fork/join bars sit at the gateway center, so the outer flow meets them
+        // just above/below the bar instead of at a diamond's vertex.
+        const dTopY =
+          f.yDecision + diamondH / 2 + decisionYOffset - (f.parallel ? 5 : 25);
         const mCx = mergeAnchorX(f);
-        const mBotY = f.yMerge + mergeH / 2 + 14;
+        const mBotY = f.yMerge + mergeH / 2 + (f.parallel ? 5 : 14);
 
         const edges = [];
         if (prevStepIdx >= 0) {
@@ -2352,8 +2421,8 @@ export function Diagram({
             if (!f) return null;
             const dCx = frameAnchorX(f);
             const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-            const dW = Math.max(140, (f.cond.length + 4) * 9);
-            const dH = 50;
+            const dW = f.parallel ? 120 : Math.max(140, (f.cond.length + 4) * 9);
+            const dH = f.parallel ? 24 : 50;
             return (
               <RowHitTarget
                 key={`hit-${i}`}
