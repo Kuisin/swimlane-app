@@ -592,7 +592,7 @@ function renderDiagramSvg({
       max: Math.max(cur.max, right)
     });
   });
-  const loopRailAllowance = caseClearance * 2;
+  const loopRailAllowance = caseClearance;
   rows.forEach((row, i) => {
     if (row.kind !== "branchLoop") return;
     let srcLane = -1;
@@ -612,7 +612,7 @@ function renderDiagramSvg({
     if (routesLeft) edge.min -= loopRailAllowance;
     else edge.max += loopRailAllowance;
   });
-  const laneContentPad = 10;
+  const laneContentPad = 15;
   const laneWidths = lanes.map((lane) => {
     const headerWidth = estimateTextWidth(lane.label || lane.id, lane.icon ? 88 : 64);
     const maxStepWidth = rows.reduce((maxWidth, row) => {
