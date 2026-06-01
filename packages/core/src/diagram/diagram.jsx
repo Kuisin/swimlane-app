@@ -1301,10 +1301,15 @@ export function Diagram({
   const firstAnchor = startTerminalAnchor();
   const lastAnchor = endTerminalAnchor();
   const hasEndTerminal = Boolean(lastAnchor);
+  /** Keep the start dot inside the lane content grid, not on the header border. */
+  const startTerminalInset = 16;
   const startTerminal = firstAnchor
     ? {
         x: firstAnchor.x,
-        y: firstAnchor.targetY - terminalGap,
+        y: Math.max(
+          firstAnchor.targetY - terminalGap,
+          topPad + headerH + startTerminalInset,
+        ),
         targetY: firstAnchor.targetY,
       }
     : null;
@@ -1319,8 +1324,6 @@ export function Diagram({
     ? endTerminal.y + terminalRadius + 16
     : 0;
   const height = Math.max(y + baseBottomPadding, endTerminalBottom);
-  const leftGutterBodyH = Math.max(0, height - (headerH + 24) - 20 + 24);
-  const leftGutterBodyBottomY = headerH + leftGutterBodyH;
 
   let lastStepRowIndex = -1;
   for (let idx = rows.length - 1; idx >= 0; idx--) {
@@ -1355,6 +1358,8 @@ export function Diagram({
         return;
       }
       if (row.kind !== "step" || !row.role) return;
+      // Skip steps show only their block (no title/desc, no row divider).
+      if (row.skipIndex) return;
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
@@ -1465,14 +1470,20 @@ export function Diagram({
         </text>
       )}
 
+      {/* Background grid is confined to the diagram band so the print
+          elements (title, page header/description, footer) stay on a clean
+          background, visually separated from the diagram. */}
       <rect
-        width={width}
-        height={height}
+        x={xPad}
+        y={topPad}
+        width={width - xPad * 2}
+        height={height - topPad - 20}
         fill="url(#gridp)"
         opacity="0.5"
       />
 
-      {/* left gutter (bottom border: 1.2px solid theme.stroke) */}
+      {/* Left gutter column: header cell + full-height frame, aligned with the
+          lane grid (same top/bottom and 1.2px border for consistency). */}
       <rect
         x={xPad}
         y={topPad}
@@ -1493,12 +1504,13 @@ export function Diagram({
 
       <rect
         x={xPad}
-        y={headerH}
+        y={topPad}
         width={leftGutter}
-        height={leftGutterBodyH}
+        height={height - topPad - 20}
         fill="none"
         stroke={theme.stroke}
         strokeWidth="1.2"
+        vectorEffect="non-scaling-stroke"
       />
 
       {rows.map((r, i) => {
@@ -1674,9 +1686,8 @@ export function Diagram({
               y1={topPad}
               y2={height - 20}
               stroke={theme.stroke}
-              strokeWidth="1"
+              strokeWidth="1.2"
               vectorEffect="non-scaling-stroke"
-              opacity="0.7"
             />
           ))}
         </>

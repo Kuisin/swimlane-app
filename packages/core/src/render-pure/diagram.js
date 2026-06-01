@@ -1061,9 +1061,13 @@ function renderDiagramSvg({
   const firstAnchor = startTerminalAnchor();
   const lastAnchor = endTerminalAnchor();
   const hasEndTerminal = Boolean(lastAnchor);
+  const startTerminalInset = 16;
   const startTerminal = firstAnchor ? {
     x: firstAnchor.x,
-    y: firstAnchor.targetY - terminalGap,
+    y: Math.max(
+      firstAnchor.targetY - terminalGap,
+      topPad + headerH + startTerminalInset
+    ),
     targetY: firstAnchor.targetY
   } : null;
   const endTerminal = hasEndTerminal && lastAnchor ? {
@@ -1073,8 +1077,6 @@ function renderDiagramSvg({
   } : null;
   const endTerminalBottom = endTerminal ? endTerminal.y + terminalRadius + 16 : 0;
   const height = Math.max(y + baseBottomPadding, endTerminalBottom);
-  const leftGutterBodyH = Math.max(0, height - (headerH + 24) - 20 + 24);
-  const leftGutterBodyBottomY = headerH + leftGutterBodyH;
   let lastStepRowIndex = -1;
   for (let idx = rows.length - 1; idx >= 0; idx--) {
     const row = rows[idx];
@@ -1108,6 +1110,7 @@ function renderDiagramSvg({
         return;
       }
       if (row.kind !== "step" || !row.role) return;
+      if (row.skipIndex) return;
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
@@ -1212,8 +1215,10 @@ function renderDiagramSvg({
     /* @__PURE__ */ h(
       "rect",
       {
-        width,
-        height,
+        x: xPad,
+        y: topPad,
+        width: width - xPad * 2,
+        height: height - topPad - 20,
         fill: "url(#gridp)",
         opacity: "0.5"
       }
@@ -1245,12 +1250,13 @@ function renderDiagramSvg({
       "rect",
       {
         x: xPad,
-        y: headerH,
+        y: topPad,
         width: leftGutter,
-        height: leftGutterBodyH,
+        height: height - topPad - 20,
         fill: "none",
         stroke: theme.stroke,
-        strokeWidth: "1.2"
+        strokeWidth: "1.2",
+        vectorEffect: "non-scaling-stroke"
       }
     ),
     rows.map((r, i) => {
@@ -1420,9 +1426,8 @@ function renderDiagramSvg({
         y1: topPad,
         y2: height - 20,
         stroke: theme.stroke,
-        strokeWidth: "1",
-        vectorEffect: "non-scaling-stroke",
-        opacity: "0.7"
+        strokeWidth: "1.2",
+        vectorEffect: "non-scaling-stroke"
       }
     ))),
     frames.map((f) => {
