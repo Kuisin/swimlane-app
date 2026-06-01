@@ -140,8 +140,6 @@ export function Diagram({
       page.footerCenter?.trim() ||
       page.footerRight?.trim(),
   );
-  const minLaneW = 220;
-  const maxLaneW = 360;
   const nodeW = 188;
   const xPad = 40;
   const leftGutter = 300;
@@ -163,6 +161,8 @@ export function Diagram({
   const descriptionBottomPad = 10;
 
   const caseSpread = 100;
+  /** Minimal gap between a sibling case's flow arrow and the neighbor block/doc side. */
+  const caseClearance = 10;
 
   const diamondH = 90;
   const mergeH = 60;
@@ -170,7 +170,8 @@ export function Diagram({
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   const stepBoxH = 44;
-  const loopRouteMargin = 32;
+  /** Loop rail uses the same block gap as sibling-case arrows. */
+  const loopRouteMargin = caseClearance;
   const loopDropPad = 14;
   /** Previous step → if: horizontal elbow closer to the diamond (below the step block), not mid-gap. */
 
@@ -541,25 +542,6 @@ export function Diagram({
     return false;
   }
 
-  /** Case count per lane including all nested child if branches (for lane width). */
-  function countCasesInLaneIncludingNested(frame, laneId) {
-    let siblingsInLane = 0;
-    let maxNested = 0;
-    for (const c of frame.cases) {
-      if (caseTouchesLane(c, laneId)) siblingsInLane++;
-      if (c.childFrame) {
-        maxNested = Math.max(
-          maxNested,
-          countCasesInLaneIncludingNested(c.childFrame, laneId),
-        );
-      }
-    }
-    if (siblingsInLane > 0 && maxNested > 0) {
-      return siblingsInLane + maxNested - 1;
-    }
-    return Math.max(siblingsInLane, maxNested);
-  }
-
   /**
    * Bottom-up layout: for each frame and each lane it touches, compute the case
    * offsets so adjacent cases clear each other's full nested subtree extent
@@ -620,13 +602,19 @@ export function Diagram({
       if (n === 1) {
         pos[0] = 0;
       } else {
-        for (let k = 0; k < n; k++) {
-          pos[k] = (k - (n - 1) / 2) * caseSpread;
-        }
+        /**
+         * Sibling-case steps sit on different rows, so their blocks never
+         * collide vertically and may overlap in x. Only each case's flow arrow
+         * (at the block center, i.e. the anchor) must clear the neighbor's
+         * block/doc side. Space anchors by just that minimal gap instead of
+         * separating the whole blocks.
+         */
+        pos[0] = 0;
         for (let k = 1; k < n; k++) {
-          const prevRight = pos[k - 1] + caseExtents[k - 1].mx;
-          const required = prevRight + caseSpread - caseExtents[k].mn;
-          if (pos[k] < required) pos[k] = required;
+          pos[k] =
+            pos[k - 1] +
+            caseClearance +
+            Math.max(caseExtents[k - 1].mx, -caseExtents[k].mn);
         }
         let minOverall = Infinity;
         let maxOverall = -Infinity;
@@ -734,15 +722,6 @@ export function Diagram({
     return Math.min(-nodeW / 2, -nodeW / 2 + 55 - docW);
   }
 
-  const maxCasesPerLane = new Map();
-  for (const f of frames) {
-    if (f.parentCase) continue;
-    for (const lane of lanes) {
-      const n = countCasesInLaneIncludingNested(f, lane.id);
-      const prev = maxCasesPerLane.get(lane.id) || 0;
-      maxCasesPerLane.set(lane.id, Math.max(prev, n));
-    }
-  }
 
   /**
    * Lane-relative leftmost/rightmost edges (branch offset + block/props on right).
@@ -762,7 +741,34 @@ export function Diagram({
     });
   });
 
-  const laneContentPad = 16;
+  /**
+   * A loop back-edge routes a vertical rail just outside the outermost block of
+   * the lane it loops past, so that lane needs extra width for the rail. Reserve
+   * it (here, before lane widths are computed) on the side the loop routes —
+   * inferred from the loop source's lane half — so the loop adds width to the role.
+   */
+  const loopRailAllowance = caseClearance;
+  rows.forEach((row, i) => {
+    if (row.kind !== "branchLoop") return;
+    let srcLane = -1;
+    for (let j = i - 1; j >= 0; j--) {
+      const r = rows[j];
+      if (r.kind === "step" && !r.empty && r.role) {
+        srcLane = laneIndexById.get(r.role) ?? -1;
+        break;
+      }
+      if (r.kind === "branchStart" && r.id === row.loopBranchId) break;
+    }
+    if (srcLane < 0) srcLane = 0;
+    const routesLeft = srcLane <= (lanes.length - 1) / 2;
+    const laneId = routesLeft ? lanes[0]?.id : lanes[lanes.length - 1]?.id;
+    const edge = laneId != null ? stepEdgesByLane.get(laneId) : null;
+    if (!edge) return;
+    if (routesLeft) edge.min -= loopRailAllowance;
+    else edge.max += loopRailAllowance;
+  });
+
+  const laneContentPad = 15;
 
   const laneWidths = lanes.map((lane) => {
     const headerWidth = estimateTextWidth(lane.label || lane.id, lane.icon ? 88 : 64);
@@ -771,15 +777,13 @@ export function Diagram({
       const stepWidth = estimateTextWidth(row.text, 68);
       return Math.max(maxWidth, stepWidth);
     }, 0);
-    const caseCount = maxCasesPerLane.get(lane.id) || 0;
-    const branchWidth = caseCount > 1 ? minLaneW + (caseCount - 1) * caseSpread : minLaneW;
     const edges = stepEdgesByLane.get(lane.id);
-    /** Fixed left pad + branch span; only `edges.max` grows when right props extend. */
+    /** Actual content span (branch case spread + block + side docs) plus padding. */
     const extentWidth = edges
       ? edges.max - edges.min + laneContentPad * 2
       : 0;
-    const textPart = Math.max(minLaneW, headerWidth, maxStepWidth);
-    return Math.max(Math.min(maxLaneW, textPart), branchWidth, extentWidth);
+    /** Purely content-driven: no artificial min/max lane width. */
+    return Math.max(headerWidth, maxStepWidth, extentWidth);
   });
   const laneOffsets = [];
   let laneCursor = xPad + leftGutter;
@@ -807,16 +811,20 @@ export function Diagram({
 
   const laneIndex = (id) => laneIndexById.get(id) ?? -1;
   const laneX = (i) => laneOffsets[i] ?? xPad + leftGutter;
-  const laneWidth = (i) => laneWidths[i] ?? minLaneW;
+  const laneWidth = (i) => laneWidths[i] ?? nodeW + laneContentPad * 2;
   /**
-   * Branch-layout origin (offset 0). Pinned so the leftmost block stays at
-   * `laneX + laneContentPad`; lane width grows to the right when right props extend.
+   * Branch-layout origin (offset 0). Centers the lane's content span
+   * [branchMin, branchMax] within the lane so the left and right gaps are
+   * equal (rather than pinning content left and dumping extra width on the
+   * right).
    */
   const laneCenter = (i) => {
     const lane = lanes[i];
     if (!lane) return laneX(i) + laneWidth(i) / 2;
-    const branchMin = stepEdgesByLane.get(lane.id)?.min ?? -nodeW / 2;
-    return laneX(i) + laneContentPad - branchMin;
+    const edges = stepEdgesByLane.get(lane.id);
+    const branchMin = edges?.min ?? -nodeW / 2;
+    const branchMax = edges?.max ?? nodeW / 2;
+    return laneX(i) + laneWidth(i) / 2 - (branchMin + branchMax) / 2;
   };
 
   function caseAnchorX(c) {
@@ -961,7 +969,7 @@ export function Diagram({
 
     let targetY;
     let targetX = caseAnchorX(c);
-    let caseLaneWidth = minLaneW;
+    let caseLaneWidth = nodeW + laneContentPad * 2;
     let showArrow = false;
 
     if (targetsNestedDecision) {
@@ -1203,10 +1211,10 @@ export function Diagram({
       lastLaneIdx >= 0
         ? laneX(lastLaneIdx) + laneWidth(lastLaneIdx)
         : width - xPad;
-    routeX = Math.max(
-      laneGridLeft + 12,
-      Math.min(laneGridRight - 12, routeX),
-    );
+    // Keep the rail inside the lane grid (never the gutter), but don't reserve
+    // the clearance off the grid edge — that would eat into the gap from the
+    // outermost block. The block gap (caseClearance) takes priority.
+    routeX = Math.max(laneGridLeft, Math.min(laneGridRight, routeX));
 
     const enterFromLeft = routeX < dCx;
     const toX = enterFromLeft ? dCx - dW / 2 : dCx + dW / 2;

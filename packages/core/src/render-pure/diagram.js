@@ -131,8 +131,6 @@ function renderDiagramSvg({
   const hasPageFooter = Boolean(
     page.footerLeft?.trim() || page.footerCenter?.trim() || page.footerRight?.trim()
   );
-  const minLaneW = 220;
-  const maxLaneW = 360;
   const nodeW = 188;
   const xPad = 40;
   const leftGutter = 300;
@@ -148,13 +146,14 @@ function renderDiagramSvg({
   const descriptionLineHeight = 14;
   const descriptionBottomPad = 10;
   const caseSpread = 100;
+  const caseClearance = 10;
   const diamondH = 90;
   const mergeH = 60;
   const branchLoopH = 12;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   const stepBoxH = 44;
-  const loopRouteMargin = 32;
+  const loopRouteMargin = caseClearance;
   const loopDropPad = 14;
   const pageDescLines = pageDescription ? wrapTextToDisplayColumns(pageDescription, 48) : [];
   const pageDescLineHeight = 16;
@@ -453,23 +452,6 @@ function renderDiagramSvg({
     }
     return false;
   }
-  function countCasesInLaneIncludingNested(frame, laneId) {
-    let siblingsInLane = 0;
-    let maxNested = 0;
-    for (const c of frame.cases) {
-      if (caseTouchesLane(c, laneId)) siblingsInLane++;
-      if (c.childFrame) {
-        maxNested = Math.max(
-          maxNested,
-          countCasesInLaneIncludingNested(c.childFrame, laneId)
-        );
-      }
-    }
-    if (siblingsInLane > 0 && maxNested > 0) {
-      return siblingsInLane + maxNested - 1;
-    }
-    return Math.max(siblingsInLane, maxNested);
-  }
   const frameCaseOffsets = /* @__PURE__ */ new Map();
   const frameSubtreeExtent = /* @__PURE__ */ new Map();
   function computeFrameLayout(frame) {
@@ -514,13 +496,9 @@ function renderDiagramSvg({
       if (n === 1) {
         pos[0] = 0;
       } else {
-        for (let k = 0; k < n; k++) {
-          pos[k] = (k - (n - 1) / 2) * caseSpread;
-        }
+        pos[0] = 0;
         for (let k = 1; k < n; k++) {
-          const prevRight = pos[k - 1] + caseExtents[k - 1].mx;
-          const required = prevRight + caseSpread - caseExtents[k].mn;
-          if (pos[k] < required) pos[k] = required;
+          pos[k] = pos[k - 1] + caseClearance + Math.max(caseExtents[k - 1].mx, -caseExtents[k].mn);
         }
         let minOverall = Infinity;
         let maxOverall = -Infinity;
@@ -601,15 +579,6 @@ function renderDiagramSvg({
     if (n === 0) return -nodeW / 2;
     return Math.min(-nodeW / 2, -nodeW / 2 + 55 - docW);
   }
-  const maxCasesPerLane = /* @__PURE__ */ new Map();
-  for (const f of frames) {
-    if (f.parentCase) continue;
-    for (const lane of lanes) {
-      const n = countCasesInLaneIncludingNested(f, lane.id);
-      const prev = maxCasesPerLane.get(lane.id) || 0;
-      maxCasesPerLane.set(lane.id, Math.max(prev, n));
-    }
-  }
   const stepEdgesByLane = /* @__PURE__ */ new Map();
   rows.forEach((row, i) => {
     if (row.kind !== "step" || row.empty || !row.role) return;
@@ -623,7 +592,27 @@ function renderDiagramSvg({
       max: Math.max(cur.max, right)
     });
   });
-  const laneContentPad = 16;
+  const loopRailAllowance = caseClearance * 2;
+  rows.forEach((row, i) => {
+    if (row.kind !== "branchLoop") return;
+    let srcLane = -1;
+    for (let j = i - 1; j >= 0; j--) {
+      const r = rows[j];
+      if (r.kind === "step" && !r.empty && r.role) {
+        srcLane = laneIndexById.get(r.role) ?? -1;
+        break;
+      }
+      if (r.kind === "branchStart" && r.id === row.loopBranchId) break;
+    }
+    if (srcLane < 0) srcLane = 0;
+    const routesLeft = srcLane <= (lanes.length - 1) / 2;
+    const laneId = routesLeft ? lanes[0]?.id : lanes[lanes.length - 1]?.id;
+    const edge = laneId != null ? stepEdgesByLane.get(laneId) : null;
+    if (!edge) return;
+    if (routesLeft) edge.min -= loopRailAllowance;
+    else edge.max += loopRailAllowance;
+  });
+  const laneContentPad = 10;
   const laneWidths = lanes.map((lane) => {
     const headerWidth = estimateTextWidth(lane.label || lane.id, lane.icon ? 88 : 64);
     const maxStepWidth = rows.reduce((maxWidth, row) => {
@@ -631,12 +620,9 @@ function renderDiagramSvg({
       const stepWidth = estimateTextWidth(row.text, 68);
       return Math.max(maxWidth, stepWidth);
     }, 0);
-    const caseCount = maxCasesPerLane.get(lane.id) || 0;
-    const branchWidth = caseCount > 1 ? minLaneW + (caseCount - 1) * caseSpread : minLaneW;
     const edges = stepEdgesByLane.get(lane.id);
     const extentWidth = edges ? edges.max - edges.min + laneContentPad * 2 : 0;
-    const textPart = Math.max(minLaneW, headerWidth, maxStepWidth);
-    return Math.max(Math.min(maxLaneW, textPart), branchWidth, extentWidth);
+    return Math.max(headerWidth, maxStepWidth, extentWidth);
   });
   const laneOffsets = [];
   let laneCursor = xPad + leftGutter;
@@ -661,12 +647,14 @@ function renderDiagramSvg({
   }
   const laneIndex = (id) => laneIndexById.get(id) ?? -1;
   const laneX = (i) => laneOffsets[i] ?? xPad + leftGutter;
-  const laneWidth = (i) => laneWidths[i] ?? minLaneW;
+  const laneWidth = (i) => laneWidths[i] ?? nodeW + laneContentPad * 2;
   const laneCenter = (i) => {
     const lane = lanes[i];
     if (!lane) return laneX(i) + laneWidth(i) / 2;
-    const branchMin = stepEdgesByLane.get(lane.id)?.min ?? -nodeW / 2;
-    return laneX(i) + laneContentPad - branchMin;
+    const edges = stepEdgesByLane.get(lane.id);
+    const branchMin = edges?.min ?? -nodeW / 2;
+    const branchMax = edges?.max ?? nodeW / 2;
+    return laneX(i) + laneWidth(i) / 2 - (branchMin + branchMax) / 2;
   };
   function caseAnchorX(c) {
     return (c.x ?? width / 2) + (c.offset || 0);
@@ -774,7 +762,7 @@ function renderDiagramSvg({
     const bendY = startY + branchCaseBendYOffset;
     let targetY;
     let targetX = caseAnchorX(c);
-    let caseLaneWidth = minLaneW;
+    let caseLaneWidth = nodeW + laneContentPad * 2;
     let showArrow = false;
     if (targetsNestedDecision) {
       targetX = frameAnchorX(child);
@@ -951,10 +939,7 @@ function renderDiagramSvg({
     const lastLaneIdx = lanes.length - 1;
     const laneGridLeft = laneX(0);
     const laneGridRight = lastLaneIdx >= 0 ? laneX(lastLaneIdx) + laneWidth(lastLaneIdx) : width - xPad;
-    routeX = Math.max(
-      laneGridLeft + 12,
-      Math.min(laneGridRight - 12, routeX)
-    );
+    routeX = Math.max(laneGridLeft, Math.min(laneGridRight, routeX));
     const enterFromLeft = routeX < dCx;
     const toX = enterFromLeft ? dCx - dW / 2 : dCx + dW / 2;
     const toY = dCy;
