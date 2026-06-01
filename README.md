@@ -59,8 +59,8 @@ npm run preview -w @kai-swimlane/web
 
 The editor is published under the Vite base path **`/swimlane-app/`**:
 
-- **Text editor:** `https://<your-org>.github.io/swimlane-app/`
-- **GUI editor:** `https://<your-org>.github.io/swimlane-app/gui`
+- **Text editor:** `https://kuisin.github.io/swimlane-app/`
+- **GUI editor:** `https://kuisin.github.io/swimlane-app/gui`
 
 Deep links to `/gui` work on GitHub Pages via `apps/web/public/404.html` (SPA fallback).
 
@@ -138,6 +138,15 @@ label: Sales;
 @end
 ```
 
+**Flow control** (inside `/line/`):
+
+| Construct | Meaning |
+|-----------|---------|
+| `if (cond) is (case) than` … `elseif (case) than` … `else` … `endif` | Exclusive branch — exactly one case runs. Renders decision/merge diamonds. |
+| `fork` … `and` … `endfork` | Parallel branch — all paths run concurrently. Renders split/join bars. |
+| `[loop]` | At the end of a case, route back to its own `if` decision (retry). |
+| `merge <label>;` | At the end of a case, route to the step tagged `label: <label>;` downstream instead of the `endif` merge. |
+
 See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide.
 
 ## Headless rendering (for external plugins)
@@ -159,21 +168,28 @@ identical by a parity test, so both paths produce the same diagram. `react`,
 `react-dom`, and `lucide-react` are optional peers — only the React components
 exported from the main `@kai-swimlane/core` barrel need them.
 
-## Known limitations
+## Flow control & limitations
 
-The flow DSL is **block-structured**: branches must be properly nested
-(`if` … `elseif`/`else` … `endif`) and cannot interleave. A few consequences
-worth knowing:
+The flow DSL is **block-structured**: every control block (`if` … `endif`,
+`fork` … `endfork`) must be properly nested. Within that model:
 
+- **Exclusive vs parallel.** `if/elseif/else` picks exactly one case (decision
+  + merge diamonds). `fork/and/endfork` runs every path concurrently (split +
+  join bars). Use `fork` when steps in different lanes happen at the same time.
+- **Re-convergence.** A case normally rejoins the flow at its `endif`. `[loop]`
+  instead routes back to the same decision (retry); `merge <label>;` routes
+  forward to a labeled step, so cases can reconverge at different points (e.g. a
+  cancel path that skips straight to the end).
 - **Steps may freely change lanes within a single case** (e.g. `a → c → a → b`);
   connectors route between lanes automatically.
-- **Branches cannot be interleaved across each other.** "Mixing" two branches
-  means nesting one inside a case of the other, or sequencing them one after the
-  next — there is no way to weave steps from two sibling branches together.
+- **Control blocks cannot be interleaved across each other.** Two `if`/`fork`
+  blocks are either nested (one inside a case/path of the other) or sequenced
+  one after the next — there is no way to weave steps from two sibling blocks
+  together. `fork` covers genuine concurrency; `merge` covers a forward jump.
 - A flow may **start or end with a branch** (no surrounding step); the start/end
-  terminals attach to the decision/merge diamonds in that case.
-- Very wide fan-outs (many `elseif` cases sharing one lane) widen that lane to
-  keep cases from overlapping, which can make the diagram broad.
+  terminals attach to the gateway in that case.
+- Very wide fan-outs (many `elseif`/`and` cases sharing one lane) widen that
+  lane to keep cases from overlapping, which can make the diagram broad.
 
 ## Contributing
 

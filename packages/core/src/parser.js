@@ -264,9 +264,20 @@ export function parseDSL(src) {
     }
   }
 
+  /**
+   * `/line/` parses into a flat list of `rows`, each tagged with a `kind`:
+   *   - step                          a task in a lane (`[role: text]`)
+   *   - branchStart / branchCase / branchEnd
+   *                                   an `if`/`fork` block; `parallel: true`
+   *                                   marks the `fork`/`and`/`endfork` variant
+   *   - branchLoop                    `[loop]` back-edge to the enclosing `if`
+   *   - branchMerge                   `merge <label>;` jump to a labeled step
+   * `stack` tracks open branch frames so nested blocks get the right depth and
+   * so each closer (`endif`/`endfork`) matches the frame type it closes.
+   */
   const rows = [];
   const stack = [];
-  /** if / elseif / endif share one level; case body is one indent (2 spaces) deeper. */
+  /** if/fork markers share one level; case/path body is one indent (2 spaces) deeper. */
   function branchMarkerDepth() {
     if (stack.length === 0) return 0;
     return stack[stack.length - 1].depth + 1;

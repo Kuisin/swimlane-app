@@ -5,14 +5,14 @@
   "description": "React + react-markdown preview component for the full ```kai-swimlane fence (swimlane diagram).",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/your-org/swimlane-app/tree/main/packages/kai-swimlane#readme",
+  "homepage": "https://github.com/Kuisin/swimlane-app/tree/main/packages/kai-swimlane#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/swimlane-app.git",
+    "url": "https://github.com/Kuisin/swimlane-app.git",
     "directory": "packages/kai-swimlane"
   },
   "bugs": {
-    "url": "https://github.com/your-org/swimlane-app/issues"
+    "url": "https://github.com/Kuisin/swimlane-app/issues"
   },
   "keywords": [
     "swimlane",
