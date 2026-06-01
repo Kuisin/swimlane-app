@@ -1252,8 +1252,30 @@ export function Diagram({
     });
   }
 
-  const firstStep = stepRows[0];
   const frameById = new Map(frames.map((f) => [f.id, f]));
+  /**
+   * Entry point of the flow. Mirrors endTerminalAnchor: when the flow opens with
+   * a branch (no leading step), the start terminal must feed the decision diamond
+   * — not the first step inside the first case, which would bypass the decision.
+   */
+  function startTerminalAnchor() {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.kind === "step" && !row.empty && row.role) {
+        if (laneIndex(row.role) < 0) return null;
+        return { x: nodeCenterX(i, row.role), targetY: stepBlockCenterY(i) - 22 };
+      }
+      if (row.kind === "branchStart") {
+        const frame = frameById.get(row.id);
+        if (!frame) continue;
+        return {
+          x: frameAnchorX(frame),
+          targetY: frame.yDecision + diamondH / 2 + decisionYOffset - 25,
+        };
+      }
+    }
+    return null;
+  }
   function endTerminalAnchor() {
     for (let i = rows.length - 1; i >= 0; i--) {
       const row = rows[i];
@@ -1276,14 +1298,14 @@ export function Diagram({
     }
     return null;
   }
+  const firstAnchor = startTerminalAnchor();
   const lastAnchor = endTerminalAnchor();
-  const hasStartTerminal = Boolean(firstStep && laneIndex(firstStep.r.role) >= 0);
   const hasEndTerminal = Boolean(lastAnchor);
-  const startTerminal = hasStartTerminal
+  const startTerminal = firstAnchor
     ? {
-        x: nodeCenterX(firstStep.i, firstStep.r.role),
-        y: stepBlockCenterY(firstStep.i) - 22 - terminalGap,
-        targetY: stepBlockCenterY(firstStep.i) - 22,
+        x: firstAnchor.x,
+        y: firstAnchor.targetY - terminalGap,
+        targetY: firstAnchor.targetY,
       }
     : null;
   const endTerminal = hasEndTerminal && lastAnchor

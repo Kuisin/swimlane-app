@@ -723,9 +723,9 @@ function renderDiagramSvg({
   }
   frames.forEach((f) => {
     f.cases.forEach((c) => {
-      const firstStep2 = firstDirectStepIdx(c);
-      if (firstStep2 != null) {
-        const row = rows[firstStep2];
+      const firstStep = firstDirectStepIdx(c);
+      if (firstStep != null) {
+        const row = rows[firstStep];
         const li = laneIndex(row.role);
         c.x = li >= 0 ? laneCenter(li) : width / 2;
       } else {
@@ -1017,8 +1017,25 @@ function renderDiagramSvg({
       key: `c-${i}`
     });
   }
-  const firstStep = stepRows[0];
   const frameById = new Map(frames.map((f) => [f.id, f]));
+  function startTerminalAnchor() {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.kind === "step" && !row.empty && row.role) {
+        if (laneIndex(row.role) < 0) return null;
+        return { x: nodeCenterX(i, row.role), targetY: stepBlockCenterY(i) - 22 };
+      }
+      if (row.kind === "branchStart") {
+        const frame = frameById.get(row.id);
+        if (!frame) continue;
+        return {
+          x: frameAnchorX(frame),
+          targetY: frame.yDecision + diamondH / 2 + decisionYOffset - 25
+        };
+      }
+    }
+    return null;
+  }
   function endTerminalAnchor() {
     for (let i = rows.length - 1; i >= 0; i--) {
       const row = rows[i];
@@ -1041,13 +1058,13 @@ function renderDiagramSvg({
     }
     return null;
   }
+  const firstAnchor = startTerminalAnchor();
   const lastAnchor = endTerminalAnchor();
-  const hasStartTerminal = Boolean(firstStep && laneIndex(firstStep.r.role) >= 0);
   const hasEndTerminal = Boolean(lastAnchor);
-  const startTerminal = hasStartTerminal ? {
-    x: nodeCenterX(firstStep.i, firstStep.r.role),
-    y: stepBlockCenterY(firstStep.i) - 22 - terminalGap,
-    targetY: stepBlockCenterY(firstStep.i) - 22
+  const startTerminal = firstAnchor ? {
+    x: firstAnchor.x,
+    y: firstAnchor.targetY - terminalGap,
+    targetY: firstAnchor.targetY
   } : null;
   const endTerminal = hasEndTerminal && lastAnchor ? {
     x: lastAnchor.x,
