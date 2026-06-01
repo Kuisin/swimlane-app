@@ -1,0 +1,124 @@
+@kai-swimlane
+
+/page/
+header-left: Acme Corp;
+header-center: Order Fulfillment;
+header-right: v2.0;
+footer-left: Confidential;
+footer-center: Internal use only;
+footer-right: 2026-06-01;
+description: ```
+End-to-end order pipeline across five teams, covering channel intake,
+validation, async fulfillment, retries, and receipts.
+```;
+
+/title/
+Order Fulfillment Pipeline
+
+/role/
+<customer>
+label: Customer;
+icon: #user;
+background-color: #e0f2fe;
+<frontend>
+label: Web Frontend;
+icon: #monitor;
+<api>
+label: API Gateway;
+icon: #server;
+background-color: #ede9fe;
+<worker>
+label: Fulfillment Worker;
+icon: #cpu;
+<db>
+label: Database;
+icon: #database;
+background-color: #dcfce7;
+
+/block/
+<start>
+shape: ellipse;
+icon: #play;
+background-color: #dbeafe;
+<terminal>
+shape: ellipse;
+icon: #check;
+background-color: #dcfce7;
+<gate>
+shape: hex;
+icon: #shield;
+border-color: #c2410c;
+<job>
+shape: subroutine;
+
+/prop/
+<reqdoc>
+label: REQ;
+side: left;
+title: Inbound request payload;
+<auditlog>
+label: AUDIT;
+side: right;
+<receipt>
+label: RCPT;
+side: right;
+title: Customer receipt artifact;
+
+/line/
+if (intake channel?) is (web) than #blue
+[frontend: Open web form]
+elseif (mobile) than #green
+[frontend: Open mobile app]
+else
+[customer: Call support line]
+endif
+
+[customer: Place order] <start>
+label: Submit order;
+desc: ```
+Customer submits the cart. Includes **shipping address**
+and an _encrypted payment token_.
+```;
+props: reqdoc;
+
+[frontend: Validate form] <gate>
+props: reqdoc, auditlog;
+
+if (form valid?) is (valid) than #green
+[api: Accept request]
+props: auditlog;
+[worker: Reserve stock] <job>
+
+if (stock available?) is (in stock) than #blue
+[db: Decrement inventory]
+[worker: Create shipment] <job>
+props: receipt;
+elseif (backorder) than #orange
+[worker: Queue backorder] <job>
+[customer: Notify delay]
+else
+[customer: Refund]
+[db: Log refund]
+endif
+
+[api: Confirm order]
+elseif (recoverable) than #orange
+[frontend: Show retry prompt]
+[customer: Resubmit]
+[loop]
+else
+[frontend: Show fatal error]
+skip;
+[api: Emit failure metric]
+endif
+
+[customer: Receive confirmation] <terminal>
+label: Confirmed;
+
+if (wants receipt?) is (yes) than #purple
+[api: Render receipt]
+props: receipt;
+[customer: Download receipt]
+endif
+
+@end
