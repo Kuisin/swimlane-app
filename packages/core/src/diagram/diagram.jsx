@@ -595,6 +595,16 @@ export function Diagram({
         const c = frame.cases[ci];
         let mn = 0;
         let mx = 0;
+        // The case's own steps in this lane (block + side doc chips) must be
+        // cleared by adjacent sibling cases, so a sibling's arrow never crosses
+        // a doc chip.
+        for (const stepIdx of c.rowIndices) {
+          const row = rows[stepIdx];
+          if (row?.kind === "step" && !row.empty && row.role === laneId) {
+            mn = Math.min(mn, stepLeftVisualExtent(row));
+            mx = Math.max(mx, stepRightVisualExtent(row));
+          }
+        }
         if (c.childFrame) {
           const childExt = frameSubtreeExtent.get(c.childFrame.id)?.[laneId];
           if (childExt) {
@@ -706,6 +716,22 @@ export function Diagram({
   /** Fixed left margin for lane width (left-side props are ignored). */
   function stepLeftExtent() {
     return -nodeW / 2;
+  }
+
+  /**
+   * Actual visual extents past the step center, matching how the block and its
+   * doc chips are drawn. Used for branch spacing so a sibling case (and its
+   * fan-out/merge arrow) clears a neighbor's doc chips.
+   */
+  function stepRightVisualExtent(row) {
+    const { right: n } = stepPropSideCounts(row);
+    if (n === 0) return nodeW / 2;
+    return Math.max(nodeW / 2, nodeW / 2 - 60 + (n - 1) * docGapX + docW);
+  }
+  function stepLeftVisualExtent(row) {
+    const { left: n } = stepPropSideCounts(row);
+    if (n === 0) return -nodeW / 2;
+    return Math.min(-nodeW / 2, -nodeW / 2 + 55 - docW);
   }
 
   const maxCasesPerLane = new Map();
@@ -1166,7 +1192,21 @@ export function Diagram({
       routeX =
         Math.max(extentRight, fromX, dCx + dW / 2) + loopRouteMargin;
     }
-    routeX = Math.max(xPad + 12, Math.min(width - xPad - 12, routeX));
+    /**
+     * Keep the loop rail inside the role lane grid — never in the left gutter
+     * or past the rightmost lane. (The diagram-wide xPad bounds let it drift
+     * into the gutter, outside any role.)
+     */
+    const lastLaneIdx = lanes.length - 1;
+    const laneGridLeft = laneX(0);
+    const laneGridRight =
+      lastLaneIdx >= 0
+        ? laneX(lastLaneIdx) + laneWidth(lastLaneIdx)
+        : width - xPad;
+    routeX = Math.max(
+      laneGridLeft + 12,
+      Math.min(laneGridRight - 12, routeX),
+    );
 
     const enterFromLeft = routeX < dCx;
     const toX = enterFromLeft ? dCx - dW / 2 : dCx + dW / 2;
