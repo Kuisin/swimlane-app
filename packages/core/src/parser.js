@@ -478,6 +478,25 @@ export function parseDSL(src) {
       continue;
     }
 
+    /** `merge <label>;` — route this case to a labeled downstream step instead of endif. */
+    m = u.match(/^merge\s+(.+);\s*$/i);
+    if (m) {
+      const top = stack[stack.length - 1];
+      if (!top || top.type !== "if") {
+        errors.push({ line, text, msg: "merge outside if" });
+        continue;
+      }
+      rows.push({
+        kind: "branchMerge",
+        mergeTarget: m[1].trim(),
+        mergeBranchId: top.id,
+        depth: branchBodyDepth(),
+        line,
+        text,
+      });
+      continue;
+    }
+
     let blockRef = null;
     let work = u;
     const blockAtEnd = u.match(/<([A-Za-z0-9_\-]+)>\s*;?\s*$/);
@@ -516,6 +535,25 @@ export function parseDSL(src) {
     }
 
     errors.push({ line, text, msg: "unrecognized line" });
+  }
+
+  /** Resolve each `merge <label>;` to the step whose `label:` matches; error if none. */
+  const stepNames = new Set(
+    rows
+      .filter((r) => r.kind === "step" && !r.empty && r.role && r.name)
+      .map((r) => r.name),
+  );
+  for (const r of rows) {
+    if (r.kind !== "branchMerge") continue;
+    if (!stepNames.has(r.mergeTarget)) {
+      errors.push({
+        line: r.line,
+        text: r.text,
+        msg: `merge: no step with label "${r.mergeTarget}"`,
+      });
+    }
+    delete r.line;
+    delete r.text;
   }
 
   const seen = new Set();

@@ -150,6 +150,7 @@ function renderDiagramSvg({
   const diamondH = 90;
   const mergeH = 60;
   const branchLoopH = 12;
+  const branchMergeH = 12;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   const stepBoxH = 44;
@@ -326,6 +327,11 @@ function renderDiagramSvg({
       rowMeta[i] = { y, kind: "branchLoop" };
       pushToActiveCase(i);
       y += branchLoopH;
+    } else if (r.kind === "branchMerge") {
+      stepRowHeightByIndex.set(i, branchMergeH);
+      rowMeta[i] = { y, kind: "branchMerge" };
+      pushToActiveCase(i);
+      y += branchMergeH;
     } else if (r.kind === "step") {
       const h2 = stepRowHeight(r, i);
       stepRowHeightByIndex.set(i, h2);
@@ -830,6 +836,64 @@ function renderDiagramSvg({
       (idx) => rows[idx]?.kind === "step" && !rows[idx].empty && rows[idx].role
     );
     return { loopIdx, prevStepIdx: prevStepIdx ?? null };
+  }
+  function findStepIndexByName(name) {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (r.kind === "step" && !r.empty && r.role && r.name === name) return i;
+    }
+    return -1;
+  }
+  function mergeAnchorInCase(rowIndices, branchId) {
+    const mergeIdx = [...rowIndices].reverse().find(
+      (idx) => rows[idx]?.kind === "branchMerge" && rows[idx].mergeBranchId === branchId
+    );
+    if (mergeIdx == null) return null;
+    let prevStepIdx = null;
+    for (const idx of rowIndices) {
+      if (idx < mergeIdx && rows[idx]?.kind === "step" && !rows[idx].empty && rows[idx].role)
+        prevStepIdx = idx;
+    }
+    const targetIdx = findStepIndexByName(rows[mergeIdx].mergeTarget);
+    if (targetIdx < 0) return null;
+    return { mergeIdx, prevStepIdx, targetIdx };
+  }
+  function buildMergeForwardPath({ fromX, fromBottomY, targetIdx }) {
+    const toX = nodeCenterX(targetIdx, rows[targetIdx].role);
+    const toTopY = stepBlockCenterY(targetIdx) - 22;
+    const dropY = fromBottomY + loopDropPad;
+    const obstacles = [];
+    rows.forEach((row, idx) => {
+      if (idx === targetIdx) return;
+      if (row?.kind !== "step" || row.empty || !row.role) return;
+      const b = stepObstacleBounds(idx);
+      if (b.bottom >= dropY && b.top <= toTopY) obstacles.push(b);
+    });
+    let sideSign;
+    if (obstacles.length > 0) {
+      const minLeft = Math.min(...obstacles.map((o) => o.left));
+      const maxRight = Math.max(...obstacles.map((o) => o.right));
+      const spaceLeft = fromX - minLeft;
+      const spaceRight = maxRight - fromX;
+      sideSign = spaceRight >= spaceLeft ? 1 : -1;
+    } else {
+      sideSign = toX >= fromX ? 1 : -1;
+    }
+    let routeX;
+    if (sideSign < 0) {
+      routeX = Math.min(fromX, toX, ...obstacles.map((o) => o.left)) - loopRouteMargin;
+    } else {
+      routeX = Math.max(fromX, toX, ...obstacles.map((o) => o.right)) + loopRouteMargin;
+    }
+    const lastLaneIdx = lanes.length - 1;
+    const laneGridLeft = laneX(0);
+    const laneGridRight = lastLaneIdx >= 0 ? laneX(lastLaneIdx) + laneWidth(lastLaneIdx) : width - xPad;
+    routeX = Math.max(laneGridLeft, Math.min(laneGridRight, routeX));
+    const approachY = toTopY - 14;
+    if (Math.abs(fromX - routeX) < 0.5 && Math.abs(toX - routeX) < 0.5) {
+      return `M ${fromX} ${fromBottomY} L ${toX} ${toTopY}`;
+    }
+    return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${approachY} L ${toX} ${approachY} L ${toX} ${toTopY}`;
   }
   function applyCaseOffsetsForFrame(frame, inheritedByLane = null) {
     const inherited = inheritedByLane || Object.fromEntries(lanes.map((lane) => [lane.id, 0]));
@@ -1534,6 +1598,38 @@ function renderDiagramSvg({
         const stubCase = isStubCase(c, f.id);
         const startY = dCy + dH / 2;
         const caseRailY = startY + branchCaseBendYOffset;
+        const mergeJump = mergeAnchorInCase(c.rowIndices, f.id);
+        if (mergeJump) {
+          let fromX2;
+          let fromBottomY;
+          if (mergeJump.prevStepIdx != null) {
+            const r = rows[mergeJump.prevStepIdx];
+            const li = laneIndex(r.role);
+            fromX2 = li >= 0 ? nodeCenterX(mergeJump.prevStepIdx, r.role) : c.x;
+            fromBottomY = stepBlockBottomY(mergeJump.prevStepIdx);
+          } else {
+            fromX2 = caseAnchorX(c);
+            const mIdxY = rowMeta[mergeJump.mergeIdx]?.y ?? f.yDecision;
+            fromBottomY = mIdxY + branchMergeH;
+          }
+          const d2 = buildMergeForwardPath({
+            fromX: fromX2,
+            fromBottomY,
+            targetIdx: mergeJump.targetIdx
+          });
+          return /* @__PURE__ */ h(
+            "path",
+            {
+              key: `merge-${f.id}-${ci}`,
+              d: d2,
+              fill: "none",
+              stroke: theme.stroke,
+              strokeWidth: "1.6",
+              strokeDasharray: "6 3",
+              markerEnd: "url(#arrowhead)"
+            }
+          );
+        }
         const anchor = loopAnchorInCase(c.rowIndices, f.id);
         if (anchor) {
           let fromX2;
