@@ -912,8 +912,22 @@ export function Diagram({
 
     const child = c.childFrame;
     const firstStepIdx = firstStepIdxInCase(c);
+    const childStartIdx =
+      child != null
+        ? rows.findIndex((r) => r.kind === "branchStart" && r.id === child.id)
+        : -1;
     const stubCase = isStubCase(c, f.id);
-    const targetsNestedDecision = child != null;
+    /**
+     * Fan out to the nested decision only when it is the first element in the
+     * case. If a step precedes it, fan out to that step instead (the nested
+     * decision then gets its in-edge from the step immediately before it);
+     * otherwise the arrow skips the leading steps and wrongly lands on the
+     * nested `if` diamond.
+     */
+    const targetsNestedDecision =
+      child != null &&
+      (firstStepIdx == null ||
+        (childStartIdx >= 0 && childStartIdx < firstStepIdx));
 
     const startX = dCx;
     const startY = dCy + dH / 2;

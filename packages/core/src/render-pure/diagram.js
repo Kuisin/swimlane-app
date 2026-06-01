@@ -749,8 +749,9 @@ function renderDiagramSvg({
     const mH = 28;
     const child = c.childFrame;
     const firstStepIdx = firstStepIdxInCase(c);
+    const childStartIdx = child != null ? rows.findIndex((r) => r.kind === "branchStart" && r.id === child.id) : -1;
     const stubCase = isStubCase(c, f.id);
-    const targetsNestedDecision = child != null;
+    const targetsNestedDecision = child != null && (firstStepIdx == null || childStartIdx >= 0 && childStartIdx < firstStepIdx);
     const startX = dCx;
     const startY = dCy + dH / 2;
     const bendY = startY + branchCaseBendYOffset;
