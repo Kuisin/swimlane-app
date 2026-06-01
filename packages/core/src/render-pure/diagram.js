@@ -1375,7 +1375,6 @@ function renderDiagramSvg({
       ), /* @__PURE__ */ h(
         "line",
         {
-          style: { color: "red" },
           x1: x,
           x2: x + currentLaneW,
           y1: topPad + headerH,
@@ -1400,19 +1399,32 @@ function renderDiagramSvg({
         opacity: "0.95"
       }
     )),
-    lanes.map((lane, i) => /* @__PURE__ */ h(
+    lanes.length > 0 && /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
       "rect",
       {
-        key: `lane-debug-outline-${lane.id ?? i}`,
-        x: laneX(i),
+        x: laneX(0),
         y: topPad,
-        width: laneWidth(i),
+        width: laneWidths.reduce((sum, w) => sum + w, 0),
         height: height - topPad - 20,
         fill: "none",
         stroke: theme.stroke,
-        strokeWidth: "1.2"
+        strokeWidth: "1.2",
+        vectorEffect: "non-scaling-stroke"
       }
-    )),
+    ), lanes.slice(1).map((lane, i) => /* @__PURE__ */ h(
+      "line",
+      {
+        key: `lane-divider-${lane.id ?? i + 1}`,
+        x1: laneX(i + 1),
+        x2: laneX(i + 1),
+        y1: topPad,
+        y2: height - 20,
+        stroke: theme.stroke,
+        strokeWidth: "1",
+        vectorEffect: "non-scaling-stroke",
+        opacity: "0.7"
+      }
+    ))),
     frames.map((f) => {
       if (f.yMerge == null) return null;
       const dCx = frameAnchorX(f);

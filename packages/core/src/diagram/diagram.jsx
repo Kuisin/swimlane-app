@@ -1625,13 +1625,11 @@ export function Diagram({
               {lane.label}
             </text>
             <line
-              style={{ color: "red" }}
               x1={x}
               x2={x + currentLaneW}
               y1={topPad + headerH}
               y2={topPad + headerH}
               stroke={theme.stroke}
-              // stroke="#FF0000"
               strokeWidth="1.2"
               vectorEffect="non-scaling-stroke"
             />
@@ -1653,19 +1651,36 @@ export function Diagram({
         />
       ))}
 
-      {/* Lane debug outline: after row dividers so red stroke paints on top (SVG order). */}
-      {lanes.map((lane, i) => (
-        <rect
-          key={`lane-debug-outline-${lane.id ?? i}`}
-          x={laneX(i)}
-          y={topPad}
-          width={laneWidth(i)}
-          height={height - topPad - 20}
-          fill="none"
-          stroke={theme.stroke}
-          strokeWidth="1.2"
-        />
-      ))}
+      {/* Lane grid: one outer frame + single internal separators (drawn after the
+          row dividers so lane boundaries read on top). Per-lane outline rects were
+          replaced to avoid doubled strokes on shared edges. */}
+      {lanes.length > 0 && (
+        <>
+          <rect
+            x={laneX(0)}
+            y={topPad}
+            width={laneWidths.reduce((sum, w) => sum + w, 0)}
+            height={height - topPad - 20}
+            fill="none"
+            stroke={theme.stroke}
+            strokeWidth="1.2"
+            vectorEffect="non-scaling-stroke"
+          />
+          {lanes.slice(1).map((lane, i) => (
+            <line
+              key={`lane-divider-${lane.id ?? i + 1}`}
+              x1={laneX(i + 1)}
+              x2={laneX(i + 1)}
+              y1={topPad}
+              y2={height - 20}
+              stroke={theme.stroke}
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+              opacity="0.7"
+            />
+          ))}
+        </>
+      )}
 
       {/* Branch core: decision diamond (if) and merge diamond (endif) */}
       {frames.map((f) => {
