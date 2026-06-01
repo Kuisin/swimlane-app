@@ -69,7 +69,9 @@ export function normalizeBranchDepths(rows) {
           out[j] = { ...row, depth: caseDepth };
         }
       } else if (
-        (row.kind === "step" || row.kind === "branchLoop") &&
+        (row.kind === "step" ||
+          row.kind === "branchLoop" ||
+          row.kind === "branchMerge") &&
         (row.depth ?? 0) < bodyDepth
       ) {
         out[j] = { ...row, depth: bodyDepth };
@@ -131,7 +133,11 @@ export function rowListIndentDepth(rows, rowIndex) {
     if (startIdx < 0) return row.depth ?? 0;
     return branchNestLevel(rows, startIdx) * 2 + 1;
   }
-  if (row.kind === "step" || row.kind === "branchLoop") {
+  if (
+    row.kind === "step" ||
+    row.kind === "branchLoop" ||
+    row.kind === "branchMerge"
+  ) {
     const enclosing = findEnclosingBranchStart(rows, rowIndex);
     if (enclosing < 0) return row.depth ?? 0;
     return branchNestLevel(rows, enclosing) * 2 + 2;
@@ -165,9 +171,35 @@ export function isInsideOpenBranch(rows, rowIndex) {
   return findEnclosingBranchStart(rows, rowIndex) >= 0;
 }
 
+/** The branchStart row enclosing rowIndex, or null. */
+export function enclosingBranchStartRow(rows, rowIndex) {
+  const idx = findEnclosingBranchStart(rows, rowIndex);
+  return idx >= 0 ? rows[idx] : null;
+}
+
+export function isInsideOpenIf(rows, rowIndex) {
+  const start = enclosingBranchStartRow(rows, rowIndex);
+  return Boolean(start) && !start.parallel;
+}
+
+export function isInsideOpenFork(rows, rowIndex) {
+  const start = enclosingBranchStartRow(rows, rowIndex);
+  return Boolean(start) && Boolean(start.parallel);
+}
+
 export function canAddElseIf(rows, rowIndex) {
   const branchStart = findEnclosingBranchStart(rows, rowIndex);
   if (branchStart < 0) return false;
+  if (rows[branchStart].parallel) return false;
+  const endIdx = findBranchEndIndex(rows, branchStart);
+  return endIdx > rowIndex;
+}
+
+/** Like canAddElseIf but for adding an `and` path inside a fork. */
+export function canAddAnd(rows, rowIndex) {
+  const branchStart = findEnclosingBranchStart(rows, rowIndex);
+  if (branchStart < 0) return false;
+  if (!rows[branchStart].parallel) return false;
   const endIdx = findBranchEndIndex(rows, branchStart);
   return endIdx > rowIndex;
 }
@@ -628,13 +660,16 @@ export function rowBadge(row) {
     case "step":
       return row.empty ? "empty" : "step";
     case "branchStart":
-      return "if";
+      return row.parallel ? "fork" : "if";
     case "branchCase":
+      if (row.parallel) return "and";
       return /^else$/i.test((row.label || "").trim()) ? "else" : "elseif";
     case "branchEnd":
-      return "endif";
+      return row.parallel ? "endfork" : "endif";
     case "branchLoop":
       return "[loop]";
+    case "branchMerge":
+      return "merge";
     default:
       return row.kind;
   }
@@ -653,13 +688,16 @@ export function rowBadgeLabel(row) {
     case "step":
       return row.empty ? "空行" : "手順";
     case "branchStart":
-      return "分岐開始";
+      return row.parallel ? "並行開始" : "分岐開始";
     case "branchCase":
+      if (row.parallel) return "並行";
       return /^else$/i.test((row.label || "").trim()) ? "else" : "分岐";
     case "branchEnd":
-      return "分岐終了";
+      return row.parallel ? "並行終了" : "分岐終了";
     case "branchLoop":
       return "ループ";
+    case "branchMerge":
+      return "合流";
     default:
       return "行";
   }
@@ -676,10 +714,12 @@ export function rowSummaryText(row, lanes) {
       return `${who}：${title}`;
     }
     case "branchStart": {
+      if (row.parallel) return "並行処理（同時に実行）";
       const cond = (row.cond || "").trim() || "条件";
       return `${cond}`;
     }
     case "branchCase": {
+      if (row.parallel) return "並行パス";
       if (/^else$/i.test((row.label || "").trim())) {
         return "上記以外の場合";
       }
@@ -687,9 +727,11 @@ export function rowSummaryText(row, lanes) {
       return `${label}`;
     }
     case "branchEnd":
-      return "条件分岐の終わり";
+      return row.parallel ? "並行処理の終わり" : "条件分岐の終わり";
     case "branchLoop":
       return "分岐内の繰り返し";
+    case "branchMerge":
+      return `合流先：${(row.mergeTarget || "").trim() || "（未設定）"}`;
     default:
       return "";
   }
@@ -702,11 +744,14 @@ export function rowKindBadgeClass(row) {
       return "bg-stone-600";
     case "branchStart":
     case "branchEnd":
-      return "bg-green-700";
+      return row.parallel ? "bg-purple-700" : "bg-green-700";
     case "branchCase":
+      if (row.parallel) return "bg-purple-800";
       return row.branchColor ? "" : "bg-amber-800";
     case "branchLoop":
       return "bg-stone-600";
+    case "branchMerge":
+      return "bg-sky-800";
     default:
       return "bg-stone-600";
   }

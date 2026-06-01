@@ -11,15 +11,16 @@ import {
   branchCaseDepthAt,
   branchMarkerDepthAt,
   branchCaseBadgeStyle,
+  canAddAnd,
   canAddElseIf,
   canOutdentBranch,
+  isInsideOpenIf,
   findAdjacentBranchBlockIndex,
   findAdjacentCaseIndex,
   findAdjacentStepIndex,
   findBranchEndIndex,
   getMoveToTargets,
   getReorderBounds,
-  isInsideOpenBranch,
   moveBranchOutOfNest,
   moveUnitToInsertBefore,
   nextBranchId,
@@ -102,6 +103,86 @@ export function FlowStepList({
     onSelectRow(idx);
   }
 
+  function handleAddFork() {
+    const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
+    const markerDepth = branchMarkerDepthAt(rows, idx);
+    const caseDepth = branchCaseDepthAt(rows, idx);
+    const branchId = nextBranchId(rows);
+    // A fork's first path opens at the `fork` row itself, so two concurrent
+    // paths need one `and` (branchCase) row.
+    insertAt(idx, [
+      {
+        kind: "branchStart",
+        parallel: true,
+        cond: null,
+        firstCase: null,
+        branchColor: null,
+        id: branchId,
+        depth: markerDepth,
+      },
+      {
+        kind: "branchCase",
+        parallel: true,
+        label: "",
+        branchColor: null,
+        id: branchId,
+        depth: caseDepth,
+      },
+      {
+        kind: "branchEnd",
+        parallel: true,
+        id: branchId,
+        depth: markerDepth,
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
+  function handleAddAnd() {
+    if (selectedRowIndex == null || !canAddAnd(rows, selectedRowIndex)) return;
+    const idx = selectedRowIndex + 1;
+    const caseDepth = branchCaseDepthAt(rows, idx);
+    insertAt(idx, [
+      {
+        kind: "branchCase",
+        parallel: true,
+        label: "",
+        branchColor: null,
+        id: rows[findEnclosingStart(rows, selectedRowIndex)]?.id,
+        depth: caseDepth,
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
+  function handleAddMerge() {
+    if (selectedRowIndex == null || !isInsideOpenIf(rows, selectedRowIndex))
+      return;
+    const idx = selectedRowIndex + 1;
+    const start = findEnclosingStart(rows, selectedRowIndex);
+    const branchId = rows[start]?.id;
+    // Default the target to the first labeled step downstream of the if, so the
+    // row is valid out of the box; the user can change it in the inspector.
+    const endIdx = findBranchEndIndex(rows, start);
+    let target = "";
+    for (let i = endIdx + 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (r.kind === "step" && !r.empty && r.role && (r.name || "").trim()) {
+        target = r.name.trim();
+        break;
+      }
+    }
+    insertAt(idx, [
+      {
+        kind: "branchMerge",
+        mergeTarget: target,
+        mergeBranchId: branchId,
+        depth: branchBodyDepthAt(rows, idx),
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
   function handleAddElseIf() {
     if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex))
       return;
@@ -120,7 +201,7 @@ export function FlowStepList({
   }
 
   function handleAddLoop() {
-    if (selectedRowIndex == null || !isInsideOpenBranch(rows, selectedRowIndex))
+    if (selectedRowIndex == null || !isInsideOpenIf(rows, selectedRowIndex))
       return;
     const idx = selectedRowIndex + 1;
     const start = findEnclosingStart(rows, selectedRowIndex);
@@ -223,7 +304,11 @@ export function FlowStepList({
   const canBranch =
     selectedRowIndex != null && canAddElseIf(rows, selectedRowIndex);
   const canLoop =
-    selectedRowIndex != null && isInsideOpenBranch(rows, selectedRowIndex);
+    selectedRowIndex != null && isInsideOpenIf(rows, selectedRowIndex);
+  const canAnd =
+    selectedRowIndex != null && canAddAnd(rows, selectedRowIndex);
+  const canMerge =
+    selectedRowIndex != null && isInsideOpenIf(rows, selectedRowIndex);
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -238,6 +323,13 @@ export function FlowStepList({
         </ToolBtn>
         <ToolBtn onClick={handleAddLoop} disabled={!canLoop}>
           ＋ ループ
+        </ToolBtn>
+        <ToolBtn onClick={handleAddFork}>＋ 並行</ToolBtn>
+        <ToolBtn onClick={handleAddAnd} disabled={!canAnd}>
+          ＋ 並行パス
+        </ToolBtn>
+        <ToolBtn onClick={handleAddMerge} disabled={!canMerge}>
+          ＋ 合流
         </ToolBtn>
       </div>
       <ul className="flex-1 overflow-y-auto text-xs font-jp">

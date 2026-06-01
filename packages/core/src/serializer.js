@@ -149,8 +149,11 @@ function serializeStepLines(out, row, depth) {
   if (row.description) {
     const descLines = emitMultilineProperty("desc", row.description);
     if (Array.isArray(descLines)) {
+      // Only the `desc: ```` opener and closing ```` are indented to the step.
+      // Content lines stay flush-left: the parser reads fence bodies verbatim,
+      // so indenting them would fold that whitespace into the description.
       out.push(indent(depth, descLines[0]));
-      descLines.slice(1, -1).forEach((l) => out.push(indent(depth, l)));
+      descLines.slice(1, -1).forEach((l) => out.push(l));
       out.push(indent(depth, descLines[descLines.length - 1]));
     } else {
       out.push(indent(depth, descLines));
@@ -179,33 +182,42 @@ function serializeLineRows(rows) {
         pushBlankLine(out);
       }
       const color = serializeBranchColor(row.branchColor);
-      const firstCase = firstBranchCaseLabel(rows, i);
-      out.push(
-        indent(controlDepth, `if (${row.cond}) is (${firstCase}) than${color}`),
-      );
+      if (row.parallel) {
+        out.push(indent(controlDepth, `fork${color}`));
+      } else {
+        const firstCase = firstBranchCaseLabel(rows, i);
+        out.push(
+          indent(controlDepth, `if (${row.cond}) is (${firstCase}) than${color}`),
+        );
+      }
       prevKind = "branchStart";
       continue;
     }
 
     if (row.kind === "branchCase") {
-      if (isFirstBranchCaseRow(rows, i)) {
+      // A fork has no embedded first case; every `and` row is serialized.
+      if (!row.parallel && isFirstBranchCaseRow(rows, i)) {
         prevKind = "branchCase";
         continue;
       }
       pushBlankLine(out);
-      const label = (row.label || "").trim();
-      if (/^else$/i.test(label)) {
-        out.push(indent(controlDepth, "else"));
+      const color = serializeBranchColor(row.branchColor);
+      if (row.parallel) {
+        out.push(indent(controlDepth, `and${color}`));
       } else {
-        const color = serializeBranchColor(row.branchColor);
-        out.push(indent(controlDepth, `elseif (${label}) than${color}`));
+        const label = (row.label || "").trim();
+        if (/^else$/i.test(label)) {
+          out.push(indent(controlDepth, "else"));
+        } else {
+          out.push(indent(controlDepth, `elseif (${label}) than${color}`));
+        }
       }
       prevKind = "branchCase";
       continue;
     }
 
     if (row.kind === "branchEnd") {
-      out.push(indent(controlDepth, "endif"));
+      out.push(indent(controlDepth, row.parallel ? "endfork" : "endif"));
       prevKind = "branchEnd";
       const next = rows[i + 1];
       if (
@@ -221,6 +233,12 @@ function serializeLineRows(rows) {
     if (row.kind === "branchLoop") {
       out.push(indent(depth, "[loop]"));
       prevKind = "branchLoop";
+      continue;
+    }
+
+    if (row.kind === "branchMerge") {
+      out.push(indent(depth, `merge ${row.mergeTarget};`));
+      prevKind = "branchMerge";
       continue;
     }
 

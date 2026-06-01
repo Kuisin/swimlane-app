@@ -11,7 +11,13 @@ import {
 } from "../lib/step-inspector-channel";
 import { InspectorDraftPanel } from "../components/gui/inspector-draft-panel";
 
-const BRANCH_KINDS = ["branchStart", "branchCase", "branchEnd", "branchLoop"];
+const BRANCH_KINDS = [
+  "branchStart",
+  "branchCase",
+  "branchEnd",
+  "branchLoop",
+  "branchMerge",
+];
 
 function inspectorTitle(row) {
   if (!row) return "手順の詳細";

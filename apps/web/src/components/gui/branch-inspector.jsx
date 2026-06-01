@@ -12,6 +12,22 @@ export function BranchInspector({ row, rows, onPatch }) {
   }
 
   if (row.kind === "branchStart") {
+    if (row.parallel) {
+      return (
+        <div className="px-3 py-3 space-y-3 text-xs font-jp">
+          <p className="text-stone-300">並行処理（同時に実行）</p>
+          <BranchColorSelect
+            value={row.branchColor || ""}
+            onChange={(branchColor) =>
+              onPatch({ branchColor: branchColor || null })
+            }
+          />
+          <p className="text-[10px] text-stone-500">
+            並行パスは一覧の「＋ 並行パス」で追加します。
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="px-3 py-3 space-y-3 text-xs font-jp">
         <div>
@@ -31,6 +47,19 @@ export function BranchInspector({ row, rows, onPatch }) {
   }
 
   if (row.kind === "branchCase") {
+    if (row.parallel) {
+      return (
+        <div className="px-3 py-3 space-y-3 text-xs font-jp">
+          <p className="text-stone-300">並行パス</p>
+          <BranchColorSelect
+            value={row.branchColor || ""}
+            onChange={(branchColor) =>
+              onPatch({ branchColor: branchColor || null })
+            }
+          />
+        </div>
+      );
+    }
     const isElse = /^else$/i.test((row.label || "").trim());
     return (
       <div className="px-3 py-3 space-y-3 text-xs font-jp">
@@ -79,6 +108,39 @@ export function BranchInspector({ row, rows, onPatch }) {
       <div className="px-3 py-3 text-xs font-jp text-stone-400">
         <p className="text-[10px] text-stone-500 mb-1">ループ（親の if）</p>
         <p className="text-stone-200">{parent?.cond || "—"}</p>
+      </div>
+    );
+  }
+
+  if (row.kind === "branchMerge") {
+    const labels = (rows || [])
+      .filter((r) => r.kind === "step" && !r.empty && r.role && (r.name || "").trim())
+      .map((r) => r.name.trim());
+    const valid = labels.includes((row.mergeTarget || "").trim());
+    return (
+      <div className="px-3 py-3 space-y-2 text-xs font-jp">
+        <div>
+          <label className="block text-[10px] text-stone-500 mb-1">
+            合流先（ステップのラベル名）
+          </label>
+          <input
+            type="text"
+            list="merge-target-options"
+            value={row.mergeTarget || ""}
+            onChange={(e) => onPatch({ mergeTarget: e.target.value })}
+            className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
+          />
+          <datalist id="merge-target-options">
+            {labels.map((label) => (
+              <option key={label} value={label} />
+            ))}
+          </datalist>
+        </div>
+        {!valid && (
+          <p className="text-[10px] text-amber-400">
+            一致する「ラベル名」のステップがありません。ステップに label を設定してください。
+          </p>
+        )}
       </div>
     );
   }
