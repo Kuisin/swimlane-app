@@ -51,8 +51,8 @@
   },
   "scripts": {
     "build": "node esbuild.mjs",
-    "package": "node esbuild.mjs && mkdir -p ../../plugins/vscode && vsce package --no-dependencies --out ../../plugins/vscode",
-    "vscode:prepublish": "node esbuild.mjs"
+    "package": "npm run build && node -e \"require('fs').mkdirSync('../../plugins/vscode',{recursive:true})\" && vsce package --no-dependencies --out ../../plugins/vscode",
+    "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
     "@vscode/vsce": "^3.6.0",
