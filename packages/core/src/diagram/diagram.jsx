@@ -773,41 +773,6 @@ export function Diagram({
     if (!f.parentCase) fillStepOffsets(f, null);
   }
 
-  /**
-   * A branch runs beside the main flow in the same lane. When a branch shares a
-   * role with the main flow, shift its steps sideways (like an if/fork case
-   * offset) so the main-flow arrow descending that lane doesn't cross the
-   * branch's blocks. Nested branches stack. Branches in a role the main flow
-   * never uses stay centered.
-   */
-  const mainFlowLanes = new Set();
-  rows.forEach((r, i) => {
-    if (r.kind === "step" && !r.empty && r.role && !isInsideBranchGroup(rows, i)) {
-      mainFlowLanes.add(r.role);
-    }
-  });
-  function branchGroupDepth(rowIndex) {
-    let d = 0;
-    let g = findEnclosingBranchGroupStart(rows, rowIndex);
-    while (g >= 0) {
-      d += 1;
-      g = findEnclosingBranchGroupStart(rows, g);
-    }
-    return d;
-  }
-  const branchLaneShift = nodeW / 2 + caseClearance + 20;
-  rows.forEach((row, i) => {
-    if (row.kind !== "step" || row.empty || !row.role) return;
-    if (!mainFlowLanes.has(row.role)) return;
-    const depth = branchGroupDepth(i);
-    if (depth > 0) {
-      stepOffsetByIndex.set(
-        i,
-        (stepOffsetByIndex.get(i) || 0) + depth * branchLaneShift,
-      );
-    }
-  });
-
   function stepPropSideCounts(row) {
     const left = [];
     const right = [];
@@ -1639,11 +1604,15 @@ export function Diagram({
     if (innerLastIdx < 0) return;
     const innerRow = rows[innerLastIdx];
     if (laneIndex(innerRow.role) < 0) return;
+    const innerY1 = stepBlockCenterY(innerLastIdx) + 22;
     connectors.push({
       fromX: nodeCenterX(innerLastIdx, innerRow.role),
       toX,
-      y1: stepBlockCenterY(innerLastIdx) + 22,
+      y1: innerY1,
       y2: toY,
+      // Bend just before the continuation so this merge arrow shares its
+      // horizontal Y with the arrow coming from the block before the branch.
+      bendY: Math.max(innerY1 + 12, toY - 16),
       key: `c-grp-merge-${startIdx}`,
       lineType: stepOutgoingArrowLine(innerRow),
     });
@@ -2888,7 +2857,22 @@ export function Diagram({
           const li = laneIndex(r.role);
           const sx = li >= 0 ? nodeCenterX(prevStepIdx, r.role) : dCx;
           const sy = stepBlockCenterY(prevStepIdx) + 22;
-          const bend = (sy + dTopY) / 2;
+          // When a branch group sits between this step and the gateway, bend
+          // right before the gateway so this arrow shares its horizontal Y with
+          // the branch's merge arrow (instead of the midpoint).
+          let branchGroupBeforeGateway = false;
+          for (let j = prevStepIdx + 1; j < startIdx; j++) {
+            if (
+              rows[j]?.kind === "groupStart" &&
+              groupModeOf(rows[j]) === "branch"
+            ) {
+              branchGroupBeforeGateway = true;
+              break;
+            }
+          }
+          const bend = branchGroupBeforeGateway
+            ? Math.max(sy + 12, dTopY - 16)
+            : (sy + dTopY) / 2;
           const d =
             sx === dCx
               ? `M ${sx} ${sy} L ${dCx} ${dTopY}`

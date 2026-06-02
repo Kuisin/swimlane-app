@@ -614,33 +614,6 @@ function renderDiagramSvg({
   for (const f of frames) {
     if (!f.parentCase) fillStepOffsets(f, null);
   }
-  const mainFlowLanes = /* @__PURE__ */ new Set();
-  rows.forEach((r, i) => {
-    if (r.kind === "step" && !r.empty && r.role && !isInsideBranchGroup(rows, i)) {
-      mainFlowLanes.add(r.role);
-    }
-  });
-  function branchGroupDepth(rowIndex) {
-    let d = 0;
-    let g = findEnclosingBranchGroupStart(rows, rowIndex);
-    while (g >= 0) {
-      d += 1;
-      g = findEnclosingBranchGroupStart(rows, g);
-    }
-    return d;
-  }
-  const branchLaneShift = nodeW / 2 + caseClearance + 20;
-  rows.forEach((row, i) => {
-    if (row.kind !== "step" || row.empty || !row.role) return;
-    if (!mainFlowLanes.has(row.role)) return;
-    const depth = branchGroupDepth(i);
-    if (depth > 0) {
-      stepOffsetByIndex.set(
-        i,
-        (stepOffsetByIndex.get(i) || 0) + depth * branchLaneShift
-      );
-    }
-  });
   function stepPropSideCounts(row) {
     const left = [];
     const right = [];
@@ -1247,11 +1220,15 @@ function renderDiagramSvg({
     if (innerLastIdx < 0) return;
     const innerRow = rows[innerLastIdx];
     if (laneIndex(innerRow.role) < 0) return;
+    const innerY1 = stepBlockCenterY(innerLastIdx) + 22;
     connectors.push({
       fromX: nodeCenterX(innerLastIdx, innerRow.role),
       toX,
-      y1: stepBlockCenterY(innerLastIdx) + 22,
+      y1: innerY1,
       y2: toY,
+      // Bend just before the continuation so this merge arrow shares its
+      // horizontal Y with the arrow coming from the block before the branch.
+      bendY: Math.max(innerY1 + 12, toY - 16),
       key: `c-grp-merge-${startIdx}`,
       lineType: stepOutgoingArrowLine(innerRow)
     });
@@ -2343,7 +2320,14 @@ function renderDiagramSvg({
         const li = laneIndex(r.role);
         const sx = li >= 0 ? nodeCenterX(prevStepIdx, r.role) : dCx;
         const sy = stepBlockCenterY(prevStepIdx) + 22;
-        const bend = (sy + dTopY) / 2;
+        let branchGroupBeforeGateway = false;
+        for (let j = prevStepIdx + 1; j < startIdx; j++) {
+          if (rows[j]?.kind === "groupStart" && groupModeOf(rows[j]) === "branch") {
+            branchGroupBeforeGateway = true;
+            break;
+          }
+        }
+        const bend = branchGroupBeforeGateway ? Math.max(sy + 12, dTopY - 16) : (sy + dTopY) / 2;
         const d = sx === dCx ? `M ${sx} ${sy} L ${dCx} ${dTopY}` : `M ${sx} ${sy} L ${sx} ${bend} L ${dCx} ${bend} L ${dCx} ${dTopY}`;
         edges.push(
           /* @__PURE__ */ h(

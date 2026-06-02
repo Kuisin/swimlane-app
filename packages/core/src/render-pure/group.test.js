@@ -120,17 +120,22 @@ endfork
     expect(() => render(dsl)).not.toThrow();
   });
 
-  it("shifts a branch sideways when it shares a lane with the main flow", () => {
+  it("does not shift blocks; the two merge arrows share one bend Y", () => {
     const dsl = `@kai-swimlane
 /role/
 <a>
 label: A;
+<b>
+label: B;
+<c>
+label: C;
 /line/
-[a: MAIN1]
+[a: BEFORE]
 branch (sub)
-  [a: SIDE1]
+  [b: S1]
+  [b: SLAST]
 end-branch
-[a: MAIN2]
+[c: AFTER]
 @end`;
     const svg = render(dsl);
     const xOf = (label) => {
@@ -138,9 +143,19 @@ end-branch
       const m = [...svg.slice(0, i).matchAll(/<text x="([\d.]+)"/g)];
       return +m[m.length - 1][1];
     };
-    // Main-flow blocks share the lane center; the branch block is offset aside.
-    expect(xOf("MAIN1")).toBe(xOf("MAIN2"));
-    expect(xOf("SIDE1")).toBeGreaterThan(xOf("MAIN1"));
+    // Blocks keep their natural lane centers (no sideways shift).
+    expect(xOf("S1")).toBe(xOf("SLAST"));
+    // The arrow from the block before the branch and the arrow from the last
+    // block in the branch bend at the same Y before merging into AFTER.
+    const elbows = [
+      ...svg.matchAll(/d="M ([\d.]+) [\d.]+ L \1 ([\d.]+) L ([\d.]+) \2 L \3 ([\d.]+)"/g),
+    ].map((m) => ({ fromX: +m[1], bendY: +m[2], toX: +m[3] }));
+    const afterX = xOf("AFTER");
+    const fromBefore = elbows.find((e) => Math.abs(e.fromX - xOf("BEFORE")) < 1 && Math.abs(e.toX - afterX) < 1);
+    const fromLast = elbows.find((e) => Math.abs(e.fromX - xOf("SLAST")) < 1 && Math.abs(e.toX - afterX) < 1);
+    expect(fromBefore).toBeTruthy();
+    expect(fromLast).toBeTruthy();
+    expect(fromBefore.bendY).toBe(fromLast.bendY);
   });
 
   it("round-trips through serializeDSL as branch / end-branch", () => {
