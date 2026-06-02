@@ -2,8 +2,6 @@ import {
   DEFAULT_COLUMN_TITLES,
   DIAGRAM_OPTION_DSL_MAP,
   OPTION_COLUMN_TITLE_DSL_MAP,
-  hasDiagramOptionContent,
-  hasOptionColumnTitleOverrides,
 } from "./diagram-options.js";
 
 function emitProperty(key, value) {
@@ -51,9 +49,12 @@ function serializeOption(model) {
     }
   }
   const page = model.page || {};
+  const provided = new Set(model.providedColumnTitles || []);
   for (const [dslKey, field] of Object.entries(OPTION_COLUMN_TITLE_DSL_MAP)) {
     const val = page[field] ?? DEFAULT_COLUMN_TITLES[field];
-    if (val !== DEFAULT_COLUMN_TITLES[field]) {
+    // Keep titles that were written explicitly (even if equal to the default)
+    // so formatting never drops them; otherwise only emit overrides.
+    if (provided.has(field) || val !== DEFAULT_COLUMN_TITLES[field]) {
       out.push(`${dslKey}: ${val};`);
     }
   }
@@ -346,12 +347,10 @@ export function serializeDSL(model) {
   if (model.title) lines.push(model.title);
   lines.push("");
 
-  if (
-    hasDiagramOptionContent(model.options) ||
-    hasOptionColumnTitleOverrides(model.page)
-  ) {
+  const optionLines = serializeOption(model);
+  if (optionLines.length > 0) {
     lines.push("/option/");
-    lines.push(...serializeOption(model));
+    lines.push(...optionLines);
     lines.push("");
   }
 

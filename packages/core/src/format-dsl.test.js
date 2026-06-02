@@ -74,6 +74,36 @@ describe("DSL format (fork / merge / step id)", () => {
     expect(parseDSL(value).errors).toEqual([]);
   });
 
+  it("keeps explicit options even when they equal the defaults", () => {
+    const src = [
+      "@kai-swimlane",
+      "/option/",
+      "show-left-gutter: true;",
+      "left-title: Procedure;", // equals the default
+      "left-subtitle: Description;", // equals the default
+      "right-subtitle: メモ;", // override
+      "/role/",
+      "<a>",
+      "label: A;",
+      "/line/",
+      "[a: x]",
+      "@end",
+    ].join("\n");
+
+    const { ok, value } = formatLikeWeb(src);
+    expect(ok).toBe(true);
+    expect(value).toContain("show-left-gutter: true;");
+    expect(value).toContain("left-title: Procedure;");
+    expect(value).toContain("left-subtitle: Description;");
+    expect(value).toContain("right-subtitle: メモ;");
+
+    // A document without any options must not gain an /option/ section.
+    const bare = formatLikeWeb(
+      ["@kai-swimlane", "/role/", "<a>", "label: A;", "/line/", "[a: x]", "@end"].join("\n"),
+    );
+    expect(bare.value).not.toContain("/option/");
+  });
+
   it("fails format when merge id is missing or duplicate", () => {
     const missing = formatLikeWeb(`@kai-swimlane
 /role/

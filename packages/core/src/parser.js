@@ -245,6 +245,14 @@ export function parseDSL(src) {
 
   const page = parsePageSection(sections.page, errors);
   const { options, columnTitles } = parseOptionSection(sections.option, errors);
+  // Track which gutter-title fields were written explicitly (in /option/ or
+  // /page/) so the formatter keeps them even when they equal the default.
+  const providedColumnTitles = new Set(Object.keys(columnTitles));
+  for (const { text } of sections.page) {
+    const kv = parseSectionPropertyLine(text.trim());
+    const field = kv?.key && PAGE_PROPERTY_MAP[kv.key];
+    if (field && OPTION_COLUMN_TITLE_DSL_MAP[kv.key]) providedColumnTitles.add(field);
+  }
   for (const [field, value] of Object.entries(columnTitles)) {
     page[field] = value;
   }
@@ -945,6 +953,7 @@ export function parseDSL(src) {
     title,
     page,
     options,
+    providedColumnTitles: [...providedColumnTitles],
     lanes,
     rows,
     blocks,
