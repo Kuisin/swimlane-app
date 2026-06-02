@@ -357,6 +357,30 @@ max-chars: 6;
 title: 表示は6文字まで。ホバーで全文;
 ```
 
+## page と option
+
+図のヘッダー・フッター・タイトル下の説明は `/page/` に、表示フラグと左右カラムの見出しは `/option/` に書きます。構文の詳細は [help.md](./help.md) を参照してください。
+
+```
+/page/
+description: この図の概要;
+header-left: 株式会社サンプル;
+header-center: 業務フロー;
+header-right: v1.0;
+footer-left: 社外秘;
+footer-center: 1 / 1;
+footer-right: 2026-06-02;
+
+/option/
+show-left-gutter: true;
+show-left-remarks: true;
+show-right-remarks: true;
+left-title: 手続き;
+left-subtitle: 説明;
+right-title: 備考;
+right-subtitle: メモ;
+```
+
 ## フロー制御
 
 `/line/` で使う制御構文の詳細は [help.md](./help.md) を参照してください。
@@ -377,6 +401,15 @@ title: 表示は6文字まで。ホバーで全文;
 
 ```kai-swimlane
 @kai-swimlane
+
+/page/
+description: 領収書添付から承認・通知までの標準フロー;
+header-center: 経費申請;
+
+/option/
+left-title: 手続き;
+left-subtitle: 説明;
+right-title: 備考;
 
 /title/
 経費申請フロー
