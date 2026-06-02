@@ -3,9 +3,10 @@ import {
   branchNestLevel,
   findBranchEndIndex,
   findEnclosingBranchStart,
+  findGroupEndIndex,
 } from "@kai-swimlane/core";
 
-export { findBranchEndIndex, findEnclosingBranchStart, branchNestLevel };
+export { findBranchEndIndex, findEnclosingBranchStart, branchNestLevel, findGroupEndIndex };
 
 /** Move branchStart.firstCase into a following branchCase row (GUI list shape). */
 export function normalizeBranchRows(rows) {
@@ -94,6 +95,40 @@ export function nextBranchId(rows) {
   return max + 1;
 }
 
+export function nextGroupId(rows) {
+  let max = 0;
+  for (const row of rows) {
+    if (row.kind === "groupStart" && typeof row.id === "number" && row.id > max) {
+      max = row.id;
+    }
+  }
+  return max + 1;
+}
+
+function findEnclosingGroupStartForGui(rows, rowIndex) {
+  let best = -1;
+  for (let i = 0; i <= rowIndex; i++) {
+    if (rows[i].kind !== "groupStart") continue;
+    const endIdx = findGroupEndIndex(rows, i);
+    if (endIdx < 0 || rowIndex >= endIdx) continue;
+    best = i;
+  }
+  return best;
+}
+
+export function groupMarkerDepthAt(rows, insertIndex) {
+  const anchor = Math.max(0, insertIndex - 1);
+  const enclosingGroup = findEnclosingGroupStartForGui(rows, anchor);
+  if (enclosingGroup >= 0) {
+    return (rows[enclosingGroup].depth ?? 0) + 1;
+  }
+  const enclosingBranch = findEnclosingBranchStart(rows, anchor);
+  if (enclosingBranch >= 0) {
+    return branchBodyDepthAt(rows, insertIndex);
+  }
+  return 0;
+}
+
 /** Depth for branchStart / branchEnd at insertIndex (nested if increments). */
 export function branchMarkerDepthAt(rows, insertIndex) {
   return branchMarkerDepthForRow(rows, insertIndex);
@@ -139,7 +174,9 @@ export function rowListIndentDepth(rows, rowIndex) {
   if (
     row.kind === "step" ||
     row.kind === "branchLoop" ||
-    row.kind === "branchMerge"
+    row.kind === "branchMerge" ||
+    row.kind === "groupStart" ||
+    row.kind === "groupEnd"
   ) {
     const enclosing = findEnclosingBranchStart(rows, rowIndex);
     if (enclosing < 0) return row.depth ?? 0;
@@ -838,6 +875,10 @@ export function rowBadge(row) {
       return "[loop]";
     case "branchMerge":
       return "merge";
+    case "groupStart":
+      return "start-point";
+    case "groupEnd":
+      return "end-point";
     default:
       return row.kind;
   }
@@ -866,6 +907,10 @@ export function rowBadgeLabel(row) {
       return "ループ";
     case "branchMerge":
       return "合流";
+    case "groupStart":
+      return "詳細開始";
+    case "groupEnd":
+      return "詳細終了";
     default:
       return "行";
   }
@@ -907,6 +952,10 @@ export function rowSummaryText(row, lanes) {
       return "分岐内の繰り返し";
     case "branchMerge":
       return `合流先 id：${(row.mergeTarget || "").trim() || "（未設定）"}`;
+    case "groupStart":
+      return "詳細ブロック（本流はスキップ）";
+    case "groupEnd":
+      return "詳細ブロックの終わり（次の手順へ合流）";
     default:
       return "";
   }
@@ -927,6 +976,9 @@ export function rowKindBadgeClass(row) {
       return "bg-stone-600";
     case "branchMerge":
       return "bg-sky-800";
+    case "groupStart":
+    case "groupEnd":
+      return "bg-slate-700";
     default:
       return "bg-stone-600";
   }

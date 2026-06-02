@@ -280,11 +280,13 @@ export function parseDSL(src) {
    *                                   marks the `fork`/`and`/`endfork` variant
    *   - branchLoop                    `[loop]` back-edge to the enclosing `if`
    *   - branchMerge                   `merge: <id>;` jump to a step with matching `id:`
+   *   - groupStart / groupEnd         `start-point` … `end-point` detail block skipped by main flow
    * `stack` tracks open branch frames so nested blocks get the right depth and
    * so each closer (`endif`/`endfork`) matches the frame type it closes.
    */
   const rows = [];
   const stack = [];
+  const groupStack = [];
   /** if/fork markers share one level; case/path body is one indent (2 spaces) deeper. */
   function branchMarkerDepth() {
     if (stack.length === 0) return 0;
@@ -298,7 +300,16 @@ export function parseDSL(src) {
     if (stack.length === 0) return 0;
     return stack[stack.length - 1].depth + 1;
   }
+  function groupMarkerDepth() {
+    if (groupStack.length === 0) return branchBodyDepth();
+    return groupStack[groupStack.length - 1].depth + 1;
+  }
+  function stepDepth() {
+    if (groupStack.length === 0) return branchBodyDepth();
+    return groupStack[groupStack.length - 1].depth + 1;
+  }
   let branchCounter = 0;
+  let groupCounter = 0;
   let lastRealStepIndex = -1;
   let autoIdCounter = 0;
   /** @type {Map<string, { line: number, text: string }>} */
@@ -449,13 +460,32 @@ export function parseDSL(src) {
       continue;
     }
 
+    /** Detail group: main flow skips interior steps; end-point rejoins the next block. */
+    if (/^start-point$/i.test(u)) {
+      groupCounter++;
+      const id = groupCounter;
+      const depth = groupMarkerDepth();
+      groupStack.push({ id, depth });
+      pushLineRow({ kind: "groupStart", id, depth }, line);
+      continue;
+    }
+    if (/^end-point$/i.test(u)) {
+      const top = groupStack.pop();
+      if (!top) {
+        errors.push({ line, text, msg: "end-point without start-point" });
+        continue;
+      }
+      pushLineRow({ kind: "groupEnd", id: top.id, depth: top.depth }, line);
+      continue;
+    }
+
     if (/^:\s*;?$/.test(u)) {
       pushLineRow(
         {
           kind: "step",
           role: null,
           text: "",
-          depth: branchBodyDepth(),
+          depth: stepDepth(),
           empty: true,
           stepId: null,
         },
@@ -657,7 +687,7 @@ export function parseDSL(src) {
           kind: "step",
           role,
           text: txt,
-          depth: branchBodyDepth(),
+          depth: stepDepth(),
           blockRef: blockRef || null,
           stepId,
         },
@@ -677,6 +707,18 @@ export function parseDSL(src) {
     }
 
     errors.push({ line, text, msg: "unrecognized line" });
+  }
+
+  if (groupStack.length > 0) {
+    const open = groupStack[groupStack.length - 1];
+    const openLine = rows.find((r) => r.kind === "groupStart" && r.id === open.id);
+    const lineNum = openLine?.dslLines?.[0];
+    const openText = sections.line.find((l) => l.line === lineNum)?.text;
+    errors.push({
+      line: lineNum,
+      text: openText,
+      msg: "unclosed start-point (missing end-point)",
+    });
   }
 
   /** Resolve each `merge: <id>;` to the step whose `id:` matches; error if none. */

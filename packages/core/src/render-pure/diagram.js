@@ -11,6 +11,13 @@ import { arrowLineStrokeProps, stepOutgoingArrowLine } from "../arrow-line.js";
 import { StepShape } from "./step-shape.js";
 import { BlockIcon } from "./block-icon.js";
 import { h, Fragment } from "./svg-utils.js";
+import {
+  findEnclosingGroupStart,
+  findFlowContinuityAfterGroupEnd,
+  findGroupEndIndex,
+  findLastMainFlowStepBeforeGroupStart,
+  isInsideGroup
+} from "../group-rows.js";
 const BRANCH_COLOR_STYLES = {
   blue: { stroke: "#2563eb", bg: "#dbeafe" },
   green: { stroke: "#15803d", bg: "#dcfce7" },
@@ -153,6 +160,7 @@ function renderDiagramSvg({
   const mergeH = 60;
   const branchLoopH = 12;
   const branchMergeH = 12;
+  const groupMarkerH = 16;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   const stepBoxH = 44;
@@ -337,6 +345,16 @@ function renderDiagramSvg({
       rowMeta[i] = { y, kind: "branchMerge" };
       pushToActiveCase(i);
       y += branchMergeH;
+    } else if (r.kind === "groupStart") {
+      stepRowHeightByIndex.set(i, groupMarkerH);
+      rowMeta[i] = { y, kind: "groupStart" };
+      pushToActiveCase(i);
+      y += groupMarkerH;
+    } else if (r.kind === "groupEnd") {
+      stepRowHeightByIndex.set(i, groupMarkerH);
+      rowMeta[i] = { y, kind: "groupEnd" };
+      pushToActiveCase(i);
+      y += groupMarkerH;
     } else if (r.kind === "step") {
       const h2 = stepRowHeight(r, i);
       stepRowHeightByIndex.set(i, h2);
@@ -354,8 +372,21 @@ function renderDiagramSvg({
   function firstDirectStepIdx(c) {
     return c.rowIndices.find((idx) => {
       const row = rows[idx];
-      return row?.kind === "step" && !row.empty && row.role;
+      return row?.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, idx);
     });
+  }
+  function firstMainFlowStepIdx(c) {
+    return firstDirectStepIdx(c);
+  }
+  function lastMainFlowStepIdx(c) {
+    for (let k = c.rowIndices.length - 1; k >= 0; k--) {
+      const idx = c.rowIndices[k];
+      const row = rows[idx];
+      if (row?.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, idx)) {
+        return idx;
+      }
+    }
+    return null;
   }
   function firstDirectStepAfterChild(c) {
     const child = c.childFrame;
@@ -431,10 +462,7 @@ function renderDiagramSvg({
         fromY: childFrame.yMerge + mergeH / 2 - 14
       };
     }
-    const lastDirectStepIdx = [...c.rowIndices].reverse().find((idx) => {
-      const row = rows[idx];
-      return row?.kind === "step" && !row.empty && row.role;
-    });
+    const lastDirectStepIdx = lastMainFlowStepIdx(c);
     if (lastDirectStepIdx != null) {
       const r = rows[lastDirectStepIdx];
       const li = laneIndex(r.role);
@@ -730,7 +758,7 @@ function renderDiagramSvg({
     if (endIdx < 0) return frameAnchorX(f);
     for (let j = endIdx - 1; j >= 0; j--) {
       const row = rows[j];
-      if (row.kind === "step" && !row.empty && row.role) {
+      if (row.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
         return nodeCenterX(j, row.role);
       }
       if (row.kind === "branchEnd" && row.id !== f.id) {
@@ -774,10 +802,11 @@ function renderDiagramSvg({
     const mCy = f.yMerge + mergeH / 2;
     const mH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 28;
     const child = c.childFrame;
-    const firstStepIdx = firstStepIdxInCase(c);
+    const firstMainStep = firstMainFlowStepIdx(c);
+    const firstStepIdx = firstMainStep ?? firstStepIdxInCase(c);
     const childStartIdx = child != null ? rows.findIndex((r) => r.kind === "branchStart" && r.id === child.id) : -1;
     const stubCase = isStubCase(c, f.id);
-    const targetsNestedDecision = child != null && (firstStepIdx == null || childStartIdx >= 0 && childStartIdx < firstStepIdx);
+    const targetsNestedDecision = child != null && (firstMainStep == null || childStartIdx >= 0 && childStartIdx < firstMainStep);
     const startX = dCx;
     const startY = dCy + dH / 2;
     const bendY = startY + branchCaseBendYOffset;
@@ -1073,15 +1102,15 @@ function renderDiagramSvg({
       truncate(prop.label || prop.id, maxLen)
     ));
   }
-  for (let i = 1; i < stepRows.length; i++) {
-    const prev = stepRows[i - 1];
-    const cur = stepRows[i];
+  function pushSequentialStepConnector(prev, cur, key) {
+    if (isInsideGroup(rows, prev.i) || isInsideGroup(rows, cur.i)) return;
     const prevCase = caseOfStep(prev.i);
     const curCase = caseOfStep(cur.i);
-    if (prevCase && curCase && (prevCase.frame !== curCase.frame || prevCase.caseIdx !== curCase.caseIdx))
-      continue;
-    if (prevCase && !curCase) continue;
-    if (!prevCase && curCase) continue;
+    if (prevCase && curCase && (prevCase.frame !== curCase.frame || prevCase.caseIdx !== curCase.caseIdx)) {
+      return;
+    }
+    if (prevCase && !curCase) return;
+    if (!prevCase && curCase) return;
     let hasBranchBetween = false;
     for (let j = prev.i + 1; j < cur.i; j++) {
       if (rows[j]?.kind === "branchStart") {
@@ -1089,28 +1118,76 @@ function renderDiagramSvg({
         break;
       }
     }
-    if (hasBranchBetween) continue;
-    if (rows[prev.i + 1]?.kind === "branchStart") continue;
+    if (hasBranchBetween) return;
+    if (rows[prev.i + 1]?.kind === "branchStart") return;
     const fromIdx = laneIndex(prev.r.role);
     const toIdx = laneIndex(cur.r.role);
-    if (fromIdx < 0 || toIdx < 0) continue;
-    const fromX = nodeCenterX(prev.i, prev.r.role);
-    const toX = nodeCenterX(cur.i, cur.r.role);
-    const prevCy = stepBlockCenterY(prev.i);
-    const curCy = stepBlockCenterY(cur.i);
+    if (fromIdx < 0 || toIdx < 0) return;
     connectors.push({
-      fromX,
-      toX,
-      y1: prevCy + 22,
-      y2: curCy - 22,
-      key: `c-${i}`,
+      fromX: nodeCenterX(prev.i, prev.r.role),
+      toX: nodeCenterX(cur.i, cur.r.role),
+      y1: stepBlockCenterY(prev.i) + 22,
+      y2: stepBlockCenterY(cur.i) - 22,
+      key,
       lineType: stepOutgoingArrowLine(prev.r)
     });
   }
+  const mainFlowSteps = stepRows.filter((x) => !isInsideGroup(rows, x.i));
+  for (let i = 1; i < mainFlowSteps.length; i++) {
+    pushSequentialStepConnector(
+      mainFlowSteps[i - 1],
+      mainFlowSteps[i],
+      `c-main-${i}`
+    );
+  }
+  for (let i = 1; i < stepRows.length; i++) {
+    const prev = stepRows[i - 1];
+    const cur = stepRows[i];
+    if (!isInsideGroup(rows, prev.i) || !isInsideGroup(rows, cur.i)) continue;
+    if (findEnclosingGroupStart(rows, prev.i) !== findEnclosingGroupStart(rows, cur.i)) {
+      continue;
+    }
+    pushSequentialStepConnector(prev, cur, `c-grp-${i}`);
+  }
+  rows.forEach((row, startIdx) => {
+    if (row.kind !== "groupStart") return;
+    const endIdx = findGroupEndIndex(rows, startIdx);
+    if (endIdx < 0) return;
+    const fromIdx = findLastMainFlowStepBeforeGroupStart(rows, startIdx);
+    const target = findFlowContinuityAfterGroupEnd(rows, endIdx);
+    if (fromIdx < 0 || !target) return;
+    const fromRow = rows[fromIdx];
+    const fromLi = laneIndex(fromRow.role);
+    if (fromLi < 0) return;
+    let toX;
+    let toY;
+    if (target.type === "step") {
+      const toRow = rows[target.index];
+      if (laneIndex(toRow.role) < 0) return;
+      toX = nodeCenterX(target.index, toRow.role);
+      toY = stepBlockCenterY(target.index) - 22;
+    } else {
+      const branchRow = rows[target.index];
+      const frame = frames.find((f) => f.id === branchRow.id);
+      if (!frame) return;
+      toX = frameAnchorX(frame);
+      toY = branchDecisionCy(frame) - (frame.parallel ? FORK_GATEWAY_RADIUS : 25);
+    }
+    connectors.push({
+      fromX: nodeCenterX(fromIdx, fromRow.role),
+      toX,
+      y1: stepBlockCenterY(fromIdx) + 22,
+      y2: toY,
+      key: `c-grp-bypass-${startIdx}`,
+      lineType: stepOutgoingArrowLine(fromRow)
+    });
+  });
   function lastStepInBranchSpan(startIdx, endIdx) {
     for (let j = endIdx - 1; j > startIdx; j--) {
       const row = rows[j];
-      if (row?.kind === "step" && !row.empty && row.role) return j;
+      if (row?.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
+        return j;
+      }
     }
     return -1;
   }
@@ -1119,6 +1196,7 @@ function renderDiagramSvg({
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (row.kind === "step" && !row.empty && row.role) {
+        if (isInsideGroup(rows, i)) continue;
         if (laneIndex(row.role) < 0) return null;
         return { x: nodeCenterX(i, row.role), targetY: stepBlockCenterY(i) - 22 };
       }
@@ -1137,6 +1215,7 @@ function renderDiagramSvg({
     for (let i = rows.length - 1; i >= 0; i--) {
       const row = rows[i];
       if (row.kind === "step" && !row.empty && row.role) {
+        if (isInsideGroup(rows, i)) continue;
         return {
           x: nodeCenterX(i, row.role),
           sourceY: stepBlockCenterY(i) + 22,
@@ -1581,7 +1660,7 @@ function renderDiagramSvg({
         truncate(f.cond, 16)
       )), f.cases.map((c, ci) => {
         const edgeD = buildCaseFanOutEdgeD(f, c);
-        const firstStepIdx = firstStepIdxInCase(c);
+        const firstStepIdx = firstMainFlowStepIdx(c) ?? firstStepIdxInCase(c);
         const showArrow = firstStepIdx != null && caseStepLineTarget(firstStepIdx, c)?.showArrow;
         return /* @__PURE__ */ h("g", { key: `case-${f.id}-${ci}` }, /* @__PURE__ */ h(
           "path",
@@ -1696,7 +1775,7 @@ function renderDiagramSvg({
         const sideOffset = c.offset || 0;
         const needsMergeElbow = Math.abs(fromX - toX) > 0.5 || sideOffset !== 0 || stubCase;
         const d = needsMergeElbow ? `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}` : `M ${fromX} ${fromY} L ${toX} ${toY}`;
-        const lastInCase = lastStepIdxInCase(c);
+        const lastInCase = lastMainFlowStepIdx(c) ?? lastStepIdxInCase(c);
         const mrgLineType = lastInCase != null ? stepOutgoingArrowLine(rows[lastInCase]) : "solid";
         return /* @__PURE__ */ h(
           "path",
@@ -1994,7 +2073,7 @@ function renderDiagramSvg({
       let prevStepIdx = -1;
       for (let j = startIdx - 1; j >= 0; j--) {
         const row = rows[j];
-        if (row.kind === "step" && !row.empty && row.role) {
+        if (row.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
           prevStepIdx = j;
           break;
         }

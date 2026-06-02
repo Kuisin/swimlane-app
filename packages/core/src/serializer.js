@@ -246,6 +246,23 @@ function serializeLineRows(rows) {
       continue;
     }
 
+    if (row.kind === "groupStart") {
+      if (depth === 0 && prevKind === "step") pushBlankLine(out);
+      out.push(indent(depth, "start-point"));
+      prevKind = "groupStart";
+      continue;
+    }
+
+    if (row.kind === "groupEnd") {
+      out.push(indent(depth, "end-point"));
+      prevKind = "groupEnd";
+      const next = rows[i + 1];
+      if (next && next.kind === "step" && !next.empty && (next.depth ?? 0) <= depth) {
+        pushBlankLine(out);
+      }
+      continue;
+    }
+
     if (row.kind === "step") {
       if (depth === 0 && prevKind === "step" && !row.empty) {
         pushBlankLine(out);

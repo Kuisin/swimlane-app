@@ -22,11 +22,14 @@ import {
   findAdjacentCaseIndex,
   findAdjacentStepIndex,
   findBranchEndIndex,
+  findGroupEndIndex,
   getMoveToTargets,
   getReorderBounds,
+  groupMarkerDepthAt,
   moveBranchOutOfNest,
   moveUnitToInsertBefore,
   nextBranchId,
+  nextGroupId,
   resolveMovedIndex,
   rowBadgeLabel,
   rowKindBadgeClass,
@@ -149,6 +152,25 @@ export function FlowStepList({
     onSelectRow(idx);
   }
 
+  function handleAddGroup() {
+    const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
+    const markerDepth = groupMarkerDepthAt(rows, idx);
+    const groupId = nextGroupId(rows);
+    insertAt(idx, [
+      {
+        kind: "groupStart",
+        id: groupId,
+        depth: markerDepth,
+      },
+      {
+        kind: "groupEnd",
+        id: groupId,
+        depth: markerDepth,
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
   function handleAddAnd() {
     if (selectedRowIndex == null || !canAddAnd(rows, selectedRowIndex)) return;
     const idx = selectedRowIndex + 1;
@@ -239,6 +261,19 @@ export function FlowStepList({
     if (isRowLocked(index)) return;
     const row = rows[index];
     if (row.kind === "branchEnd") return;
+    if (row.kind === "groupEnd") return;
+    if (row.kind === "groupStart") {
+      const endIdx = findGroupEndIndex(rows, index);
+      if (endIdx < 0) return;
+      if (!window.confirm("この詳細ブロックと、その中の手順をすべて削除しますか？")) {
+        return;
+      }
+      onEditRows((draft) => {
+        draft.rows.splice(index, endIdx - index + 1);
+      });
+      onSelectRow(Math.max(0, index - 1));
+      return;
+    }
     if (row.kind === "branchStart") {
       const endIdx = findBranchEndIndex(rows, index);
       if (endIdx < 0) return;
@@ -364,6 +399,9 @@ export function FlowStepList({
         <ToolBtn onClick={handleAddFork} disabled={editingDisabled}>
           ＋ 並行
         </ToolBtn>
+        <ToolBtn onClick={handleAddGroup} disabled={editingDisabled}>
+          ＋ 詳細
+        </ToolBtn>
         <ToolBtn onClick={handleAddAnd} disabled={editingDisabled || !canAnd}>
           ＋ 並行パス
         </ToolBtn>
@@ -487,7 +525,7 @@ export function FlowStepList({
               <button
                 type="button"
                 onClick={() => handleDelete(i)}
-                disabled={rowLocked || row.kind === "branchEnd"}
+                disabled={rowLocked || row.kind === "branchEnd" || row.kind === "groupEnd"}
                 className="shrink-0 p-1 text-stone-500 hover:text-red-400 disabled:opacity-30"
                 aria-label="削除"
               >

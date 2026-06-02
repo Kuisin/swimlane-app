@@ -92,6 +92,7 @@ title: 顧客向けレシート;
 // ・[loop] … ケース末尾。同じ if へ戻る
 // ・fork|and|endfork … 並行（fork #色 可）
 // ・merge: <id>; … 下流 id: <id>; へ合流（矢印は直前ステップの arrow:）
+// ・start-point … end-point … 本流は内部をスキップ（詳細ブロック）
 // ・arrow: solid|dashed|dotted; … 直後の矢印（省略＝実線）
 // ・// … 行頭コメント（本行のような行）
 *** レガシー行コメント（*** 始まりも可。desc 内の ***太字*** とは別） ***
@@ -207,6 +208,18 @@ else
   [api: 監査をスキップ]
   skip;
 endif
+
+// --- 詳細ブロック（start-point / end-point：本流は内部をスキップ） ---
+[a: 注文サマリーを表示]
+start-point
+  [db: 監査用に明細を永続化]
+  desc: ```
+本流からはスキップされる詳細処理。
+監査・分析向けの補足ステップをまとめます。
+```;
+  [api: 分析キューへイベント送信]
+  skip;
+end-point
 
 // --- 並行処理（fork #purple / and ×2 / endfork） ---
 fork #purple

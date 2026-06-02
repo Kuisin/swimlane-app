@@ -6,6 +6,14 @@ export {
   findNextFlowStepAfterBranchEnd,
 } from "./branch-rows.js";
 export {
+  findGroupEndIndex,
+  findEnclosingGroupStart,
+  isInsideGroup,
+  findNextMainFlowStepAfterGroupEnd,
+  findLastMainFlowStepBeforeGroupStart,
+  findFlowContinuityAfterGroupEnd,
+} from "./group-rows.js";
+export {
   parseDSL,
   parseDSLParts,
   unescapeDslLine,
