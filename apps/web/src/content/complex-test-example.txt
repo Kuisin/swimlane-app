@@ -18,12 +18,14 @@ footer-right: 2026-06-02;
 
 /option/
 show-left-gutter: true;
-show-left-remarks: true;
-show-right-remarks: true;
 show-step-block-captions: true;
 merge-at-previous-block: true;
+
+show-left-remarks: true;
 left-title: Procedure;
 left-subtitle: Description;
+
+show-right-remarks: true;
 right-title: Remark;
 right-subtitle: 補足・備考;
 
@@ -230,28 +232,31 @@ endif
 remark: 画面下部にサポート窓口を併記。;
 arrow: solid;
 
-section (監査詳細) #blue
-  [db: 監査用に明細を永続化]
+*** 枠（section）: 本流の流れは変えず、関連ステップを点線ボックスで囲うだけ ***
+section (監査ブロック) #blue
+  [db: 監査明細を永続化]
   desc: ```
-本流からはスキップされる詳細処理。
-監査・分析向けの補足ステップをまとめます。
+section は本流の流れを変えず、関連ステップを
+点線ボックスで視覚的にまとめるだけの枠です。
   ```;
-  [api: 分析キューへイベント送信]
-  skip;
+  [api: 監査イベントを送信]
 end-section
 
 [api: 追跡イベントを準備]
 
-section (配送補足) #purple
+*** 支線（branch）: 本流から分岐し、最後の手順で end-branch 直後のブロックへ合流 ***
+branch (配送支線)
   [worker: ピッキング詳細を記録]
   [api: 追跡IDを通知]
-end-section
+end-branch
 
-[api: 旧式セクションの互換テスト]
+[api: 旧式互換テスト]
 
-section (Section)
+*** 支線の直後が fork のとき、合流先は fork ゲートウェイ ***
+branch (レガシー支線)
   [db: レガシー形式の明細を保存]
-end-section
+end-branch
+
 fork #purple
   [api: レシートをメール送信] <notify>
   desc: ```

@@ -284,15 +284,21 @@ function serializeLineRows(rows) {
 
     if (row.kind === "groupStart") {
       if (depth === 0 && prevKind === "step") pushBlankLine(out);
-      const sectionName = (row.sectionName || "Section").trim() || "Section";
+      const isBranch = (row.groupMode ?? "branch") === "branch";
+      const keyword = isBranch ? "branch" : "section";
+      const defaultName = isBranch ? "Branch" : "Section";
+      const sectionName = (row.sectionName || "").trim();
       const sectionColor = row.sectionColor ? ` #${row.sectionColor}` : "";
-      out.push(indent(depth, `section (${sectionName})${sectionColor}`));
+      const namePart =
+        sectionName && sectionName !== defaultName ? ` (${sectionName})` : "";
+      out.push(indent(depth, `${keyword}${namePart}${sectionColor}`));
       prevKind = "groupStart";
       continue;
     }
 
     if (row.kind === "groupEnd") {
-      out.push(indent(depth, "end-section"));
+      const isBranch = (row.groupMode ?? "branch") === "branch";
+      out.push(indent(depth, isBranch ? "end-branch" : "end-section"));
       prevKind = "groupEnd";
       const next = rows[i + 1];
       if (next && next.kind === "step" && !next.empty && (next.depth ?? 0) <= depth) {

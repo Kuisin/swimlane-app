@@ -12,11 +12,11 @@ import { StepShape } from "./step-shape.js";
 import { BlockIcon } from "./block-icon.js";
 import { h, Fragment } from "./svg-utils.js";
 import {
-  findEnclosingGroupStart,
+  findEnclosingBranchGroupStart,
   findFlowContinuityAfterGroupEnd,
   findGroupEndIndex,
-  findLastMainFlowStepBeforeGroupStart,
-  isInsideGroup
+  groupModeOf,
+  isInsideBranchGroup
 } from "../group-rows.js";
 const BRANCH_COLOR_STYLES = {
   blue: { stroke: "#2563eb", bg: "#dbeafe" },
@@ -386,7 +386,7 @@ function renderDiagramSvg({
   function firstDirectStepIdx(c) {
     return c.rowIndices.find((idx) => {
       const row = rows[idx];
-      return row?.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, idx);
+      return row?.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, idx);
     });
   }
   function firstMainFlowStepIdx(c) {
@@ -396,7 +396,7 @@ function renderDiagramSvg({
     for (let k = c.rowIndices.length - 1; k >= 0; k--) {
       const idx = c.rowIndices[k];
       const row = rows[idx];
-      if (row?.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, idx)) {
+      if (row?.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, idx)) {
         return idx;
       }
     }
@@ -775,7 +775,7 @@ function renderDiagramSvg({
     if (endIdx < 0) return frameAnchorX(f);
     for (let j = endIdx - 1; j >= 0; j--) {
       const row = rows[j];
-      if (row.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
+      if (row.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, j)) {
         return nodeCenterX(j, row.role);
       }
       if (row.kind === "branchEnd" && row.id !== f.id) {
@@ -1150,7 +1150,7 @@ function renderDiagramSvg({
       lineType: stepOutgoingArrowLine(prev.r)
     });
   }
-  const mainFlowSteps = stepRows.filter((x) => !isInsideGroup(rows, x.i));
+  const mainFlowSteps = stepRows.filter((x) => !isInsideBranchGroup(rows, x.i));
   for (let i = 1; i < mainFlowSteps.length; i++) {
     pushSequentialStepConnector(
       mainFlowSteps[i - 1],
@@ -1161,22 +1161,18 @@ function renderDiagramSvg({
   for (let i = 1; i < stepRows.length; i++) {
     const prev = stepRows[i - 1];
     const cur = stepRows[i];
-    if (!isInsideGroup(rows, prev.i) || !isInsideGroup(rows, cur.i)) continue;
-    if (findEnclosingGroupStart(rows, prev.i) !== findEnclosingGroupStart(rows, cur.i)) {
+    if (!isInsideBranchGroup(rows, prev.i) || !isInsideBranchGroup(rows, cur.i)) continue;
+    if (findEnclosingBranchGroupStart(rows, prev.i) !== findEnclosingBranchGroupStart(rows, cur.i)) {
       continue;
     }
     pushSequentialStepConnector(prev, cur, `c-grp-${i}`);
   }
   rows.forEach((row, startIdx) => {
-    if (row.kind !== "groupStart") return;
+    if (row.kind !== "groupStart" || groupModeOf(row) !== "branch") return;
     const endIdx = findGroupEndIndex(rows, startIdx);
     if (endIdx < 0) return;
-    const fromIdx = findLastMainFlowStepBeforeGroupStart(rows, startIdx);
     const target = findFlowContinuityAfterGroupEnd(rows, endIdx);
-    if (fromIdx < 0 || !target) return;
-    const fromRow = rows[fromIdx];
-    const fromLi = laneIndex(fromRow.role);
-    if (fromLi < 0) return;
+    if (!target) return;
     let toX;
     let toY;
     if (target.type === "step") {
@@ -1191,14 +1187,6 @@ function renderDiagramSvg({
       toX = frameAnchorX(frame);
       toY = branchDecisionCy(frame) - (frame.parallel ? FORK_GATEWAY_RADIUS : 25);
     }
-    connectors.push({
-      fromX: nodeCenterX(fromIdx, fromRow.role),
-      toX,
-      y1: stepBlockCenterY(fromIdx) + 22,
-      y2: toY,
-      key: `c-grp-bypass-${startIdx}`,
-      lineType: stepOutgoingArrowLine(fromRow)
-    });
     const innerLastIdx = lastStepInsideGroup(startIdx, endIdx);
     if (innerLastIdx < 0) return;
     const innerRow = rows[innerLastIdx];
@@ -1208,14 +1196,14 @@ function renderDiagramSvg({
       toX,
       y1: stepBlockCenterY(innerLastIdx) + 22,
       y2: toY,
-      key: `c-grp-exit-${startIdx}`,
+      key: `c-grp-merge-${startIdx}`,
       lineType: stepOutgoingArrowLine(innerRow)
     });
   });
   function lastStepInBranchSpan(startIdx, endIdx) {
     for (let j = endIdx - 1; j > startIdx; j--) {
       const row = rows[j];
-      if (row?.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
+      if (row?.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, j)) {
         return j;
       }
     }
@@ -1225,7 +1213,7 @@ function renderDiagramSvg({
     for (let j = endIdx - 1; j > startIdx; j--) {
       const row = rows[j];
       if (row?.kind !== "step" || row.empty || !row.role) continue;
-      if (findEnclosingGroupStart(rows, j) !== startIdx) continue;
+      if (findEnclosingBranchGroupStart(rows, j) !== startIdx) continue;
       return j;
     }
     return -1;
@@ -1235,7 +1223,7 @@ function renderDiagramSvg({
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (row.kind === "step" && !row.empty && row.role) {
-        if (isInsideGroup(rows, i)) continue;
+        if (isInsideBranchGroup(rows, i)) continue;
         if (laneIndex(row.role) < 0) return null;
         return { x: nodeCenterX(i, row.role), targetY: stepBlockCenterY(i) - 22 };
       }
@@ -1254,7 +1242,7 @@ function renderDiagramSvg({
     for (let i = rows.length - 1; i >= 0; i--) {
       const row = rows[i];
       if (row.kind === "step" && !row.empty && row.role) {
-        if (isInsideGroup(rows, i)) continue;
+        if (isInsideBranchGroup(rows, i)) continue;
         return {
           x: nodeCenterX(i, row.role),
           sourceY: stepBlockCenterY(i) + 22,
@@ -1984,7 +1972,9 @@ function renderDiagramSvg({
       ));
     }),
     rows.map((row, i) => {
-      if (row.kind !== "groupStart") return null;
+      if (row.kind !== "groupStart" || groupModeOf(row) !== "section") {
+        return null;
+      }
       const endIdx = findGroupEndIndex(rows, i);
       if (endIdx < 0 || lanes.length === 0) return null;
       const yTop = rowMeta[i]?.y ?? 0;
@@ -2262,7 +2252,7 @@ function renderDiagramSvg({
       let prevStepIdx = -1;
       for (let j = startIdx - 1; j >= 0; j--) {
         const row = rows[j];
-        if (row.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
+        if (row.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, j)) {
           prevStepIdx = j;
           break;
         }

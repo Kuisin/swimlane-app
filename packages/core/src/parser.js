@@ -350,7 +350,10 @@ export function parseDSL(src) {
    *                                   marks the `fork`/`and`/`endfork` variant
    *   - branchLoop                    `[loop]` back-edge to the enclosing `if`
    *   - branchMerge                   `merge: <id>;` jump to a step with matching `id:`
-   *   - groupStart / groupEnd         `section (...)` … `end-section` detail block skipped by main flow
+   *   - groupStart / groupEnd         a group with `groupMode`: "section" draws
+   *                                   a visual box (steps flow normally), while
+   *                                   "branch" is a mid-flow sub-branch (start
+   *                                   not connected; merges to main after close)
    * `stack` tracks open branch frames so nested blocks get the right depth and
    * so each closer (`endif`/`endfork`) matches the frame type it closes.
    */
@@ -530,122 +533,69 @@ export function parseDSL(src) {
       continue;
     }
 
-    /** Detail group: main flow skips interior steps; end-section rejoins the next block. */
-    m = u.match(/^section\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
-    if (m) {
+    /**
+     * Groups come in two flavors that the parser distinguishes via `groupMode`:
+     *   - "section": a purely visual box; the steps inside flow normally.
+     *   - "branch":  a new sub-branch mid flow; its first step is not connected
+     *                to the main flow and its last step merges back after the
+     *                close. No box is drawn.
+     */
+    const openGroup = (groupMode, name, colorToken) => {
       groupCounter++;
       const id = groupCounter;
       const depth = groupMarkerDepth();
-      groupStack.push({ id, depth });
+      groupStack.push({ id, depth, groupMode });
       pushLineRow(
         {
           kind: "groupStart",
           id,
           depth,
-          sectionName: m[1].trim(),
-          sectionColor: m[2] ? m[2].trim().toLowerCase() : null,
+          groupMode,
+          sectionName: name,
+          sectionColor: colorToken ? colorToken.trim().toLowerCase() : null,
         },
         line,
       );
+    };
+
+    // Visual box: section (name) / section / legacy section-start / start-point.
+    m = u.match(/^(?:section|section-start)\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      openGroup("section", m[1].trim(), m[2]);
       continue;
     }
     m = u.match(/^section(?:\s+#([A-Za-z]+))?$/i);
     if (m) {
-      groupCounter++;
-      const id = groupCounter;
-      const depth = groupMarkerDepth();
-      groupStack.push({ id, depth });
-      pushLineRow(
-        {
-          kind: "groupStart",
-          id,
-          depth,
-          sectionName: "Section",
-          sectionColor: m[1] ? m[1].trim().toLowerCase() : null,
-        },
-        line,
-      );
+      openGroup("section", "Section", m[1]);
       continue;
     }
-    // Backward compatibility: legacy alias syntax.
-    m = u.match(/^section-start\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
-    if (m) {
-      groupCounter++;
-      const id = groupCounter;
-      const depth = groupMarkerDepth();
-      groupStack.push({ id, depth });
-      pushLineRow(
-        {
-          kind: "groupStart",
-          id,
-          depth,
-          sectionName: m[1].trim(),
-          sectionColor: m[2] ? m[2].trim().toLowerCase() : null,
-        },
-        line,
-      );
+    if (/^start-point$/i.test(u)) {
+      openGroup("section", "Section", null);
       continue;
     }
+
+    // Mid-flow branch: branch (name) / branch.
     m = u.match(/^branch\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
     if (m) {
-      groupCounter++;
-      const id = groupCounter;
-      const depth = groupMarkerDepth();
-      groupStack.push({ id, depth });
-      pushLineRow(
-        {
-          kind: "groupStart",
-          id,
-          depth,
-          sectionName: m[1].trim(),
-          sectionColor: m[2] ? m[2].trim().toLowerCase() : null,
-        },
-        line,
-      );
+      openGroup("branch", m[1].trim(), m[2]);
       continue;
     }
     m = u.match(/^branch(?:\s+#([A-Za-z]+))?$/i);
     if (m) {
-      groupCounter++;
-      const id = groupCounter;
-      const depth = groupMarkerDepth();
-      groupStack.push({ id, depth });
-      pushLineRow(
-        {
-          kind: "groupStart",
-          id,
-          depth,
-          sectionName: "Section",
-          sectionColor: m[1] ? m[1].trim().toLowerCase() : null,
-        },
-        line,
-      );
+      openGroup("branch", "Branch", m[1]);
       continue;
     }
-    if (/^start-point$/i.test(u)) {
-      groupCounter++;
-      const id = groupCounter;
-      const depth = groupMarkerDepth();
-      groupStack.push({ id, depth });
-      pushLineRow(
-        {
-          kind: "groupStart",
-          id,
-          depth,
-          sectionName: "Section",
-          sectionColor: null,
-        },
-        line,
-      );
-      continue;
-    }
+
     if (/^end-section$/i.test(u) || /^end-point$/i.test(u) || /^end-branch$/i.test(u)) {
       const top = groupStack.pop();
       if (!top) {
         errors.push({ line, text, msg: "end-section without section" });
         continue;
       }
-      pushLineRow({ kind: "groupEnd", id: top.id, depth: top.depth }, line);
+      pushLineRow(
+        { kind: "groupEnd", id: top.id, depth: top.depth, groupMode: top.groupMode },
+        line,
+      );
       continue;
     }
 

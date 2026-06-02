@@ -152,7 +152,7 @@ export function FlowStepList({
     onSelectRow(idx);
   }
 
-  function handleAddGroup() {
+  function handleAddGroup(groupMode = "section") {
     const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
     const markerDepth = groupMarkerDepthAt(rows, idx);
     const groupId = nextGroupId(rows);
@@ -161,11 +161,15 @@ export function FlowStepList({
         kind: "groupStart",
         id: groupId,
         depth: markerDepth,
+        groupMode,
+        sectionName: groupMode === "branch" ? "Branch" : "Section",
+        sectionColor: null,
       },
       {
         kind: "groupEnd",
         id: groupId,
         depth: markerDepth,
+        groupMode,
       },
     ]);
     onSelectRow(idx);
@@ -399,8 +403,11 @@ export function FlowStepList({
         <ToolBtn onClick={handleAddFork} disabled={editingDisabled}>
           ＋ 並行
         </ToolBtn>
-        <ToolBtn onClick={handleAddGroup} disabled={editingDisabled}>
-          ＋ 詳細
+        <ToolBtn onClick={() => handleAddGroup("section")} disabled={editingDisabled}>
+          ＋ 枠
+        </ToolBtn>
+        <ToolBtn onClick={() => handleAddGroup("branch")} disabled={editingDisabled}>
+          ＋ 支線
         </ToolBtn>
         <ToolBtn onClick={handleAddAnd} disabled={editingDisabled || !canAnd}>
           ＋ 並行パス

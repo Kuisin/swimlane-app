@@ -876,9 +876,11 @@ export function rowBadge(row) {
     case "branchMerge":
       return "merge";
     case "groupStart":
-      return "section";
+      return (row.groupMode ?? "branch") === "branch" ? "branch" : "section";
     case "groupEnd":
-      return "end-section";
+      return (row.groupMode ?? "branch") === "branch"
+        ? "end-branch"
+        : "end-section";
     default:
       return row.kind;
   }
@@ -908,9 +910,9 @@ export function rowBadgeLabel(row) {
     case "branchMerge":
       return "合流";
     case "groupStart":
-      return "詳細開始";
+      return (row.groupMode ?? "branch") === "branch" ? "支線開始" : "枠開始";
     case "groupEnd":
-      return "詳細終了";
+      return (row.groupMode ?? "branch") === "branch" ? "支線終了" : "枠終了";
     default:
       return "行";
   }
@@ -953,9 +955,13 @@ export function rowSummaryText(row, lanes) {
     case "branchMerge":
       return `合流先 id：${(row.mergeTarget || "").trim() || "（未設定）"}`;
     case "groupStart":
-      return "詳細ブロック（本流はスキップ）";
+      return (row.groupMode ?? "branch") === "branch"
+        ? "支線（本流から分岐・末尾で合流）"
+        : "枠（ボックス表示のみ・本流のまま）";
     case "groupEnd":
-      return "詳細ブロックの終わり（次の手順へ合流）";
+      return (row.groupMode ?? "branch") === "branch"
+        ? "支線の終わり（本流へ合流）"
+        : "枠の終わり";
     default:
       return "";
   }
@@ -978,7 +984,9 @@ export function rowKindBadgeClass(row) {
       return "bg-sky-800";
     case "groupStart":
     case "groupEnd":
-      return "bg-slate-700";
+      return (row.groupMode ?? "branch") === "branch"
+        ? "bg-indigo-700"
+        : "bg-slate-700";
     default:
       return "bg-stone-600";
   }
