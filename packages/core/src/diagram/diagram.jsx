@@ -259,7 +259,6 @@ export function Diagram({
   /**
    * Extra height so the left-gutter description fits; compare after props have extended the row.
    * Overflow may use vertical space before the next layout row:
-   * - Next row is a `skipIndex` step: subtract that step’s row height.
    * - Next row is `branchStart` (if): subtract `diamondH`, same band the decision uses.
    */
   function stepDescriptionExtraHeight(row, rowIndex, heightWithProps) {
@@ -277,15 +276,7 @@ export function Diagram({
     if (descExtra <= 0) return 0;
 
     const next = rows[rowIndex + 1];
-    if (
-      next?.kind === "step" &&
-      !next.empty &&
-      next.role &&
-      next.skipIndex
-    ) {
-      const nextH = stepRowHeight(next, rowIndex + 1);
-      descExtra = Math.max(0, descExtra - nextH);
-    } else if (next?.kind === "branchStart") {
+    if (next?.kind === "branchStart") {
       descExtra = Math.max(0, descExtra - diamondH);
     }
     return descExtra;
@@ -1436,7 +1427,6 @@ export function Diagram({
   }
 
   function pushSequentialStepConnector(prev, cur, key) {
-    if (isInsideGroup(rows, prev.i) || isInsideGroup(rows, cur.i)) return;
     const prevCase = caseOfStep(prev.i);
     const curCase = caseOfStep(cur.i);
     if (
@@ -1531,6 +1521,19 @@ export function Diagram({
       key: `c-grp-bypass-${startIdx}`,
       lineType: stepOutgoingArrowLine(fromRow),
     });
+
+    const innerLastIdx = lastStepInsideGroup(startIdx, endIdx);
+    if (innerLastIdx < 0) return;
+    const innerRow = rows[innerLastIdx];
+    if (laneIndex(innerRow.role) < 0) return;
+    connectors.push({
+      fromX: nodeCenterX(innerLastIdx, innerRow.role),
+      toX,
+      y1: stepBlockCenterY(innerLastIdx) + 22,
+      y2: toY,
+      key: `c-grp-exit-${startIdx}`,
+      lineType: stepOutgoingArrowLine(innerRow),
+    });
   });
 
   function lastStepInBranchSpan(startIdx, endIdx) {
@@ -1544,6 +1547,16 @@ export function Diagram({
       ) {
         return j;
       }
+    }
+    return -1;
+  }
+
+  function lastStepInsideGroup(startIdx, endIdx) {
+    for (let j = endIdx - 1; j > startIdx; j--) {
+      const row = rows[j];
+      if (row?.kind !== "step" || row.empty || !row.role) continue;
+      if (findEnclosingGroupStart(rows, j) !== startIdx) continue;
+      return j;
     }
     return -1;
   }
@@ -1668,8 +1681,8 @@ export function Diagram({
         return;
       }
       if (row.kind !== "step" || !row.role) return;
-      // Skip steps show only their block (no title/desc, no row divider).
-      if (row.skipIndex) return;
+      // For skip rows, hide only the top divider (handled by previous-row check),
+      // but keep normal flow and lower divider behavior.
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
