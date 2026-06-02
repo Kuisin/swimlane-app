@@ -1,0 +1,188 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text-primary: #c9d1d9;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --flash: #1f6feb;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* ── Titlebar ── */
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+  height: 48px;
+}
+
+.titlebar-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding-left: 72px; /* clearance for macOS traffic lights */
+}
+
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  -webkit-app-region: no-drag;
+}
+
+.folder-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  background: var(--accent);
+  color: #0d1117;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  -webkit-app-region: no-drag;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-primary:active { opacity: 0.7; }
+
+/* ── Layout ── */
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#grid, #empty-state {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-muted);
+}
+
+.empty-icon { font-size: 48px; }
+
+.empty-state p { font-size: 15px; }
+
+/* ── Grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(580px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  align-content: start;
+}
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: #0d1117;
+}
+
+.card-filename {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'SF Mono', Consolas, monospace;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #3fb950;
+  background: rgba(63, 185, 80, 0.15);
+  border: 1px solid rgba(63, 185, 80, 0.4);
+  border-radius: 10px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.card-svg {
+  overflow: hidden;
+}
+
+.card-svg svg {
+  display: block;
+  width: 100%;
+}
+
+/* Flash animation on file update */
+@keyframes flash-border {
+  0%   { border-color: #1f6feb; box-shadow: 0 0 0 2px #1f6feb; }
+  100% { border-color: var(--border); box-shadow: none; }
+}
+
+.card.flash {
+  animation: flash-border 0.6s ease-out forwards;
+}
+
+/* Remove animation */
+@keyframes fade-out {
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+.card.removing {
+  animation: fade-out 0.3s ease forwards;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.hidden { display: none !important; }
