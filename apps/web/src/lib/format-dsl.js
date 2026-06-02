@@ -4,7 +4,10 @@ import { normalizeBranchRows } from "./flow-rows";
 /**
  * Parse and re-serialize DSL into canonical layout:
  * - if / elseif / else / endif and fork / and / endfork indentation
- * - merge: <id>;, arrow: <type>;, and step id: / label: / desc: / props: ordering
+ * - section / end-section and branch / end-branch groups
+ * - merge: <id>;, arrow: <type>;, and step id: / label: / desc: / remark: /
+ *   props: ordering
+ * Comments (// and ***) and multi-line ``` fence content are preserved.
  */
 export function formatDsl(src) {
   const model = parseDSL(src);

@@ -208,25 +208,39 @@ export function parseDSL(src) {
     line: [],
   };
   let current = null;
+  // Inside a ``` … ``` fence, lines are content (incl. ones that look like
+  // comments or section markers), so they must be kept verbatim.
+  let inFence = false;
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const t = raw.trim();
+    const lineNum = startIdx + 1 + i + 1;
+    if (inFence) {
+      if (current) sections[current].push({ text: raw, line: lineNum });
+      if (/^```;?\s*$/.test(t)) inFence = false;
+      continue;
+    }
     if (!t) {
-      if (current) {
-        const lineNum = startIdx + 1 + i + 1;
-        sections[current].push({ text: raw, line: lineNum });
+      if (current) sections[current].push({ text: raw, line: lineNum });
+      continue;
+    }
+    if (isDslCommentLine(t) || t.startsWith("@")) {
+      // Keep /line/ comments so the formatter can round-trip them; they are
+      // ignored everywhere else.
+      if (current === "line" && isDslCommentLine(t)) {
+        sections.line.push({ text: raw, line: lineNum, isComment: true });
       }
       continue;
     }
-    if (isDslCommentLine(t) || t.startsWith("@")) continue;
     const sec = t.match(/^\/(page|title|role|option|block|prop|line)\/$/);
     if (sec) {
       current = sec[1];
       continue;
     }
-    const lineNum = startIdx + 1 + i + 1;
     if (current) sections[current].push({ text: raw, line: lineNum });
+    // A `key: ``` opener starts a fenced (multi-line) value.
+    if (/^[A-Za-z][A-Za-z-]*:\s*```\s*$/.test(t)) inFence = true;
   }
 
   const page = parsePageSection(sections.page, errors);
@@ -387,9 +401,16 @@ export function parseDSL(src) {
   let autoIdCounter = 0;
   /** @type {Map<string, { line: number, text: string }>} */
   const mergeIdsSeen = new Map();
+  /** Comment lines waiting to attach to the next row (so the formatter keeps them). */
+  let pendingComments = [];
 
   function pushLineRow(fields, line) {
-    rows.push({ ...fields, dslLines: [line] });
+    const row = { ...fields, dslLines: [line] };
+    if (pendingComments.length) {
+      row.leadingComments = pendingComments;
+      pendingComments = [];
+    }
+    rows.push(row);
   }
 
   function appendLineToRow(rowIndex, line) {
@@ -406,8 +427,13 @@ export function parseDSL(src) {
   }
 
   for (let lineIdx = 0; lineIdx < sections.line.length; lineIdx++) {
-    const { text, line } = sections.line[lineIdx];
+    const item = sections.line[lineIdx];
+    const { text, line } = item;
     const trimmed = text.trim();
+    if (item.isComment) {
+      pendingComments.push(trimmed);
+      continue;
+    }
     if (!trimmed || isDslCommentLine(trimmed)) continue;
     const u = unescapeDslLine(trimmed);
     if (!u) continue;
@@ -912,7 +938,20 @@ export function parseDSL(src) {
     icon: (roles[id] && roles[id].icon) || null,
   }));
 
-  return { title, page, options, lanes, rows, blocks, props, errors };
+  // Comments after the last /line/ row (kept so the formatter can round-trip them).
+  const trailingLineComments = pendingComments;
+
+  return {
+    title,
+    page,
+    options,
+    lanes,
+    rows,
+    blocks,
+    props,
+    errors,
+    trailingLineComments,
+  };
 }
 
 /** Parse /block/ and /prop/ fragments (wraps for parseDSL; not for clipboard). */

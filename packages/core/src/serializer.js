@@ -214,6 +214,20 @@ function serializeLineRows(rows) {
     const depth = row.depth ?? 0;
     const controlDepth = branchControlDepth(rows, i);
 
+    // Re-emit any comment lines captured before this row, at its indent.
+    if (row.leadingComments?.length) {
+      const isMarker =
+        row.kind === "branchStart" ||
+        row.kind === "branchCase" ||
+        row.kind === "branchEnd" ||
+        row.kind === "groupStart" ||
+        row.kind === "groupEnd";
+      const commentIndent = isMarker ? controlDepth : depth;
+      if (out.length > 0 && out[out.length - 1] !== "") pushBlankLine(out);
+      for (const c of row.leadingComments) out.push(indent(commentIndent, c));
+      prevKind = "comment";
+    }
+
     if (row.kind === "branchStart") {
       if (
         prevKind === "branchEnd" ||
@@ -371,6 +385,12 @@ export function serializeDSL(model) {
   lines.push("/line/");
   lines.push("");
   lines.push(...serializeLineRows(model.rows || []));
+  // Comments after the last row (kept so the formatter doesn't drop them).
+  const trailing = model.trailingLineComments || [];
+  if (trailing.length > 0) {
+    if (lines[lines.length - 1] !== "") lines.push("");
+    for (const c of trailing) lines.push(c);
+  }
   lines.push("");
   lines.push("@end");
 

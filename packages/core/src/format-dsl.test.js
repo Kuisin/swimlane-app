@@ -42,6 +42,38 @@ describe("DSL format (fork / merge / step id)", () => {
     expect(parseDSL(value).errors).toEqual([]);
   });
 
+  it("preserves // and *** comments and comment-like fence content", () => {
+    const src = [
+      "@kai-swimlane",
+      "/page/",
+      "description: ```",
+      "line one",
+      "// looks like a comment but is description content",
+      "```;",
+      "/role/",
+      "<a>",
+      "label: A;",
+      "/line/",
+      "// a flow comment",
+      "[a: one]",
+      "*** a section note ***",
+      "section (box)",
+      "[a: two]",
+      "end-section",
+      "// trailing comment",
+      "@end",
+    ].join("\n");
+
+    const { ok, value } = formatLikeWeb(src);
+    expect(ok).toBe(true);
+    expect(value).toContain("// a flow comment");
+    expect(value).toContain("*** a section note ***");
+    expect(value).toContain("// trailing comment");
+    // A fence body line that looks like a comment must survive verbatim.
+    expect(value).toContain("// looks like a comment but is description content");
+    expect(parseDSL(value).errors).toEqual([]);
+  });
+
   it("fails format when merge id is missing or duplicate", () => {
     const missing = formatLikeWeb(`@kai-swimlane
 /role/
