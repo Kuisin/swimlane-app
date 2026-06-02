@@ -196,6 +196,43 @@ export function BranchInspector({
     );
   }
 
+  if (row.kind === "groupStart") {
+    const isBranch = (row.groupMode ?? "branch") === "branch";
+    return (
+      <div className="px-3 py-3 space-y-3 text-xs font-jp">
+        <p className="text-stone-300">
+          {isBranch ? "支線（branch）— 本流から分岐し末尾で合流" : "枠（section）— 本流のまま点線ボックスで囲う"}
+        </p>
+        <div>
+          <label className="block text-[10px] text-stone-500 mb-1">名前</label>
+          <input
+            type="text"
+            value={row.sectionName || ""}
+            onChange={(e) => onPatch({ sectionName: e.target.value })}
+            className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
+          />
+        </div>
+        <BranchColorSelect
+          value={row.sectionColor || ""}
+          onChange={(sectionColor) => onPatch({ sectionColor: sectionColor || null })}
+        />
+      </div>
+    );
+  }
+
+  if (row.kind === "groupEnd") {
+    const isBranch = (row.groupMode ?? "branch") === "branch";
+    return (
+      <div className="px-3 py-3 text-xs font-jp">
+        <p className="text-[10px] text-stone-400 border border-stone-700/60 rounded-sm px-2 py-1.5 bg-stone-900/50">
+          {isBranch
+            ? "終了（end-branch）— 開始（branch）で名前・色を編集します。"
+            : "終了（end-section）— 開始（section）で名前・色を編集します。"}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <p className="text-xs font-jp text-stone-500 px-3 py-4">
       分岐行を選択してください

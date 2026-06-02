@@ -305,9 +305,11 @@ export function resolveInspectorTarget(rows, rowIndex) {
     };
   }
 
-  if (row.kind === "branchEnd") {
+  // Selecting a closing marker edits the paired opener in the inspector.
+  if (row.kind === "branchEnd" || row.kind === "groupEnd") {
+    const openKind = row.kind === "branchEnd" ? "branchStart" : "groupStart";
     const startIndex = rows.findIndex(
-      (r) => r.kind === "branchStart" && r.id === row.id,
+      (r) => r.kind === openKind && r.id === row.id,
     );
     if (startIndex >= 0) {
       return {
@@ -324,6 +326,7 @@ export function resolveInspectorTarget(rows, rowIndex) {
     "branchCase",
     "branchLoop",
     "branchMerge",
+    "groupStart",
   ].includes(row.kind);
 
   return {

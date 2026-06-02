@@ -23,6 +23,8 @@ const BRANCH_KINDS = [
   "branchEnd",
   "branchLoop",
   "branchMerge",
+  "groupStart",
+  "groupEnd",
 ];
 
 function inspectorTitle(row, rows) {
@@ -41,6 +43,9 @@ function inspectorTitle(row, rows) {
     return row.parallel ? "並行処理（開始）" : "条件分岐";
   }
   if (row.kind === "branchMerge") return "途中合流";
+  if (row.kind === "groupStart" || row.kind === "groupEnd") {
+    return (row.groupMode ?? "branch") === "branch" ? "支線" : "枠";
+  }
   if (BRANCH_KINDS.includes(row.kind)) return "分岐";
   return "手順の詳細";
 }
