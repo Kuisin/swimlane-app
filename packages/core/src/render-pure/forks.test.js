@@ -9,13 +9,9 @@ function render(dsl) {
   return renderDiagramSvg({ model: parseDSL(dsl), theme, showStepBlockCaptions: false });
 }
 
-/** Gateway bars are the only rounded rects with rx="2"; return their {x, y, w}. */
-function gatewayBars(svg) {
-  return [
-    ...svg.matchAll(
-      /<rect[^>]*x="([\d.-]+)"[^>]*y="([\d.-]+)"[^>]*width="([\d.-]+)"[^>]*height="7"[^>]*rx="2"/g,
-    ),
-  ].map((m) => ({ x: +m[1], y: +m[2], w: +m[3] }));
+/** Fork/endfork gateways are purple circles (r=5, fill #7e22ce). */
+function forkGatewayCircles(svg) {
+  return [...svg.matchAll(/<circle[^>]*r="5"[^>]*fill="#7e22ce"/g)];
 }
 
 describe("parallel fork/join", () => {
@@ -51,15 +47,9 @@ endfork
     expect(end.parallel).toBe(true);
   });
 
-  it("renders a split bar and a join bar (not diamonds)", () => {
-    const bars = gatewayBars(render(FORK));
-    // One split bar + one join bar.
-    expect(bars.length).toBe(2);
-    const [split, join] = bars.sort((p, q) => p.y - q.y);
-    // The split bar sits above the join bar, and both span multiple lanes.
-    expect(split.y).toBeLessThan(join.y);
-    expect(split.w).toBeGreaterThan(100);
-    expect(join.w).toBeGreaterThan(100);
+  it("renders purple fork and endfork circles (not diamonds or bars)", () => {
+    const circles = forkGatewayCircles(render(FORK));
+    expect(circles.length).toBe(2);
   });
 
   it("rejects elseif/endif against a fork and and/endfork against an if", () => {

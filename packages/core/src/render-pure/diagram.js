@@ -19,6 +19,8 @@ const BRANCH_COLOR_STYLES = {
   gray: { stroke: "#374151", bg: "#f3f4f6" },
   black: { stroke: "#111827", bg: "#e5e7eb" }
 };
+const FORK_GATEWAY_RADIUS = 5;
+const FORK_GATEWAY_FILL = BRANCH_COLOR_STYLES.purple.stroke;
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
   const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
   return /* @__PURE__ */ h(Fragment, null, left?.trim() && /* @__PURE__ */ h(
@@ -765,9 +767,9 @@ function renderDiagramSvg({
   function buildCaseFanOutEdgeD(f, c) {
     const dCx = frameAnchorX(f);
     const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-    const dH = f.parallel ? 7 : 50;
+    const dH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 50;
     const mCy = f.yMerge + mergeH / 2;
-    const mH = f.parallel ? 7 : 28;
+    const mH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 28;
     const child = c.childFrame;
     const firstStepIdx = firstStepIdxInCase(c);
     const childStartIdx = child != null ? rows.findIndex((r) => r.kind === "branchStart" && r.id === child.id) : -1;
@@ -1526,39 +1528,13 @@ function renderDiagramSvg({
       const mW = 40;
       const mH = 28;
       const diamondPath = (cx, cy, w, h2) => `M ${cx} ${cy - h2 / 2} L ${cx + w / 2} ${cy} L ${cx} ${cy + h2 / 2} L ${cx - w / 2} ${cy} Z`;
-      const barH = 7;
-      const barPad = 26;
-      const splitXs = [
-        dCx,
-        ...f.cases.map((c) => {
-          const fsi = firstStepIdxInCase(c);
-          if (fsi != null) {
-            const t = caseStepLineTarget(fsi, c);
-            if (t) return t.x;
-          }
-          return caseAnchorX(c);
-        })
-      ];
-      const joinXs = [
-        mCx,
-        ...f.cases.map((c) => {
-          const m = caseMergeAnchor(c);
-          return m ? m.fromX : caseAnchorX(c);
-        })
-      ];
-      const splitBarX1 = Math.min(...splitXs) - barPad;
-      const splitBarX2 = Math.max(...splitXs) + barPad;
-      const joinBarX1 = Math.min(...joinXs) - barPad;
-      const joinBarX2 = Math.max(...joinXs) + barPad;
       return /* @__PURE__ */ h("g", { key: `branch-${f.id}` }, isParallel ? /* @__PURE__ */ h(
-        "rect",
+        "circle",
         {
-          x: splitBarX1,
-          y: dCy - barH / 2,
-          width: splitBarX2 - splitBarX1,
-          height: barH,
-          rx: "2",
-          fill: decisionStyle.stroke
+          cx: dCx,
+          cy: dCy,
+          r: FORK_GATEWAY_RADIUS,
+          fill: FORK_GATEWAY_FILL
         }
       ) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
         "path",
@@ -1689,7 +1665,7 @@ function renderDiagramSvg({
           }
         }
         const toX = mCx;
-        const toY = mCy - (isParallel ? barH / 2 : mH / 2);
+        const toY = mCy - (isParallel ? FORK_GATEWAY_RADIUS : mH / 2);
         const bendY2 = toY - 14;
         const sideOffset = c.offset || 0;
         const needsMergeElbow = Math.abs(fromX - toX) > 0.5 || sideOffset !== 0 || stubCase;
@@ -1728,14 +1704,12 @@ function renderDiagramSvg({
           }
         );
       }), isParallel ? /* @__PURE__ */ h(
-        "rect",
+        "circle",
         {
-          x: joinBarX1,
-          y: mCy - barH / 2,
-          width: joinBarX2 - joinBarX1,
-          height: barH,
-          rx: "2",
-          fill: decisionStyle.stroke
+          cx: mCx,
+          cy: mCy,
+          r: FORK_GATEWAY_RADIUS,
+          fill: FORK_GATEWAY_FILL
         }
       ) : /* @__PURE__ */ h(
         "path",
@@ -2009,9 +1983,9 @@ function renderDiagramSvg({
         endIdx
       );
       const dCx = frameAnchorX(f);
-      const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - (f.parallel ? 5 : 25);
+      const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - (f.parallel ? FORK_GATEWAY_RADIUS : 25);
       const mCx = mergeAnchorX(f);
-      const mBotY = f.yMerge + mergeH / 2 + (f.parallel ? 5 : 14);
+      const mBotY = f.yMerge + mergeH / 2 + (f.parallel ? FORK_GATEWAY_RADIUS : 14);
       const edges = [];
       if (prevStepIdx >= 0) {
         const r = rows[prevStepIdx];
@@ -2118,8 +2092,25 @@ function renderDiagramSvg({
         if (!f) return null;
         const dCx = frameAnchorX(f);
         const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-        const dW = f.parallel ? 120 : Math.max(140, (f.cond.length + 4) * 9);
-        const dH = f.parallel ? 24 : 50;
+        if (f.parallel) {
+          const pad = 12;
+          const r0 = FORK_GATEWAY_RADIUS;
+          return /* @__PURE__ */ h(
+            RowHitTarget,
+            {
+              key: `hit-${i}`,
+              rowIndex: i,
+              x: dCx - r0 - pad,
+              y: dCy - r0 - pad,
+              w: r0 * 2 + pad * 2,
+              h: r0 * 2 + pad * 2,
+              selected: selectedRowIndex === i,
+              onSelect: onRowSelect
+            }
+          );
+        }
+        const dW = Math.max(140, (f.cond.length + 4) * 9);
+        const dH = 50;
         return /* @__PURE__ */ h(
           RowHitTarget,
           {
@@ -2178,6 +2169,23 @@ function renderDiagramSvg({
         if (!f || f.yMerge == null) return null;
         const mCx = mergeAnchorX(f);
         const mCy = f.yMerge + mergeH / 2;
+        if (f.parallel) {
+          const pad = 12;
+          const r0 = FORK_GATEWAY_RADIUS;
+          return /* @__PURE__ */ h(
+            RowHitTarget,
+            {
+              key: `hit-${i}`,
+              rowIndex: i,
+              x: mCx - r0 - pad,
+              y: mCy - r0 - pad,
+              w: r0 * 2 + pad * 2,
+              h: r0 * 2 + pad * 2,
+              selected: selectedRowIndex === i,
+              onSelect: onRowSelect
+            }
+          );
+        }
         const mW = 40;
         const mH = 28;
         return /* @__PURE__ */ h(

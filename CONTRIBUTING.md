@@ -7,14 +7,14 @@ pull request.
 ## Prerequisites
 
 - Node.js 18+ (the toolchain targets modern ESM and ES2022).
-- npm 9+ (the repo uses npm **workspaces**).
+- pnpm 9+ ([install](https://pnpm.io/installation); the repo uses **pnpm workspaces** via `pnpm-workspace.yaml`).
 
 ## Setup
 
 ```bash
-npm install      # installs all workspace dependencies
-npm run dev      # starts the web editor (Vite)
-npm test         # runs the @kai-swimlane/core test suite (vitest)
+pnpm install      # installs all workspace dependencies
+pnpm run dev      # starts the web editor (Vite)
+pnpm test         # runs the @kai-swimlane/core test suite (vitest)
 ```
 
 ## Repository layout
@@ -53,7 +53,7 @@ node scripts/generate-diagram-pure.mjs
 ```
 
 The parity test (`packages/core/src/render-pure/parity.test.js`) renders both
-and asserts byte-for-byte equality after normalization, so `npm test` will fail
+and asserts byte-for-byte equality after normalization, so `pnpm test` will fail
 if you forget to regenerate. A separate test
 (`render-pure/native-esm.test.js`) imports the generated module under Node's
 native ESM loader to catch problems that vitest's esbuild transform hides (e.g.
@@ -68,8 +68,8 @@ node scripts/generate-icon-paths.mjs   # regenerates render-pure/icon-paths.js f
 ## Tests
 
 ```bash
-npm test                          # all core tests
-npm test -- parity                # a single file by name (vitest filter)
+pnpm test                          # all core tests
+pnpm test -- parity                # a single file by name (vitest filter)
 ```
 
 Please add a regression test for any bug fix or behavior change. Diagram
@@ -79,8 +79,8 @@ behavior can be asserted against the rendered SVG string from
 ## Building the IDE extension
 
 ```bash
-npm run package:extension     # builds and packages the .vsix into plugins/vscode/
-npm run package:cursor-plugin # also bundles the Cursor local plugin zip
+pnpm run package:extension     # builds and packages the .vsix into plugins/vscode/
+pnpm run package:cursor-plugin # also bundles the Cursor local plugin zip
 ```
 
 See [docs/PLUGIN.md](docs/PLUGIN.md) for the full plugin workflow.
@@ -88,16 +88,17 @@ See [docs/PLUGIN.md](docs/PLUGIN.md) for the full plugin workflow.
 ## Publishing the npm packages
 
 The library packages are currently marked `private` so they are not published by
-accident. To publish, set the desired `version`, set `"private": false` on the
-package you want to release, and ensure the npm scope/name is owned by your org.
-Note that the packages publish their `src` directory directly (ESM, no build
-step), so consumers need a bundler/transpiler for the JSX entry points; the
-`@kai-swimlane/core/render-pure` entry point needs none.
+accident. To publish to the npm registry, set the desired `version`, set
+`"private": false` on the package you want to release, and ensure the npm
+scope/name is owned by your org. Note that the packages publish their `src`
+directory directly (ESM, no build step), so consumers need a bundler/transpiler
+for the JSX entry points; the `@kai-swimlane/core/render-pure` entry point needs
+none.
 
 ## Commit / PR conventions
 
 - Keep changes focused; one logical change per commit.
-- Run `npm test` (and `npm run lint` for web changes) before pushing.
+- Run `pnpm test` (and `pnpm run lint` for web changes) before pushing.
 - Reference the issue you are addressing in the PR description.
 
 ## License

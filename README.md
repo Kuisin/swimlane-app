@@ -1,6 +1,6 @@
 # Kai Swimlane
 
-A DSL-based swimlane diagram editor built with React + Vite, organized as an npm workspaces monorepo so the web app and markdown fence renderers share one parser and diagram implementation.
+A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm workspace monorepo so the web app and markdown fence renderers share one parser and diagram implementation.
 
 ## Repository layout
 
@@ -25,8 +25,8 @@ Shared logic lives in **`@kai-swimlane/core`**. The **`kai-swimlane`** and **`ka
 Build a shareable `.vsix` and install it in VS Code or Cursor:
 
 ```bash
-npm install
-npm run package:extension
+pnpm install
+pnpm run package:extension
 ```
 
 Full steps: [docs/PLUGIN.md](docs/PLUGIN.md).
@@ -34,7 +34,7 @@ Full steps: [docs/PLUGIN.md](docs/PLUGIN.md).
 **Cursor local plugin** (rules + skill, copy to `~/.cursor/plugins/local/kai-swimlane`):
 
 ```bash
-npm run install:cursor-plugin
+pnpm run install:cursor-plugin
 ```
 
 See [plugins/cursor/kai-swimlane/README.md](plugins/cursor/kai-swimlane/README.md).
@@ -46,15 +46,15 @@ See [plugins/cursor/kai-swimlane/README.md](plugins/cursor/kai-swimlane/README.m
 From the repository root:
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Build and preview:
 
 ```bash
-npm run build
-npm run preview -w @kai-swimlane/web
+pnpm run build
+pnpm --filter @kai-swimlane/web preview
 ```
 
 The editor is published under the Vite base path **`/swimlane-app/`**:
@@ -107,7 +107,7 @@ import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
 
 ## LLM HTTP API (dev server only)
 
-While **`npm run dev`** is running, the Vite dev server exposes an HTTP API so tools can turn **DSL text** into a **PNG** without using the browser UI. This is **not** available from `npm run preview` or a static GitHub Pages deploy.
+While **`pnpm run dev`** is running, the Vite dev server exposes an HTTP API so tools can turn **DSL text** into a **PNG** without using the browser UI. This is **not** available from `pnpm run preview` or a static GitHub Pages deploy.
 
 The app is served under the Vite **`base`** path ([`apps/web/vite.config.js`](apps/web/vite.config.js)): **`/swimlane-app/`**.
 

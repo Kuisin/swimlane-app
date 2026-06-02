@@ -3,7 +3,7 @@
 Built `.vsix` files are written here by:
 
 ```bash
-npm run package:extension
+pnpm run package:extension
 ```
 
 Example: `vscode-kai-swimlane-0.1.0.vsix`

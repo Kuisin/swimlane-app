@@ -29,7 +29,7 @@
     ".": "./src/index.js"
   },
   "dependencies": {
-    "@kai-swimlane/core": "*"
+    "@kai-swimlane/core": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0",

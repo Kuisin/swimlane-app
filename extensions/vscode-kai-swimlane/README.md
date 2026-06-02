@@ -20,15 +20,15 @@ Changing the theme refreshes the built-in Markdown preview automatically.
 From the repository root:
 
 ```bash
-npm install
-npm run build:extension
+pnpm install
+pnpm run build:extension
 ```
 
 Press **F5** in this folder to open an Extension Development Host.
 
 ## Package a shareable `.vsix`
 
-From the repository root: `npm run package:extension`
+From the repository root: `pnpm run package:extension`
 
 Output: `plugins/vscode/vscode-kai-swimlane-<version>.vsix`
 

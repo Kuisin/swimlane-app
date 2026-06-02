@@ -2,7 +2,7 @@
   "name": "kai-swimlane",
   "private": true,
   "version": "0.0.0",
-  "description": "DSL-based swimlane diagram editor and renderers (web app, markdown fences, VS Code/Cursor plugins) in an npm workspaces monorepo.",
+  "description": "DSL-based swimlane diagram editor and renderers (web app, markdown fences, VS Code/Cursor plugins) in a pnpm workspace monorepo.",
   "license": "MIT",
   "homepage": "https://github.com/Kuisin/swimlane-app#readme",
   "repository": {
@@ -20,24 +20,20 @@
     "markdown",
     "svg"
   ],
-  "workspaces": [
-    "packages/*",
-    "apps/*",
-    "extensions/*"
-  ],
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "npm run dev -w @kai-swimlane/web",
-    "build": "npm run build -w @kai-swimlane/web",
-    "lint": "npm run lint -w @kai-swimlane/web",
-    "test": "npm run test -w @kai-swimlane/core",
-    "preview": "npm run preview -w @kai-swimlane/web",
-    "build:extension": "npm run build -w vscode-kai-swimlane",
-    "package:extension": "npm run package -w vscode-kai-swimlane",
+    "dev": "pnpm --filter @kai-swimlane/web dev",
+    "build": "pnpm --filter @kai-swimlane/web build",
+    "lint": "pnpm --filter @kai-swimlane/web lint",
+    "test": "pnpm --filter @kai-swimlane/core test",
+    "preview": "pnpm --filter @kai-swimlane/web preview",
+    "build:extension": "pnpm --filter vscode-kai-swimlane build",
+    "package:extension": "pnpm --filter vscode-kai-swimlane package",
     "verify:extension": "bash scripts/verify-extension.sh",
     "bundle:cursor-plugin": "bash scripts/bundle-cursor-plugin.sh",
     "zip:cursor-plugin": "bash scripts/zip-cursor-plugin.sh",
-    "package:cursor-plugin": "npm run package:extension && npm run bundle:cursor-plugin && npm run zip:cursor-plugin",
-    "install:cursor-plugin": "npm run package:cursor-plugin && bash scripts/install-cursor-plugin.sh"
+    "package:cursor-plugin": "pnpm run package:extension && pnpm run bundle:cursor-plugin && pnpm run zip:cursor-plugin",
+    "install:cursor-plugin": "pnpm run package:cursor-plugin && bash scripts/install-cursor-plugin.sh"
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
