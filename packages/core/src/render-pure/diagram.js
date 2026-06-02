@@ -1170,18 +1170,14 @@ function renderDiagramSvg({
     if (fromIdx < 0 || toIdx < 0) return;
     const y1 = stepBlockCenterY(prev.i) + 22;
     const y2 = stepBlockCenterY(cur.i) - 22;
-    let bendY;
+    let hasBranchGroupBetween = false;
     for (let j = prev.i + 1; j < cur.i; j++) {
       if (rows[j]?.kind === "groupStart" && groupModeOf(rows[j]) === "branch") {
-        const gEnd = findGroupEndIndex(rows, j);
-        const lastInner = lastStepInsideGroup(j, gEnd >= 0 ? gEnd : cur.i);
-        if (lastInner >= 0) {
-          const below = stepBlockBottomY(lastInner) + 16;
-          bendY = Math.min(y2 - 8, Math.max(bendY ?? below, below));
-        }
-        if (gEnd > j) j = gEnd;
+        hasBranchGroupBetween = true;
+        break;
       }
     }
+    const bendY = hasBranchGroupBetween ? Math.max(y1 + 12, y2 - 16) : void 0;
     connectors.push({
       fromX: nodeCenterX(prev.i, prev.r.role),
       toX: nodeCenterX(cur.i, cur.r.role),
