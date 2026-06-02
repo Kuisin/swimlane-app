@@ -988,7 +988,34 @@ export function Diagram({
     return firstStepIdxInCase(c) == null;
   }
 
+  /** First interior step of a fork (skips branch-group side steps). */
+  function forkFirstBlockX(f) {
+    const startIdx = rows.findIndex(
+      (r) => r.kind === "branchStart" && r.id === f.id,
+    );
+    if (startIdx < 0) return null;
+    for (let j = startIdx + 1; j < rows.length; j++) {
+      const row = rows[j];
+      if (row.kind === "branchEnd" && row.id === f.id) break;
+      if (
+        row.kind === "step" &&
+        !row.empty &&
+        row.role &&
+        !isInsideBranchGroup(rows, j)
+      ) {
+        return nodeCenterX(j, row.role);
+      }
+    }
+    return null;
+  }
+
   function frameAnchorX(f) {
+    // With merge-at-previous-block, a fork's split gateway sits on its FIRST
+    // interior block (mirroring how the join sits on the last one).
+    if (f.parallel && mergeAtPreviousBlock) {
+      const fx = forkFirstBlockX(f);
+      if (fx != null) return fx;
+    }
     const startIdx = rows.findIndex(
       (r) => r.kind === "branchStart" && r.id === f.id,
     );
