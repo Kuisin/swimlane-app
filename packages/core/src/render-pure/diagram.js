@@ -781,7 +781,7 @@ function renderDiagramSvg({
     if (startIdx > 0) {
       for (let j = startIdx - 1; j >= 0; j--) {
         const row = rows[j];
-        if (row.kind === "step" && !row.empty && row.role) {
+        if (row.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, j)) {
           return nodeCenterX(j, row.role);
         }
         if (row.kind === "branchCase" && row.depth != null && row.depth < (f.depth ?? 0))

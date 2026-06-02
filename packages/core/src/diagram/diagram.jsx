@@ -995,7 +995,14 @@ export function Diagram({
     if (startIdx > 0) {
       for (let j = startIdx - 1; j >= 0; j--) {
         const row = rows[j];
-        if (row.kind === "step" && !row.empty && row.role) {
+        // Skip steps inside a branch group: the gateway should anchor on the
+        // main flow, not on a side branch sitting just before it.
+        if (
+          row.kind === "step" &&
+          !row.empty &&
+          row.role &&
+          !isInsideBranchGroup(rows, j)
+        ) {
           return nodeCenterX(j, row.role);
         }
         if (
