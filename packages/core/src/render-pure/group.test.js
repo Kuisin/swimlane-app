@@ -120,6 +120,29 @@ endfork
     expect(() => render(dsl)).not.toThrow();
   });
 
+  it("shifts a branch sideways when it shares a lane with the main flow", () => {
+    const dsl = `@kai-swimlane
+/role/
+<a>
+label: A;
+/line/
+[a: MAIN1]
+branch (sub)
+  [a: SIDE1]
+end-branch
+[a: MAIN2]
+@end`;
+    const svg = render(dsl);
+    const xOf = (label) => {
+      const i = svg.indexOf(">" + label + "<");
+      const m = [...svg.slice(0, i).matchAll(/<text x="([\d.]+)"/g)];
+      return +m[m.length - 1][1];
+    };
+    // Main-flow blocks share the lane center; the branch block is offset aside.
+    expect(xOf("MAIN1")).toBe(xOf("MAIN2"));
+    expect(xOf("SIDE1")).toBeGreaterThan(xOf("MAIN1"));
+  });
+
   it("round-trips through serializeDSL as branch / end-branch", () => {
     const text = serializeDSL(parseDSL(BRANCH));
     expect(text).toContain("branch (Side Work) #purple");

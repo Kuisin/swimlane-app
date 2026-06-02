@@ -614,6 +614,33 @@ function renderDiagramSvg({
   for (const f of frames) {
     if (!f.parentCase) fillStepOffsets(f, null);
   }
+  const mainFlowLanes = /* @__PURE__ */ new Set();
+  rows.forEach((r, i) => {
+    if (r.kind === "step" && !r.empty && r.role && !isInsideBranchGroup(rows, i)) {
+      mainFlowLanes.add(r.role);
+    }
+  });
+  function branchGroupDepth(rowIndex) {
+    let d = 0;
+    let g = findEnclosingBranchGroupStart(rows, rowIndex);
+    while (g >= 0) {
+      d += 1;
+      g = findEnclosingBranchGroupStart(rows, g);
+    }
+    return d;
+  }
+  const branchLaneShift = nodeW / 2 + caseClearance + 20;
+  rows.forEach((row, i) => {
+    if (row.kind !== "step" || row.empty || !row.role) return;
+    if (!mainFlowLanes.has(row.role)) return;
+    const depth = branchGroupDepth(i);
+    if (depth > 0) {
+      stepOffsetByIndex.set(
+        i,
+        (stepOffsetByIndex.get(i) || 0) + depth * branchLaneShift
+      );
+    }
+  });
   function stepPropSideCounts(row) {
     const left = [];
     const right = [];
@@ -1141,13 +1168,28 @@ function renderDiagramSvg({
     const fromIdx = laneIndex(prev.r.role);
     const toIdx = laneIndex(cur.r.role);
     if (fromIdx < 0 || toIdx < 0) return;
+    const y1 = stepBlockCenterY(prev.i) + 22;
+    const y2 = stepBlockCenterY(cur.i) - 22;
+    let bendY;
+    for (let j = prev.i + 1; j < cur.i; j++) {
+      if (rows[j]?.kind === "groupStart" && groupModeOf(rows[j]) === "branch") {
+        const gEnd = findGroupEndIndex(rows, j);
+        const lastInner = lastStepInsideGroup(j, gEnd >= 0 ? gEnd : cur.i);
+        if (lastInner >= 0) {
+          const below = stepBlockBottomY(lastInner) + 16;
+          bendY = Math.min(y2 - 8, Math.max(bendY ?? below, below));
+        }
+        if (gEnd > j) j = gEnd;
+      }
+    }
     connectors.push({
       fromX: nodeCenterX(prev.i, prev.r.role),
       toX: nodeCenterX(cur.i, cur.r.role),
-      y1: stepBlockCenterY(prev.i) + 22,
-      y2: stepBlockCenterY(cur.i) - 22,
+      y1,
+      y2,
       key,
-      lineType: stepOutgoingArrowLine(prev.r)
+      lineType: stepOutgoingArrowLine(prev.r),
+      bendY
     });
   }
   const mainFlowSteps = stepRows.filter((x) => !isInsideBranchGroup(rows, x.i));
@@ -2031,7 +2073,7 @@ function renderDiagramSvg({
       }
       const x1 = c.fromX;
       const x2 = c.toX;
-      const mid = (c.y1 + c.y2) / 2;
+      const mid = c.bendY ?? (c.y1 + c.y2) / 2;
       const d = `M ${x1} ${c.y1} L ${x1} ${mid} L ${x2} ${mid} L ${x2} ${c.y2}`;
       return /* @__PURE__ */ h(
         "path",
