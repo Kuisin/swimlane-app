@@ -8,21 +8,23 @@ footer-left: 社外秘;
 footer-center: 社内利用限定;
 footer-right: 2026-06-02;
 description: ```
-5つのチームにまたがる注文処理パイプライン。チャネル受付、
-検証、非同期フルフィルメント、リトライ、レシート発行を網羅します。
+全機能の動作確認用サンプル。ページ／レーン／ブロック／プロップ／
+分岐・ループ・並行・マージ・矢印線種・// コメントを 1 本のフローで網羅します。
 ```;
 
 /title/
-注文フルフィルメント フロー
+注文フルフィルメント（全機能テスト）
 
 /role/
 <customer>
 label: 顧客;
-icon: #user;
+icon: ☎;
 background-color: #e0f2fe;
 <frontend>
 label: Webフロントエンド;
 icon: #monitor;
+text-color: #1e3a5f;
+background-color: #f1f5f9;
 <api>
 label: APIゲートウェイ;
 icon: #server;
@@ -50,6 +52,16 @@ icon: #shield;
 border-color: #c2410c;
 <job>
 shape: subroutine;
+<notify>
+shape: cloud;
+icon: #mail;
+<memo>
+shape: note;
+<rectsys>
+shape: rect;
+icon: #settings;
+<rounded>
+shape: rounded;
 
 /prop/
 <reqdoc>
@@ -59,21 +71,34 @@ title: 受信リクエストの内容;
 <auditlog>
 label: 監査;
 side: right;
+background-color: #f8fafc;
+border-color: #64748b;
+text-color: #0f172a;
+max-chars: 8;
+hint: 監査証跡（hint: は title と同義）;
 <receipt>
 label: 受領;
 side: right;
 title: 顧客向けレシート;
 
 /line/
-*** このファイルで使うフロー制御（help.md と同じルール） ***
-*** ・if / elseif / else / endif … 排他分岐（ダイヤモンドで合流） ***
-*** ・[loop] … ケース末尾。同じ if の条件へ戻る（endif 合流を使わない） ***
-*** ・fork / and / endfork … 並行分岐（全パス同時。バーで分岐・結合） ***
-*** ・merge: <id>; … if ケース末尾。endif ではなく id: <id>; の下流ステップへ直接合流 ***
-***   合流先ステップには id: <id>; が必須（label: では合流できない）。id はファイル内で一意 ***
+// --- 機能チェックリスト（help.md 準拠） ---
+// ・/page/ … header/footer 6 項目 + description（``` 複数行）
+// ・/role/ … label, text-color, background-color, icon（#lucide / 絵文字）
+// ・/block/ … shape: rect|rounded|hex|ellipse|cloud|note|subroutine + 色
+// ・/prop/ … label, side, title/hint, 色, max-chars
+// ・ステップ … [lane: 本文] <block>; label / desc / skip / props / id / arrow
+// ・if|elseif|else|endif … than #色（blue,green,red,orange,purple,gray,black）
+// ・[loop] … ケース末尾。同じ if へ戻る
+// ・fork|and|endfork … 並行（fork #色 可）
+// ・merge: <id>; … 下流 id: <id>; へ合流（矢印は直前ステップの arrow:）
+// ・arrow: solid|dashed|dotted; … 直後の矢印（省略＝実線）
+// ・// … 行頭コメント（本行のような行）
+*** レガシー行コメント（*** 始まりも可。desc 内の ***太字*** とは別） ***
 
+// --- 受付チャネル（排他分岐・skip・rounded ブロック） ---
 if (受付チャネルは？) is (Web) than #blue
-  [frontend: Webフォームを開く]
+  [frontend: Webフォームを開く] <rounded>
   skip;
 elseif (モバイル) than #green
   [frontend: モバイルアプリを開く]
@@ -83,6 +108,7 @@ else
   skip;
 endif
 
+// --- 注文確定（ellipse 開始・desc フェンス・props・arrow: dotted） ---
 [customer: 注文を確定] <start>
 label: 注文送信;
 desc: ```
@@ -90,7 +116,9 @@ desc: ```
 _暗号化された決済トークン_ を含みます。
 ```;
 props: reqdoc;
+arrow: dotted;
 
+// --- 検証（hex ブロック・複数 props） ---
 [frontend: フォームを検証] <gate>
 desc: ```
 必須項目を確認し、不正な入力はAPIに到達する前に
@@ -98,8 +126,9 @@ desc: ```
 ```;
 props: reqdoc, auditlog;
 
+// --- バリデーション結果（ネスト if・rect/subroutine/cloud/note） ---
 if (フォームは有効？) is (有効) than #green
-  [api: リクエストを受理]
+  [api: リクエストを受理] <rectsys>
   desc: ```
 呼び出し元を認証し、注文をフルフィルメント用の
 キューに登録します。
@@ -123,11 +152,11 @@ if (フォームは有効？) is (有効) than #green
     props: receipt;
   elseif (取り寄せ) than #orange
     [worker: 取り寄せをキュー] <job>
-    [customer: 遅延を通知]
+    [customer: 遅延を通知] <notify>
     skip;
   else
     [customer: 返金]
-    [db: 返金を記録]
+    [db: 返金を記録] <memo>
   endif
 
   [api: 注文を確定]
@@ -146,13 +175,16 @@ else
   skip;
 endif
 
+// --- 確認（terminal・arrow: dashed） ---
 [customer: 確認を受信] <terminal>
 label: 確認済み;
 desc: ```
 注文サマリーと配送予定日を含む確認画面を
 顧客に表示します。
 ```;
+arrow: dashed;
 
+// --- レシート（単純 if） ---
 if (レシートは必要？) is (はい) than #purple
   [api: レシートを生成]
   desc: ```
@@ -164,9 +196,21 @@ if (レシートは必要？) is (はい) than #purple
   skip;
 endif
 
-*** 並行処理: fork で全パス同時実行 → endfork で結合（#色 は than #色 と同じ） ***
+// --- 監査レベル（#gray / #black / else・実線矢印は arrow 省略） ---
+if (監査レベルは？) is (標準) than #gray
+  [api: 標準監査ログを記録]
+  skip;
+elseif (強化) than #black
+  [api: 強化監査ログを記録]
+  props: auditlog;
+else
+  [api: 監査をスキップ]
+  skip;
+endif
+
+// --- 並行処理（fork #purple / and ×2 / endfork） ---
 fork #purple
-  [api: レシートをメール送信]
+  [api: レシートをメール送信] <notify>
   desc: ```
 確定した注文のレシートを生成し、
 顧客へメールで送付します。
@@ -187,13 +231,14 @@ and
 ```;
 endfork
 
-*** 途中マージ: merge: trans-comp; → 下流の id: trans-comp; へ矢印（endif 合流をスキップ） ***
+// --- 途中マージ（merge: + id: + arrow: dashed on merge source） ---
 if (キャンセル要求は？) is (あり) than #red
   [customer: キャンセルを受付]
   desc: ```
 顧客がキャンセルを要求。以降の通常処理を
 スキップし、終端ステップへ直接合流します。
 ```;
+  arrow: dashed;
   merge: trans-comp;
 else
   [api: 通常クローズ処理]
@@ -203,6 +248,7 @@ else
 ```;
 endif
 
+// --- 終端（id: が merge 合流先） ---
 [customer: 取引完了] <terminal>
 id: trans-comp;
 label: 取引完了;

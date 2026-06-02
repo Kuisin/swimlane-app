@@ -7,6 +7,7 @@ import {
   findNextFlowStepAfterBranchEnd,
   findNextSiblingBranchStart,
 } from "../branch-rows.js";
+import { arrowLineStrokeProps, stepOutgoingArrowLine } from "../arrow-line.js";
 import { StepShape } from "./step-shape.js";
 import { BlockIcon } from "./block-icon.js";
 import { h, Fragment } from "./svg-utils.js";
@@ -1102,8 +1103,16 @@ function renderDiagramSvg({
       toX,
       y1: prevCy + 22,
       y2: curCy - 22,
-      key: `c-${i}`
+      key: `c-${i}`,
+      lineType: stepOutgoingArrowLine(prev.r)
     });
+  }
+  function lastStepInBranchSpan(startIdx, endIdx) {
+    for (let j = endIdx - 1; j > startIdx; j--) {
+      const row = rows[j];
+      if (row?.kind === "step" && !row.empty && row.role) return j;
+    }
+    return -1;
   }
   const frameById = new Map(frames.map((f) => [f.id, f]));
   function startTerminalAnchor() {
@@ -1130,17 +1139,23 @@ function renderDiagramSvg({
       if (row.kind === "step" && !row.empty && row.role) {
         return {
           x: nodeCenterX(i, row.role),
-          sourceY: stepBlockCenterY(i) + 22
+          sourceY: stepBlockCenterY(i) + 22,
+          lineType: stepOutgoingArrowLine(row)
         };
       }
       if (row.kind === "branchEnd") {
         const frame = frameById.get(row.id);
         if (!frame) continue;
+        const startIdx = rows.findIndex(
+          (r) => r.kind === "branchStart" && r.id === row.id
+        );
+        const lastInBranch = startIdx >= 0 ? lastStepInBranchSpan(startIdx, i) : -1;
         const mergeCenterX = mergeAnchorX(frame);
         const mergeBottomY = frame.yMerge + mergeH / 2 + 14;
         return {
           x: mergeCenterX,
-          sourceY: mergeBottomY
+          sourceY: mergeBottomY,
+          lineType: lastInBranch >= 0 ? stepOutgoingArrowLine(rows[lastInBranch]) : "solid"
         };
       }
     }
@@ -1601,6 +1616,7 @@ function renderDiagramSvg({
             fromBottomY,
             targetIdx: mergeJump.targetIdx
           });
+          const mergeLineType = mergeJump.prevStepIdx != null ? stepOutgoingArrowLine(rows[mergeJump.prevStepIdx]) : "solid";
           return /* @__PURE__ */ h(
             "path",
             {
@@ -1609,8 +1625,8 @@ function renderDiagramSvg({
               fill: "none",
               stroke: theme.stroke,
               strokeWidth: "1.6",
-              strokeDasharray: "6 3",
-              markerEnd: "url(#arrowhead)"
+              markerEnd: "url(#arrowhead)",
+              ...arrowLineStrokeProps(mergeLineType)
             }
           );
         }
@@ -1640,6 +1656,7 @@ function renderDiagramSvg({
             sourceStepIdx,
             caseOffset: c.offset || 0
           });
+          const loopLineType = sourceStepIdx != null ? stepOutgoingArrowLine(rows[sourceStepIdx]) : "solid";
           return /* @__PURE__ */ h(
             "path",
             {
@@ -1648,7 +1665,8 @@ function renderDiagramSvg({
               fill: "none",
               stroke: theme.stroke,
               strokeWidth: "1.6",
-              markerEnd: "url(#arrowhead)"
+              markerEnd: "url(#arrowhead)",
+              ...arrowLineStrokeProps(loopLineType)
             }
           );
         }
@@ -1678,6 +1696,8 @@ function renderDiagramSvg({
         const sideOffset = c.offset || 0;
         const needsMergeElbow = Math.abs(fromX - toX) > 0.5 || sideOffset !== 0 || stubCase;
         const d = needsMergeElbow ? `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}` : `M ${fromX} ${fromY} L ${toX} ${toY}`;
+        const lastInCase = lastStepIdxInCase(c);
+        const mrgLineType = lastInCase != null ? stepOutgoingArrowLine(rows[lastInCase]) : "solid";
         return /* @__PURE__ */ h(
           "path",
           {
@@ -1685,7 +1705,8 @@ function renderDiagramSvg({
             d,
             fill: "none",
             stroke: theme.stroke,
-            strokeWidth: "1.6"
+            strokeWidth: "1.6",
+            ...arrowLineStrokeProps(mrgLineType)
           }
         );
       }), f.cases.map((c, ci) => {
@@ -1732,6 +1753,7 @@ function renderDiagramSvg({
       ));
     }),
     connectors.map((c) => {
+      const dash = arrowLineStrokeProps(c.lineType || "solid");
       if (Math.abs(c.fromX - c.toX) < 0.5) {
         const x = c.fromX;
         return /* @__PURE__ */ h(
@@ -1744,7 +1766,8 @@ function renderDiagramSvg({
             y2: c.y2,
             stroke: theme.stroke,
             strokeWidth: "1.6",
-            markerEnd: "url(#arrowhead)"
+            markerEnd: "url(#arrowhead)",
+            ...dash
           }
         );
       }
@@ -1760,7 +1783,8 @@ function renderDiagramSvg({
           fill: "none",
           stroke: theme.stroke,
           strokeWidth: "1.6",
-          markerEnd: "url(#arrowhead)"
+          markerEnd: "url(#arrowhead)",
+          ...dash
         }
       );
     }),
@@ -1793,7 +1817,8 @@ function renderDiagramSvg({
         y2: endTerminal.y - terminalRadius,
         stroke: theme.stroke,
         strokeWidth: "1.6",
-        markerEnd: "url(#arrowhead)"
+        markerEnd: "url(#arrowhead)",
+        ...arrowLineStrokeProps(endTerminal.lineType || "solid")
       }
     ), /* @__PURE__ */ h(
       "circle",
@@ -1998,6 +2023,7 @@ function renderDiagramSvg({
       const mCx = mergeAnchorX(f);
       const mBotY = f.yMerge + mergeH / 2 + (f.parallel ? FORK_GATEWAY_RADIUS : 14);
       const edges = [];
+      const branchLastStep = lastStepInBranchSpan(startIdx, endIdx);
       if (prevStepIdx >= 0) {
         const r = rows[prevStepIdx];
         const li = laneIndex(r.role);
@@ -2014,7 +2040,8 @@ function renderDiagramSvg({
               fill: "none",
               stroke: theme.stroke,
               strokeWidth: "1.6",
-              markerEnd: "url(#arrowhead)"
+              markerEnd: "url(#arrowhead)",
+              ...arrowLineStrokeProps(stepOutgoingArrowLine(r))
             }
           )
         );
@@ -2026,6 +2053,7 @@ function renderDiagramSvg({
         const ty = stepBlockCenterY(nextStepIdx) - 22;
         const bend = (mBotY + ty) / 2;
         const d = tx === mCx ? `M ${mCx} ${mBotY} L ${tx} ${ty}` : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${tx} ${bend} L ${tx} ${ty}`;
+        const outLineType = branchLastStep >= 0 ? stepOutgoingArrowLine(rows[branchLastStep]) : "solid";
         edges.push(
           /* @__PURE__ */ h(
             "path",
@@ -2035,7 +2063,8 @@ function renderDiagramSvg({
               fill: "none",
               stroke: theme.stroke,
               strokeWidth: "1.6",
-              markerEnd: "url(#arrowhead)"
+              markerEnd: "url(#arrowhead)",
+              ...arrowLineStrokeProps(outLineType)
             }
           )
         );
@@ -2047,6 +2076,7 @@ function renderDiagramSvg({
           const nextTopY = branchDecisionCy(nextFrame) - (nextFrame.parallel ? FORK_GATEWAY_RADIUS : 25);
           const bend = (mBotY + nextTopY) / 2;
           const d = Math.abs(nextCx - mCx) < 0.5 ? `M ${mCx} ${mBotY} L ${nextCx} ${nextTopY}` : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${nextCx} ${bend} L ${nextCx} ${nextTopY}`;
+          const outLineType = branchLastStep >= 0 ? stepOutgoingArrowLine(rows[branchLastStep]) : "solid";
           edges.push(
             /* @__PURE__ */ h(
               "path",
@@ -2056,7 +2086,8 @@ function renderDiagramSvg({
                 fill: "none",
                 stroke: theme.stroke,
                 strokeWidth: "1.6",
-                markerEnd: "url(#arrowhead)"
+                markerEnd: "url(#arrowhead)",
+                ...arrowLineStrokeProps(outLineType)
               }
             )
           );

@@ -5,7 +5,13 @@ export {
   findNextSiblingBranchStart,
   findNextFlowStepAfterBranchEnd,
 } from "./branch-rows.js";
-export { parseDSL, parseDSLParts, unescapeDslLine, buildStepRowDisplayInfo } from "./parser.js";
+export {
+  parseDSL,
+  parseDSLParts,
+  unescapeDslLine,
+  isDslCommentLine,
+  buildStepRowDisplayInfo,
+} from "./parser.js";
 export { serializeDSL } from "./serializer.js";
 export { normalizeFullFenceDSL, normalizePartsFenceDSL } from "./fence.js";
 export { THEMES } from "./themes.js";
@@ -16,6 +22,12 @@ export {
   parseTemplateMd,
 } from "./utils.js";
 export { getLucideIcon, getIconNames } from "./icon-registry.js";
+export {
+  ARROW_LINE_TYPES,
+  normalizeArrowLine,
+  arrowLineStrokeProps,
+  stepOutgoingArrowLine,
+} from "./arrow-line.js";
 export { Diagram, BRANCH_COLOR_STYLES } from "./diagram/diagram.jsx";
 export { StepShape } from "./diagram/step-shape.jsx";
 export { BlockIcon } from "./diagram/block-icon.jsx";

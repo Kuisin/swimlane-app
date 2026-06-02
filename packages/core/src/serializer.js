@@ -164,6 +164,9 @@ function serializeStepLines(out, row, depth) {
   if (row.props?.length) {
     out.push(indent(depth, `props: ${row.props.join(",")};`));
   }
+  if (row.arrowLine && row.arrowLine !== "solid") {
+    out.push(indent(depth, `arrow: ${row.arrowLine};`));
+  }
 }
 
 function serializeLineRows(rows) {

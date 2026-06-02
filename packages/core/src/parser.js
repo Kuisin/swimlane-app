@@ -1,3 +1,5 @@
+import { normalizeArrowLine } from "./arrow-line.js";
+
 /** `key: value;` in /role/, /block/, /prop/ — trailing semicolon is required. */
 function parseSectionPropertyLine(text) {
   const m = text.match(/^([a-zA-Z\-]+)\s*:\s*(.+);$/);
@@ -90,6 +92,12 @@ function parsePageSection(items, errors) {
   return page;
 }
 
+/** Whole-line comments (ignored in all sections). `***` kept for backward compatibility. */
+export function isDslCommentLine(trimmed) {
+  const t = (trimmed || "").trim();
+  return t.startsWith("//") || t.startsWith("***");
+}
+
 /** Unescape so `&lt;block01&gt;` and similar are parsed like `<block01>`. */
 export function unescapeDslLine(line) {
   return line
@@ -145,7 +153,7 @@ export function parseDSL(src) {
     const raw = lines[i];
     const t = raw.trim();
     if (!t) continue;
-    if (t.startsWith("***") || t.startsWith("@")) continue;
+    if (isDslCommentLine(t) || t.startsWith("@")) continue;
     const sec = t.match(/^\/(page|title|role|option|block|prop|line)\/$/);
     if (sec) {
       current = sec[1] === "option" ? "role" : sec[1];
@@ -315,8 +323,9 @@ export function parseDSL(src) {
 
   for (let lineIdx = 0; lineIdx < sections.line.length; lineIdx++) {
     const { text, line } = sections.line[lineIdx];
-    if (!text.trim()) continue;
-    const u = unescapeDslLine(text.trim());
+    const trimmed = text.trim();
+    if (!trimmed || isDslCommentLine(trimmed)) continue;
+    const u = unescapeDslLine(trimmed);
     if (!u) continue;
 
     let m = u.match(/^if\s*\((.+?)\)\s*is\s*\((.+?)\)\s*than(?:\s+#([A-Za-z]+))?$/i);
@@ -546,6 +555,30 @@ export function parseDSL(src) {
       ids.forEach((id) => {
         if (!props[id]) props[id] = { id, label: id, side: "right" };
       });
+      continue;
+    }
+
+    if (/^arrow:\s*/i.test(u)) {
+      if (lastRealStepIndex >= 0) appendLineToRow(lastRealStepIndex, line);
+      m = u.match(/^arrow:\s*(.+);\s*$/i);
+      if (!m) {
+        errors.push({ line, text, msg: "arrow: line must end with ';'" });
+        continue;
+      }
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "arrow: has no preceding step" });
+        continue;
+      }
+      const arrowVal = normalizeArrowLine(m[1].trim());
+      if (!arrowVal) {
+        errors.push({
+          line,
+          text,
+          msg: "arrow: must be solid, dashed, or dotted",
+        });
+        continue;
+      }
+      rows[lastRealStepIndex].arrowLine = arrowVal;
       continue;
     }
 

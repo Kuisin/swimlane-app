@@ -882,7 +882,11 @@ export function rowSummaryText(row, lanes) {
       const idPart = (row.mergeId || "").trim()
         ? `id=${row.mergeId} · `
         : "";
-      return `${idPart}${who}：${title}`;
+      const arrowPart =
+        row.arrowLine && row.arrowLine !== "solid"
+          ? `arrow=${row.arrowLine} · `
+          : "";
+      return `${idPart}${arrowPart}${who}：${title}`;
     }
     case "branchStart": {
       if (row.parallel) return "並行処理（同時に実行）";

@@ -37,10 +37,20 @@ describe("mid-flow merge", () => {
     expect(merge.mergeTarget).toBe("done");
   });
 
-  it("renders one dashed forward connector for the merge", () => {
+  it("renders solid merge forward connector by default", () => {
     const svg = render(MERGE);
-    // The merge connector is the only dashed path.
-    expect((svg.match(/strokeDasharray=/g) || []).length).toBe(1);
+    expect((svg.match(/strokeDasharray=/g) || []).length).toBe(0);
+  });
+
+  it("renders dashed merge when the preceding step sets arrow: dashed", () => {
+    const dashed = MERGE.replace(
+      "[a: キャンセル受付]",
+      "[a: キャンセル受付]\narrow: dashed;",
+    );
+    const svg = render(dashed);
+    expect((svg.match(/strokeDasharray="6 3"/g) || []).length).toBeGreaterThanOrEqual(
+      1,
+    );
   });
 
   it("errors when the merge target id does not exist", () => {

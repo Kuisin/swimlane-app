@@ -3,6 +3,7 @@ import {
   PropsFieldWithPicker,
 } from "./step-parts-pickers";
 
+import { ARROW_LINE_TYPES } from "@kai-swimlane/core";
 import {
   collectMergeTargetOptions,
   mergeIdIsTaken,
@@ -88,6 +89,29 @@ export function StepInspector({
             この id は他のステップと重複しています。ファイル内で一意にしてください。
           </p>
         )}
+      </div>
+      <div>
+        <label className="block text-[10px] text-stone-500 mb-1">
+          矢印の線種（このブロックの直後）
+        </label>
+        <select
+          value={row.arrowLine || "solid"}
+          onChange={(e) => {
+            const v = e.target.value;
+            onPatch({ arrowLine: v === "solid" ? undefined : v });
+          }}
+          className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
+        >
+          {ARROW_LINE_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t === "solid"
+                ? "実線"
+                : t === "dashed"
+                  ? "破線"
+                  : "点線"}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="block text-[10px] text-stone-500 mb-1">ラベル</label>

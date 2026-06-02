@@ -32,6 +32,7 @@ function normalizeModel(model) {
       delete copy.stepId;
       delete copy.mergeId;
       delete copy.dslLines;
+      delete copy.arrowLine;
       return copy;
     }),
     errors: model.errors,

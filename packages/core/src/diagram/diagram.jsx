@@ -1,3 +1,4 @@
+import { arrowLineStrokeProps, stepOutgoingArrowLine } from "../arrow-line.js";
 import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
 import {
@@ -1433,7 +1434,16 @@ export function Diagram({
       y1: prevCy + 22,
       y2: curCy - 22,
       key: `c-${i}`,
+      lineType: stepOutgoingArrowLine(prev.r),
     });
+  }
+
+  function lastStepInBranchSpan(startIdx, endIdx) {
+    for (let j = endIdx - 1; j > startIdx; j--) {
+      const row = rows[j];
+      if (row?.kind === "step" && !row.empty && row.role) return j;
+    }
+    return -1;
   }
 
   const frameById = new Map(frames.map((f) => [f.id, f]));
@@ -1469,16 +1479,26 @@ export function Diagram({
         return {
           x: nodeCenterX(i, row.role),
           sourceY: stepBlockCenterY(i) + 22,
+          lineType: stepOutgoingArrowLine(row),
         };
       }
       if (row.kind === "branchEnd") {
         const frame = frameById.get(row.id);
         if (!frame) continue;
+        const startIdx = rows.findIndex(
+          (r) => r.kind === "branchStart" && r.id === row.id,
+        );
+        const lastInBranch =
+          startIdx >= 0 ? lastStepInBranchSpan(startIdx, i) : -1;
         const mergeCenterX = mergeAnchorX(frame);
         const mergeBottomY = frame.yMerge + mergeH / 2 + 14;
         return {
           x: mergeCenterX,
           sourceY: mergeBottomY,
+          lineType:
+            lastInBranch >= 0
+              ? stepOutgoingArrowLine(rows[lastInBranch])
+              : "solid",
         };
       }
     }
@@ -1983,6 +2003,10 @@ export function Diagram({
                   fromBottomY,
                   targetIdx: mergeJump.targetIdx,
                 });
+                const mergeLineType =
+                  mergeJump.prevStepIdx != null
+                    ? stepOutgoingArrowLine(rows[mergeJump.prevStepIdx])
+                    : "solid";
                 return (
                   <path
                     key={`merge-${f.id}-${ci}`}
@@ -1990,8 +2014,8 @@ export function Diagram({
                     fill="none"
                     stroke={theme.stroke}
                     strokeWidth="1.6"
-                    strokeDasharray="6 3"
                     markerEnd="url(#arrowhead)"
+                    {...arrowLineStrokeProps(mergeLineType)}
                   />
                 );
               }
@@ -2025,6 +2049,10 @@ export function Diagram({
                   sourceStepIdx,
                   caseOffset: c.offset || 0,
                 });
+                const loopLineType =
+                  sourceStepIdx != null
+                    ? stepOutgoingArrowLine(rows[sourceStepIdx])
+                    : "solid";
                 return (
                   <path
                     key={`loop-${f.id}-${ci}`}
@@ -2033,6 +2061,7 @@ export function Diagram({
                     stroke={theme.stroke}
                     strokeWidth="1.6"
                     markerEnd="url(#arrowhead)"
+                    {...arrowLineStrokeProps(loopLineType)}
                   />
                 );
               }
@@ -2069,6 +2098,11 @@ export function Diagram({
               const d = needsMergeElbow
                 ? `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
                 : `M ${fromX} ${fromY} L ${toX} ${toY}`;
+              const lastInCase = lastStepIdxInCase(c);
+              const mrgLineType =
+                lastInCase != null
+                  ? stepOutgoingArrowLine(rows[lastInCase])
+                  : "solid";
               return (
                 <path
                   key={`mrg-${f.id}-${ci}`}
@@ -2076,6 +2110,7 @@ export function Diagram({
                   fill="none"
                   stroke={theme.stroke}
                   strokeWidth="1.6"
+                  {...arrowLineStrokeProps(mrgLineType)}
                 />
               );
             })}
@@ -2131,6 +2166,7 @@ export function Diagram({
 
       {/* Sequential flow connectors between normal step nodes */}
       {connectors.map((c) => {
+        const dash = arrowLineStrokeProps(c.lineType || "solid");
         if (Math.abs(c.fromX - c.toX) < 0.5) {
           const x = c.fromX;
           return (
@@ -2143,6 +2179,7 @@ export function Diagram({
               stroke={theme.stroke}
               strokeWidth="1.6"
               markerEnd="url(#arrowhead)"
+              {...dash}
             />
           );
         }
@@ -2158,6 +2195,7 @@ export function Diagram({
             stroke={theme.stroke}
             strokeWidth="1.6"
             markerEnd="url(#arrowhead)"
+            {...dash}
           />
         );
       })}
@@ -2192,6 +2230,7 @@ export function Diagram({
             stroke={theme.stroke}
             strokeWidth="1.6"
             markerEnd="url(#arrowhead)"
+            {...arrowLineStrokeProps(endTerminal.lineType || "solid")}
           />
           <circle
             cx={endTerminal.x}
@@ -2433,6 +2472,7 @@ export function Diagram({
           f.yMerge + mergeH / 2 + (f.parallel ? FORK_GATEWAY_RADIUS : 14);
 
         const edges = [];
+        const branchLastStep = lastStepInBranchSpan(startIdx, endIdx);
         if (prevStepIdx >= 0) {
           const r = rows[prevStepIdx];
           const li = laneIndex(r.role);
@@ -2451,6 +2491,7 @@ export function Diagram({
               stroke={theme.stroke}
               strokeWidth="1.6"
               markerEnd="url(#arrowhead)"
+              {...arrowLineStrokeProps(stepOutgoingArrowLine(r))}
             />,
           );
         }
@@ -2464,6 +2505,10 @@ export function Diagram({
             tx === mCx
               ? `M ${mCx} ${mBotY} L ${tx} ${ty}`
               : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${tx} ${bend} L ${tx} ${ty}`;
+          const outLineType =
+            branchLastStep >= 0
+              ? stepOutgoingArrowLine(rows[branchLastStep])
+              : "solid";
           edges.push(
             <path
               key={`out-${f.id}`}
@@ -2472,6 +2517,7 @@ export function Diagram({
               stroke={theme.stroke}
               strokeWidth="1.6"
               markerEnd="url(#arrowhead)"
+              {...arrowLineStrokeProps(outLineType)}
             />,
           );
         } else if (nextBranchStartIdx >= 0) {
@@ -2487,6 +2533,10 @@ export function Diagram({
               Math.abs(nextCx - mCx) < 0.5
                 ? `M ${mCx} ${mBotY} L ${nextCx} ${nextTopY}`
                 : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${nextCx} ${bend} L ${nextCx} ${nextTopY}`;
+            const outLineType =
+              branchLastStep >= 0
+                ? stepOutgoingArrowLine(rows[branchLastStep])
+                : "solid";
             edges.push(
               <path
                 key={`out-if-${f.id}-${rows[nextBranchStartIdx].id}`}
@@ -2495,6 +2545,7 @@ export function Diagram({
                 stroke={theme.stroke}
                 strokeWidth="1.6"
                 markerEnd="url(#arrowhead)"
+                {...arrowLineStrokeProps(outLineType)}
               />,
             );
           }
