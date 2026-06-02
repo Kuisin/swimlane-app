@@ -3,8 +3,12 @@ import {
   PropsFieldWithPicker,
 } from "./step-parts-pickers";
 
+import { mergeIdIsTaken } from "../../lib/flow-rows";
+
 export function StepInspector({
   row,
+  rows,
+  rowIndex,
   lanes,
   blocks,
   props,
@@ -18,6 +22,11 @@ export function StepInspector({
       </p>
     );
   }
+
+  const mergeIdValue = (row.mergeId || "").trim();
+  const mergeIdDuplicate =
+    mergeIdValue &&
+    mergeIdIsTaken(rows || [], mergeIdValue, rowIndex ?? -1);
 
   return (
     <div className="px-3 py-3 space-y-3 text-xs font-jp">
@@ -63,6 +72,11 @@ export function StepInspector({
           onChange={(e) => onPatch({ mergeId: e.target.value || undefined })}
           className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
         />
+        {mergeIdDuplicate && (
+          <p className="text-[10px] text-amber-400 mt-1">
+            この id は他のステップと重複しています。ファイル内で一意にしてください。
+          </p>
+        )}
       </div>
       <div>
         <label className="block text-[10px] text-stone-500 mb-1">ラベル</label>

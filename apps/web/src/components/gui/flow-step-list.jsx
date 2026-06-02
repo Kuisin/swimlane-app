@@ -13,8 +13,11 @@ import {
   branchCaseBadgeStyle,
   canAddAnd,
   canAddElseIf,
+  canAddMerge,
   canOutdentBranch,
+  findMergeTargetAfterBranch,
   isInsideOpenIf,
+  nextStepMergeId,
   findAdjacentBranchBlockIndex,
   findAdjacentCaseIndex,
   findAdjacentStepIndex,
@@ -61,6 +64,7 @@ export function FlowStepList({
         depth: rows[idx - 1]?.depth ?? 0,
         blockRef: null,
         stepId: `step-new-${Date.now()}`,
+        mergeId: nextStepMergeId(rows),
       },
     ]);
     onSelectRow(idx);
@@ -116,7 +120,7 @@ export function FlowStepList({
         parallel: true,
         cond: null,
         firstCase: null,
-        branchColor: null,
+        branchColor: "purple",
         id: branchId,
         depth: markerDepth,
       },
@@ -124,7 +128,7 @@ export function FlowStepList({
         kind: "branchCase",
         parallel: true,
         label: "",
-        branchColor: null,
+        branchColor: "purple",
         id: branchId,
         depth: caseDepth,
       },
@@ -156,30 +160,39 @@ export function FlowStepList({
   }
 
   function handleAddMerge() {
-    if (selectedRowIndex == null || !isInsideOpenIf(rows, selectedRowIndex))
-      return;
-    const idx = selectedRowIndex + 1;
+    if (selectedRowIndex == null || !canAddMerge(rows, selectedRowIndex)) return;
+    const mergeInsertAt = selectedRowIndex + 1;
     const start = findEnclosingStart(rows, selectedRowIndex);
     const branchId = rows[start]?.id;
-    // Default the target to the first id'd step downstream of the if.
     const endIdx = findBranchEndIndex(rows, start);
-    let target = "";
-    for (let i = endIdx + 1; i < rows.length; i++) {
-      const r = rows[i];
-      if (r.kind === "step" && !r.empty && r.role && (r.mergeId || "").trim()) {
-        target = r.mergeId.trim();
-        break;
+    const { mergeId, stepIndex, needsId } = findMergeTargetAfterBranch(
+      rows,
+      start,
+    );
+    onEditRows((draft) => {
+      let insertAt = mergeInsertAt;
+      if (stepIndex < 0) {
+        draft.rows.splice(endIdx + 1, 0, {
+          kind: "step",
+          role: defaultRole,
+          text: "合流先",
+          mergeId,
+          depth: draft.rows[endIdx]?.depth ?? 0,
+          blockRef: null,
+          stepId: `step-new-${Date.now()}`,
+        });
+        if (endIdx + 1 < insertAt) insertAt += 1;
+      } else if (needsId && draft.rows[stepIndex]) {
+        draft.rows[stepIndex].mergeId = mergeId;
       }
-    }
-    insertAt(idx, [
-      {
+      draft.rows.splice(insertAt, 0, {
         kind: "branchMerge",
-        mergeTarget: target,
+        mergeTarget: mergeId,
         mergeBranchId: branchId,
-        depth: branchBodyDepthAt(rows, idx),
-      },
-    ]);
-    onSelectRow(idx);
+        depth: branchBodyDepthAt(draft.rows, insertAt),
+      });
+    });
+    onSelectRow(mergeInsertAt);
   }
 
   function handleAddElseIf() {
@@ -221,7 +234,9 @@ export function FlowStepList({
     if (row.kind === "branchStart") {
       const endIdx = findBranchEndIndex(rows, index);
       if (endIdx < 0) return;
-      const msg = "この条件分岐と、その中の手順をすべて削除しますか？";
+      const msg = row.parallel
+        ? "この並行処理と、その中の手順をすべて削除しますか？"
+        : "この条件分岐と、その中の手順をすべて削除しますか？";
       if (!window.confirm(msg)) return;
       onEditRows((draft) => {
         draft.rows.splice(index, endIdx - index + 1);
@@ -307,7 +322,7 @@ export function FlowStepList({
   const canAnd =
     selectedRowIndex != null && canAddAnd(rows, selectedRowIndex);
   const canMerge =
-    selectedRowIndex != null && isInsideOpenIf(rows, selectedRowIndex);
+    selectedRowIndex != null && canAddMerge(rows, selectedRowIndex);
 
   return (
     <div className="flex flex-col min-h-0 flex-1">

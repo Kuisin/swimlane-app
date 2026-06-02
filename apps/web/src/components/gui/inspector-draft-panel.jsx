@@ -6,6 +6,7 @@ import { BranchInspector } from "./branch-inspector";
 
 export function InspectorDraftPanel({
   row,
+  rowIndex,
   isBranchRow,
   guiModel,
   model,
@@ -37,6 +38,8 @@ export function InspectorDraftPanel({
       ) : (
         <StepInspector
           row={draft}
+          rows={guiModel.rows}
+          rowIndex={rowIndex ?? -1}
           lanes={model.lanes}
           blocks={model.blocks}
           props={model.props}

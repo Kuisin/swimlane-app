@@ -10,7 +10,15 @@ export function FormatActions({ src, onChange, canFormat }) {
 
   function handleFormat() {
     const result = formatDsl(src);
-    if (!result.ok || result.value === src) return;
+    if (!result.ok) {
+      const msg =
+        result.errors
+          ?.map((e) => (e.line != null ? `L${e.line}: ${e.msg}` : e.msg))
+          .join("\n") || "DSLの解析エラーがあります。";
+      window.alert(`整形できませんでした。\n\n${msg}`);
+      return;
+    }
+    if (result.value === src) return;
     onChange(result.value);
   }
 

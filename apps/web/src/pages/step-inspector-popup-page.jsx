@@ -203,6 +203,7 @@ function InspectorPopupBody({
       ) : (
         <InspectorDraftPanel
           row={selectedRow}
+          rowIndex={rowIndex}
           isBranchRow={isBranchRow}
           guiModel={guiModel}
           model={model}

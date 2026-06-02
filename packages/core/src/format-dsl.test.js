@@ -1,0 +1,73 @@
+import { describe, expect, it } from "vitest";
+import { parseDSL, serializeDSL } from "./index.js";
+
+/** Mirrors apps/web formatDsl: parse → normalize is GUI-only; here test serialize output. */
+function formatLikeWeb(src) {
+  const model = parseDSL(src);
+  if (model.errors?.length) return { ok: false, errors: model.errors };
+  return { ok: true, value: serializeDSL(model) };
+}
+
+describe("DSL format (fork / merge / step id)", () => {
+  it("formats fork, merge, and id lines with canonical indentation", () => {
+    const messy = [
+      "@kai-swimlane",
+      "/role/",
+      "<a>",
+      "label: A;",
+      "/line/",
+      "fork #purple",
+      "[a: one]",
+      "and",
+      "[b: two]",
+      "endfork",
+      "if (x) is (y) than",
+      "[a: cancel]",
+      "merge done;",
+      "endif",
+      "[a: finish]",
+      "label: 完了;",
+      "id: done;",
+      "@end",
+    ].join("\n");
+
+    const { ok, value } = formatLikeWeb(messy);
+    expect(ok).toBe(true);
+    expect(value).toContain("fork #purple");
+    expect(value).toContain("\nand\n");
+    expect(value).toContain("endfork");
+    expect(value).toContain("  merge done;");
+    expect(value).toContain("id: done;");
+    expect(value).toMatch(/id: done;\s*\n\s*label: 完了;/);
+    expect(parseDSL(value).errors).toEqual([]);
+  });
+
+  it("fails format when merge id is missing or duplicate", () => {
+    const missing = formatLikeWeb(`@kai-swimlane
+/role/
+<a>
+label: A;
+/line/
+if (a) is (b) than
+[a: x]
+merge ghost;
+endif
+@end`);
+    expect(missing.ok).toBe(false);
+
+    const dup = formatLikeWeb(`@kai-swimlane
+/role/
+<a>
+label: A;
+/line/
+[a: one]
+id: dup;
+[a: two]
+id: dup;
+@end`);
+    expect(dup.ok).toBe(false);
+    expect(dup.errors?.some((e) => e.msg.includes('duplicate step id "dup"'))).toBe(
+      true,
+    );
+  });
+});

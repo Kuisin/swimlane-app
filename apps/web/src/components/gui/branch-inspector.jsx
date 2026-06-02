@@ -136,9 +136,14 @@ export function BranchInspector({ row, rows, onPatch }) {
             ))}
           </datalist>
         </div>
-        {!valid && (
+        {!valid && (row.mergeTarget || "").trim() && (
           <p className="text-[10px] text-amber-400">
             一致する id のステップがありません。合流先ステップに id: を設定してください。
+          </p>
+        )}
+        {!(row.mergeTarget || "").trim() && (
+          <p className="text-[10px] text-stone-500">
+            下流のステップに id: を付け、その id を指定します。
           </p>
         )}
       </div>

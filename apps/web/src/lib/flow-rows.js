@@ -12,7 +12,11 @@ export function normalizeBranchRows(rows) {
   const out = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (row.kind === "branchStart" && (row.firstCase || "").trim()) {
+    if (
+      row.kind === "branchStart" &&
+      !row.parallel &&
+      (row.firstCase || "").trim()
+    ) {
       const firstCase = row.firstCase.trim();
       const next = rows[i + 1];
       const alreadySplit =
@@ -54,9 +58,10 @@ export function normalizeBranchDepths(rows) {
     const endIdx = findBranchEndIndex(out, i);
     if (endIdx < 0) continue;
 
+    const isParallel = Boolean(out[i].parallel);
     out[i] = { ...out[i], depth: markerDepth };
     if (out[endIdx].kind === "branchEnd" && out[endIdx].id === branchId) {
-      out[endIdx] = { ...out[endIdx], depth: markerDepth };
+      out[endIdx] = { ...out[endIdx], depth: markerDepth, parallel: isParallel };
     }
 
     const caseDepth = markerDepth + 1;
@@ -65,9 +70,7 @@ export function normalizeBranchDepths(rows) {
       const row = out[j];
       if (row.kind === "branchStart" || row.kind === "branchEnd") continue;
       if (row.kind === "branchCase" && row.id === branchId) {
-        if ((row.depth ?? 0) !== caseDepth) {
-          out[j] = { ...row, depth: caseDepth };
-        }
+        out[j] = { ...row, depth: caseDepth, parallel: isParallel };
       } else if (
         (row.kind === "step" ||
           row.kind === "branchLoop" ||
@@ -202,6 +205,88 @@ export function canAddAnd(rows, rowIndex) {
   if (!rows[branchStart].parallel) return false;
   const endIdx = findBranchEndIndex(rows, branchStart);
   return endIdx > rowIndex;
+}
+
+/** Step `id:` values declared in the flow (for merge targets). */
+export function collectStepMergeIds(rows) {
+  const ids = [];
+  for (const row of rows) {
+    if (row.kind === "step" && !row.empty && row.role && (row.mergeId || "").trim()) {
+      ids.push(row.mergeId.trim());
+    }
+  }
+  return ids;
+}
+
+export function mergeIdIsTaken(rows, mergeId, exceptStepIndex = -1) {
+  const id = (mergeId || "").trim();
+  if (!id) return false;
+  for (let i = 0; i < rows.length; i++) {
+    if (i === exceptStepIndex) continue;
+    const row = rows[i];
+    if (
+      row.kind === "step" &&
+      !row.empty &&
+      row.role &&
+      (row.mergeId || "").trim() === id
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Generate a unique step id for `id:` / `merge` (e.g. step-1, step-2). */
+export function nextStepMergeId(rows, preferredBase) {
+  const base = (preferredBase || "step").trim() || "step";
+  const used = new Set(collectStepMergeIds(rows));
+  let n = 1;
+  let candidate = `${base}-${n}`;
+  while (used.has(candidate)) {
+    n += 1;
+    candidate = `${base}-${n}`;
+  }
+  return candidate;
+}
+
+export function canAddMerge(rows, rowIndex) {
+  if (!isInsideOpenIf(rows, rowIndex)) return false;
+  const branchStart = findEnclosingBranchStart(rows, rowIndex);
+  if (branchStart < 0) return false;
+  const endIdx = findBranchEndIndex(rows, branchStart);
+  if (endIdx <= rowIndex) return false;
+  const branchId = rows[branchStart].id;
+  for (let i = rowIndex + 1; i < endIdx; i++) {
+    if (
+      rows[i].kind === "branchMerge" &&
+      rows[i].mergeBranchId === branchId
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * First step after branchEnd suitable as a merge target: existing `id:` or
+ * index of a step that needs an id assigned.
+ */
+export function findMergeTargetAfterBranch(rows, branchStartIndex) {
+  const endIdx = findBranchEndIndex(rows, branchStartIndex);
+  if (endIdx < 0) return { mergeId: nextStepMergeId(rows), stepIndex: -1 };
+  for (let i = endIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind === "branchStart") break;
+    if (row.kind === "step" && !row.empty && row.role) {
+      const existing = (row.mergeId || "").trim();
+      return {
+        mergeId: existing || nextStepMergeId(rows),
+        stepIndex: i,
+        needsId: !existing,
+      };
+    }
+  }
+  return { mergeId: nextStepMergeId(rows), stepIndex: -1, needsId: false };
 }
 
 function isElseBranchCase(row) {
@@ -711,7 +796,10 @@ export function rowSummaryText(row, lanes) {
       if (row.empty) return "（内容のない行）";
       const who = laneLabel(lanes, row.role);
       const title = (row.name || row.text || "").trim() || "（説明未入力）";
-      return `${who}：${title}`;
+      const idPart = (row.mergeId || "").trim()
+        ? `id=${row.mergeId} · `
+        : "";
+      return `${idPart}${who}：${title}`;
     }
     case "branchStart": {
       if (row.parallel) return "並行処理（同時に実行）";
