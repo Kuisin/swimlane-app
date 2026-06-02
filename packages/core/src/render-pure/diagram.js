@@ -174,34 +174,38 @@ function renderDiagramSvg({
   const loopDropPad = 14;
   const pageDescLines = pageDescription ? wrapTextToDisplayColumns(pageDescription, 48) : [];
   const pageDescLineHeight = 16;
-  const pageFooterPad = hasPageFooter ? 28 : 0;
+  const pageFooterPad = hasPageFooter ? 44 : 0;
+  const gridBottomPad = hasPageFooter ? 52 : 24;
   let pageHeaderY = null;
   let titleY = null;
   let pageDescStartY = null;
-  let topPad = 32;
+  let topPad = 40;
   if (!hasPageHeader && !pageDescription && title) {
-    topPad = 72;
-    titleY = 40;
+    topPad = 84;
+    titleY = 48;
   } else if (!hasPageHeader && !pageDescription && !title) {
-    topPad = 32;
+    topPad = 40;
   } else {
-    let layoutY = 14;
+    let layoutY = 18;
     if (hasPageHeader) {
       pageHeaderY = layoutY + 12;
-      layoutY += 22;
+      layoutY += 32;
     }
     if (title) {
-      titleY = layoutY + 22;
-      layoutY += 30;
+      titleY = layoutY + 24;
+      layoutY += 38;
     }
     if (pageDescLines.length > 0) {
-      pageDescStartY = layoutY + 8;
-      layoutY += pageDescLines.length * pageDescLineHeight + 12;
+      pageDescStartY = layoutY + 10;
+      layoutY += pageDescLines.length * pageDescLineHeight + 18;
     }
-    topPad = Math.max(layoutY + 12, title || pageDescLines.length > 0 ? 72 : 32);
+    topPad = Math.max(
+      layoutY + 20,
+      title || pageDescLines.length > 0 ? 84 : 40
+    );
   }
   const rowMeta = [];
-  let y = topPad + headerH + 24;
+  let y = topPad + headerH + 40;
   const frames = [];
   const frameStack = [];
   const laneIndexById = new Map(lanes.map((lane, idx) => [lane.id, idx]));
@@ -689,7 +693,7 @@ function renderDiagramSvg({
   });
   const rightGutterX = laneCursor;
   const width = laneCursor + rightGutter + xPad;
-  const baseBottomPadding = 50 + pageFooterPad;
+  const baseBottomPadding = 64 + pageFooterPad;
   function stepRowBounds(rowIndex) {
     const row = rows[rowIndex];
     const meta = rowMeta[rowIndex];
@@ -1449,7 +1453,7 @@ function renderDiagramSvg({
         x: xPad,
         y: topPad,
         width: width - xPad * 2,
-        height: height - topPad - 20,
+        height: height - topPad - gridBottomPad,
         fill: "url(#gridp)",
         opacity: "0.5"
       }
@@ -1503,7 +1507,7 @@ function renderDiagramSvg({
         x: xPad,
         y: topPad,
         width: leftGutter,
-        height: height - topPad - 20,
+        height: height - topPad - gridBottomPad,
         fill: "none",
         stroke: theme.stroke,
         strokeWidth: "1.2",
@@ -1619,7 +1623,7 @@ function renderDiagramSvg({
         x: rightGutterX,
         y: topPad,
         width: rightGutter,
-        height: height - topPad - 20,
+        height: height - topPad - gridBottomPad,
         fill: "none",
         stroke: theme.stroke,
         strokeWidth: "1.2",
@@ -1676,7 +1680,7 @@ function renderDiagramSvg({
           x,
           y: topPad,
           width: currentLaneW,
-          height: height - topPad - 20,
+          height: height - topPad - gridBottomPad,
           fill: bg,
           opacity: "0.12"
         }
@@ -1756,7 +1760,7 @@ function renderDiagramSvg({
         x: laneX(0),
         y: topPad,
         width: laneWidths.reduce((sum, w) => sum + w, 0),
-        height: height - topPad - 20,
+        height: height - topPad - gridBottomPad,
         fill: "none",
         stroke: theme.stroke,
         strokeWidth: "1.2",
