@@ -1,117 +1,130 @@
 @kai-swimlane
 
 /page/
+description: ```
+全機能の動作確認用サンプル。ページ／オプション／レーン／ブロック／プロップ／
+分岐・ループ・並行・マージ・詳細セクション・矢印線種・備考（右カラム）・
+// と *** コメントを 1 本のフローで網羅します。
+```;
+left-title: Procedure;
+left-subtitle: Description;
+right-title: Remark;
+right-subtitle: 補足・備考;
 header-left: アクメ株式会社;
 header-center: 注文フルフィルメント;
 header-right: v2.0;
 footer-left: 社外秘;
 footer-center: 社内利用限定;
 footer-right: 2026-06-02;
-description: ```
-全機能の動作確認用サンプル。ページ／レーン／ブロック／プロップ／
-分岐・ループ・並行・マージ・矢印線種・// コメントを 1 本のフローで網羅します。
-```;
 
 /title/
 注文フルフィルメント（全機能テスト）
 
+/option/
+show-left-gutter: true;
+show-left-remarks: true;
+show-right-remarks: true;
+show-step-block-captions: true;
+merge-at-previous-block: true;
+
 /role/
 <customer>
 label: 顧客;
-icon: ☎;
 background-color: #e0f2fe;
+icon: ☎;
+
 <frontend>
 label: Webフロントエンド;
-icon: #monitor;
 text-color: #1e3a5f;
 background-color: #f1f5f9;
+icon: #monitor;
+
 <api>
 label: APIゲートウェイ;
-icon: #server;
 background-color: #ede9fe;
+icon: #server;
+
 <worker>
 label: フルフィルメント担当;
 icon: #cpu;
+
 <db>
 label: データベース;
-icon: #database;
 background-color: #dcfce7;
+icon: #database;
 
 /block/
+
 <start>
+background-color: #dbeafe;
 shape: ellipse;
 icon: #play;
-background-color: #dbeafe;
+
 <terminal>
+background-color: #dcfce7;
 shape: ellipse;
 icon: #check;
-background-color: #dcfce7;
+
 <gate>
+border-color: #c2410c;
 shape: hex;
 icon: #shield;
-border-color: #c2410c;
+
 <job>
 shape: subroutine;
+
 <notify>
 shape: cloud;
 icon: #mail;
+
 <memo>
 shape: note;
+
 <rectsys>
 shape: rect;
 icon: #settings;
+
 <rounded>
 shape: rounded;
 
 /prop/
+
 <reqdoc>
 label: 申請;
 side: left;
 title: 受信リクエストの内容;
+
 <auditlog>
 label: 監査;
 side: right;
 background-color: #f8fafc;
 border-color: #64748b;
 text-color: #0f172a;
+title: 監査証跡（hint: は title と同義）;
 max-chars: 8;
-hint: 監査証跡（hint: は title と同義）;
+
 <receipt>
 label: 受領;
 side: right;
-title: 顧客向けレシート;
+hint: 顧客向けレシート（hint: は title: の別名）;
 
 /line/
-// --- 機能チェックリスト（help.md 準拠） ---
-// ・/page/ … header/footer 6 項目 + description（``` 複数行）
-// ・/role/ … label, text-color, background-color, icon（#lucide / 絵文字）
-// ・/block/ … shape: rect|rounded|hex|ellipse|cloud|note|subroutine + 色
-// ・/prop/ … label, side, title/hint, 色, max-chars
-// ・ステップ … [lane: 本文] <block>; label / desc / skip / props / id / arrow
-// ・if|elseif|else|endif … than #色（blue,green,red,orange,purple,gray,black）
-// ・[loop] … ケース末尾。同じ if へ戻る
-// ・fork|and|endfork … 並行（fork #色 可）
-// ・merge: <id>; … 下流 id: <id>; へ合流（矢印は直前ステップの arrow:）
-// ・section (名前) #色 … end-section … 本流は内部をスキップ（詳細ブロック）
-// ・branch (名前) #色 … end-branch … section の互換エイリアス
-// ・start-point … end-point … 旧式エイリアス（読み取り互換）
-// ・arrow: solid|dashed|dotted; … 直後の矢印（省略＝実線）
-// ・// … 行頭コメント（本行のような行）
-*** レガシー行コメント（*** 始まりも可。desc 内の ***太字*** とは別） ***
 
-// --- 受付チャネル（排他分岐・skip・rounded ブロック） ---
+// この行は // コメントとして無視されます（先頭の分岐から開始）
 if (受付チャネルは？) is (Web) than #blue
   [frontend: Webフォームを開く] <rounded>
   skip;
+
 elseif (モバイル) than #green
   [frontend: モバイルアプリを開く]
   skip;
+
 else
   [customer: サポート窓口に電話]
   skip;
 endif
 
-// --- 注文確定（ellipse 開始・desc フェンス・props・arrow: dotted） ---
+*** 本流ここから（*** もコメント行として無視されます） ***
 [customer: 注文を確定] <start>
 label: 注文送信;
 desc: ```
@@ -119,44 +132,40 @@ desc: ```
 _暗号化された決済トークン_ を含みます。
 ```;
 props: reqdoc;
+remark: 冪等キーで二重送信を防止します。;
 arrow: dotted;
 
-// --- 検証（hex ブロック・複数 props） ---
 [frontend: フォームを検証] <gate>
 desc: ```
 必須項目を確認し、不正な入力はAPIに到達する前に
 ここで弾きます。
 ```;
-props: reqdoc, auditlog;
+props: reqdoc,auditlog;
 
-// --- バリデーション結果（ネスト if・rect/subroutine/cloud/note） ---
 if (フォームは有効？) is (有効) than #green
   [api: リクエストを受理] <rectsys>
   desc: ```
 呼び出し元を認証し、注文をフルフィルメント用の
 キューに登録します。
-```;
+  ```;
   props: auditlog;
   [worker: 在庫を確保] <job>
-  desc: ```
-出荷準備が完了するまで在庫を仮押さえします。
-```;
-
+  desc: 出荷準備が完了するまで在庫を仮押さえします。;
   if (在庫はある？) is (在庫あり) than #blue
     [db: 在庫を減算]
     desc: ```
 注文内の各明細について、引当可能在庫を
 アトミックに減算します。
-```;
+    ```;
     [worker: 出荷を作成] <job>
-    desc: ```
-配送業者を割り当て、配送ラベルを生成します。
-```;
+    desc: 配送業者を割り当て、配送ラベルを生成します。;
     props: receipt;
+
   elseif (取り寄せ) than #orange
     [worker: 取り寄せをキュー] <job>
     [customer: 遅延を通知] <notify>
     skip;
+
   else
     [customer: 返金]
     [db: 返金を記録] <memo>
@@ -166,11 +175,13 @@ if (フォームは有効？) is (有効) than #green
   desc: ```
 最終的な注文状態を永続化し、確定イベントを
 下流の各サービスへ通知します。
-```;
+  ```;
+
 elseif (回復可能) than #orange
   [frontend: 再試行を表示]
   [customer: 再送信]
   [loop]
+
 else
   [frontend: 致命的エラーを表示]
   skip;
@@ -178,109 +189,114 @@ else
   skip;
 endif
 
-// --- 確認（terminal・arrow: dashed） ---
 [customer: 確認を受信] <terminal>
 label: 確認済み;
 desc: ```
 注文サマリーと配送予定日を含む確認画面を
 顧客に表示します。
 ```;
+remark: ```
+配送予定日はSLAに基づく概算。
+変更時はメールで再通知します。
+```;
+remark-desc: 顧客満足度アンケートも同時送信。;
 arrow: dashed;
 
-// --- レシート（単純 if） ---
 if (レシートは必要？) is (はい) than #purple
   [api: レシートを生成]
   desc: ```
 注文情報と決済記録からPDFレシートを
 生成します。
-```;
+  ```;
   props: receipt;
   [customer: レシートをダウンロード]
   skip;
 endif
 
-// --- 監査レベル（#gray / #black / else・実線矢印は arrow 省略） ---
 if (監査レベルは？) is (標準) than #gray
   [api: 標準監査ログを記録]
   skip;
+
 elseif (強化) than #black
   [api: 強化監査ログを記録]
   props: auditlog;
+
 else
   [api: 監査をスキップ]
   skip;
 endif
 
-// --- 詳細ブロック（section / end-section：本流は内部をスキップ） ---
 [customer: 注文サマリーを表示]
+remark: 画面下部にサポート窓口を併記。;
+arrow: solid;
+
 section (監査詳細) #blue
   [db: 監査用に明細を永続化]
   desc: ```
 本流からはスキップされる詳細処理。
 監査・分析向けの補足ステップをまとめます。
-```;
+  ```;
   [api: 分析キューへイベント送信]
   skip;
 end-section
 
-// --- 互換エイリアス（branch / end-branch と start-point / end-point） ---
 [api: 追跡イベントを準備]
-branch (配送補足) #purple
+
+section (配送補足) #purple
   [worker: ピッキング詳細を記録]
   [api: 追跡IDを通知]
-end-branch
+end-section
 
 [api: 旧式セクションの互換テスト]
-start-point
-  [db: レガシー形式の明細を保存]
-end-point
 
-// --- 並行処理（fork #purple / and ×2 / endfork） ---
+section (Section)
+  [db: レガシー形式の明細を保存]
+end-section
 fork #purple
   [api: レシートをメール送信] <notify>
   desc: ```
 確定した注文のレシートを生成し、
 顧客へメールで送付します。
-```;
+  ```;
   props: receipt;
+
 and
   [db: 在庫台帳を更新]
   desc: ```
 販売実績を在庫台帳へ反映し、
 集計用の数値を確定します。
-```;
+  ```;
   props: auditlog;
+
 and
   [worker: 配送状況を初期化] <job>
   desc: ```
 追跡番号を採番し、配送状況の
 初期レコードを作成します。
-```;
+  ```;
 endfork
 
-// --- 途中マージ（merge: + id: + arrow: dashed on merge source） ---
 if (キャンセル要求は？) is (あり) than #red
   [customer: キャンセルを受付]
   desc: ```
 顧客がキャンセルを要求。以降の通常処理を
 スキップし、終端ステップへ直接合流します。
-```;
+  ```;
   arrow: dashed;
   merge: trans-comp;
+
 else
   [api: 通常クローズ処理]
   desc: ```
 請求を確定し、関連リソースを解放して
 取引を正常に締めます。
-```;
+  ```;
 endif
 
-// --- 終端（id: が merge 合流先） ---
 [customer: 取引完了] <terminal>
 id: trans-comp;
 label: 取引完了;
-desc: ```
-すべての記録が確定し、取引が完了します。
-```;
+desc: すべての記録が確定し、取引が完了します。;
+remark: 監査ログは30日間保管。;
 
 @end
