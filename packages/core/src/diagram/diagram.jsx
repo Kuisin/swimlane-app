@@ -138,6 +138,9 @@ export function Diagram({
   theme,
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
+  showLeftGutter = true,
+  showLeftRemarks = true,
+  showRightRemarks = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect,
@@ -156,7 +159,9 @@ export function Diagram({
   );
   const nodeW = 188;
   const xPad = 40;
-  const leftGutter = 300;
+  // The left gutter (step number / label / description column) collapses to zero
+  // width when hidden, so the lanes reflow against the left padding.
+  const leftGutter = showLeftGutter ? 300 : 0;
   const headerH = 72;
   const rowH = 80;
 
@@ -247,10 +252,16 @@ export function Diagram({
     );
   }
 
+  /** Left/right remark (prop) chips can be hidden via the display options. */
+  function propSideVisible(side) {
+    return side === "left" ? showLeftRemarks : showRightRemarks;
+  }
+
   function stepPropCounts(row) {
     const acc = { left: 0, right: 0 };
     (row?.props || []).forEach((propId) => {
       const side = props[propId]?.side === "left" ? "left" : "right";
+      if (!propSideVisible(side)) return;
       acc[side] += 1;
     });
     return acc;
@@ -746,7 +757,9 @@ export function Diagram({
     const right = [];
     (row?.props || []).forEach((propId) => {
       const prop = props[propId] || { id: propId, side: "right" };
-      if (prop.side === "left") left.push(prop);
+      const side = prop.side === "left" ? "left" : "right";
+      if (!propSideVisible(side)) return;
+      if (side === "left") left.push(prop);
       else right.push(prop);
     });
     return { left: left.length, right: right.length };
@@ -1382,7 +1395,9 @@ export function Diagram({
     const right = [];
     (propIds || []).forEach((propId) => {
       const prop = props[propId] || { id: propId, label: propId, side: "right" };
-      if (prop.side === "left") left.push(prop);
+      const side = prop.side === "left" ? "left" : "right";
+      if (!propSideVisible(side)) return;
+      if (side === "left") left.push(prop);
       else right.push(prop);
     });
     return { left, right };
@@ -1806,7 +1821,9 @@ export function Diagram({
       />
 
       {/* Left gutter column: header cell + full-height frame, aligned with the
-          lane grid (same top/bottom and 1.2px border for consistency). */}
+          lane grid. Hidden entirely when the showLeftGutter option is off. */}
+      {showLeftGutter && (
+        <>
       <rect
         x={xPad}
         y={topPad}
@@ -1902,6 +1919,8 @@ export function Diagram({
           </g>
         );
       })}
+        </>
+      )}
 
       {/* Swimlane columns and lane headers */}
       {lanes.map((lane, i) => {

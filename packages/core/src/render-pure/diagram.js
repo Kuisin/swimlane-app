@@ -128,6 +128,9 @@ function renderDiagramSvg({
   theme,
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
+  showLeftGutter = true,
+  showLeftRemarks = true,
+  showRightRemarks = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect
@@ -142,7 +145,7 @@ function renderDiagramSvg({
   );
   const nodeW = 188;
   const xPad = 40;
-  const leftGutter = 300;
+  const leftGutter = showLeftGutter ? 300 : 0;
   const headerH = 72;
   const rowH = 80;
   const docW = 65;
@@ -209,10 +212,14 @@ function renderDiagramSvg({
   function branchDecisionCy(f) {
     return f.yDecision + diamondH / 2 + (f.parallel ? 0 : decisionYOffset);
   }
+  function propSideVisible(side) {
+    return side === "left" ? showLeftRemarks : showRightRemarks;
+  }
   function stepPropCounts(row) {
     const acc = { left: 0, right: 0 };
     (row?.props || []).forEach((propId) => {
       const side = props[propId]?.side === "left" ? "left" : "right";
+      if (!propSideVisible(side)) return;
       acc[side] += 1;
     });
     return acc;
@@ -602,7 +609,9 @@ function renderDiagramSvg({
     const right = [];
     (row?.props || []).forEach((propId) => {
       const prop = props[propId] || { id: propId, side: "right" };
-      if (prop.side === "left") left.push(prop);
+      const side = prop.side === "left" ? "left" : "right";
+      if (!propSideVisible(side)) return;
+      if (side === "left") left.push(prop);
       else right.push(prop);
     });
     return { left: left.length, right: right.length };
@@ -1059,7 +1068,9 @@ function renderDiagramSvg({
     const right = [];
     (propIds || []).forEach((propId) => {
       const prop = props[propId] || { id: propId, label: propId, side: "right" };
-      if (prop.side === "left") left.push(prop);
+      const side = prop.side === "left" ? "left" : "right";
+      if (!propSideVisible(side)) return;
+      if (side === "left") left.push(prop);
       else right.push(prop);
     });
     return { left, right };
@@ -1421,7 +1432,7 @@ function renderDiagramSvg({
         opacity: "0.5"
       }
     ),
-    /* @__PURE__ */ h(
+    showLeftGutter && /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
       "rect",
       {
         x: xPad,
@@ -1431,8 +1442,7 @@ function renderDiagramSvg({
         fill: "white",
         opacity: "0.9"
       }
-    ),
-    /* @__PURE__ */ h(
+    ), /* @__PURE__ */ h(
       "line",
       {
         x1: xPad,
@@ -1443,8 +1453,7 @@ function renderDiagramSvg({
         strokeWidth: "1.2",
         vectorEffect: "non-scaling-stroke"
       }
-    ),
-    /* @__PURE__ */ h(
+    ), /* @__PURE__ */ h(
       "rect",
       {
         x: xPad,
@@ -1456,8 +1465,7 @@ function renderDiagramSvg({
         strokeWidth: "1.2",
         vectorEffect: "non-scaling-stroke"
       }
-    ),
-    rows.map((r, i) => {
+    ), rows.map((r, i) => {
       if (r.kind !== "step" || r.empty || !r.role) return null;
       if (r.skipIndex) return null;
       const yRow = rowMeta[i]?.y;
@@ -1517,7 +1525,7 @@ function renderDiagramSvg({
           ))
         );
       })());
-    }),
+    })),
     lanes.map((lane, i) => {
       const x = laneX(i);
       const currentLaneW = laneWidth(i);
