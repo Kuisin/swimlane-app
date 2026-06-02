@@ -1804,7 +1804,7 @@ function renderDiagramSvg({
         x1: laneX(i + 1),
         x2: laneX(i + 1),
         y1: topPad,
-        y2: height - 20,
+        y2: height - gridBottomPad,
         stroke: theme.stroke,
         strokeWidth: "1.2",
         vectorEffect: "non-scaling-stroke"
@@ -2037,8 +2037,8 @@ function renderDiagramSvg({
       if (endIdx < 0 || lanes.length === 0) return null;
       const yTop = rowMeta[i]?.y ?? 0;
       const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
-      const boxX = laneX(0) - 10;
-      const boxW = laneWidths.reduce((sum, w) => sum + w, 0) + 20;
+      const boxX = laneX(0) + 8;
+      const boxW = laneWidths.reduce((sum, w) => sum + w, 0) - 16;
       const style = row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor] ? BRANCH_COLOR_STYLES[row.sectionColor] : { stroke: theme.stroke, bg: theme.branchBg };
       const label = (row.sectionName || "Section").trim() || "Section";
       return /* @__PURE__ */ h("g", { key: `section-${row.id}` }, /* @__PURE__ */ h(

@@ -2259,7 +2259,7 @@ export function Diagram({
               x1={laneX(i + 1)}
               x2={laneX(i + 1)}
               y1={topPad}
-              y2={height - 20}
+              y2={height - gridBottomPad}
               stroke={theme.stroke}
               strokeWidth="1.2"
               vectorEffect="non-scaling-stroke"
@@ -2544,8 +2544,11 @@ export function Diagram({
         if (endIdx < 0 || lanes.length === 0) return null;
         const yTop = rowMeta[i]?.y ?? 0;
         const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
-        const boxX = laneX(0) - 10;
-        const boxW = laneWidths.reduce((sum, w) => sum + w, 0) + 20;
+        // Keep the dashed container inside the lane grid outer frame (which
+        // spans laneX(0) → laneX(0) + total lane width) so the border never
+        // overflows the table.
+        const boxX = laneX(0) + 8;
+        const boxW = laneWidths.reduce((sum, w) => sum + w, 0) - 16;
         const style =
           row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor]
             ? BRANCH_COLOR_STYLES[row.sectionColor]
