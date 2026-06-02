@@ -198,12 +198,13 @@ function renderDiagramSvg({
   showRightGutter = true,
   showHeader = true,
   showFooter = true,
+  showDescription = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect
 }) {
   const { title, page = {}, lanes, rows, blocks = {}, props = {} } = model;
-  const pageDescription = (page.description || "").trim();
+  const pageDescription = (showDescription ? page.description || "" : "").trim();
   const hasPageHeader = Boolean(
     showHeader && (page.headerLeft?.trim() || page.headerCenter?.trim() || page.headerRight?.trim())
   );

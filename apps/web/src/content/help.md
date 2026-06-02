@@ -107,6 +107,7 @@ right-subtitle: メモ;
 | `show-right-gutter` | 右カラム（各ステップの `remark`）を表示 |
 | `show-header` | ページヘッダーを表示 |
 | `show-footer` | ページフッターを表示 |
+| `show-description` | タイトル下の説明文を表示 |
 | `show-step-block-captions` | ステップ本文と `<block>` 参照を出力に含める |
 | `merge-at-previous-block` | 分岐の合流位置を直前ブロックに合わせる |
 | `left-title` | 左カラム見出し（既定: `Procedure`） |

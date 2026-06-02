@@ -76,6 +76,7 @@ export function EditorLayout({
               showRightGutter={resolvedDiagramOptions.showRightGutter}
               showHeader={resolvedDiagramOptions.showHeader}
               showFooter={resolvedDiagramOptions.showFooter}
+              showDescription={resolvedDiagramOptions.showDescription}
               {...(diagramExtras || {})}
             />
           </div>

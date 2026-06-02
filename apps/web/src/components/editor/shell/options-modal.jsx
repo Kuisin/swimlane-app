@@ -8,6 +8,12 @@ import {
 // `title` groups write to providedColumnTitles so titles round-trip.
 const GROUPS = [
   {
+    opt: "showDescription",
+    label: "説明（タイトル下）",
+    dslKey: "show-description",
+    fields: [["description", "本文", "description"]],
+  },
+  {
     opt: "showHeader",
     label: "ヘッダー",
     dslKey: "show-header",
@@ -109,20 +115,6 @@ export function OptionsModal({ open, model, onApply, onClose }) {
         </header>
 
         <div className="overflow-y-auto px-4 py-3 space-y-3">
-          {/* Description: always shown (no toggle). */}
-          <label className="block text-xs font-jp text-stone-700">
-            <span className="flex items-baseline justify-between">
-              <span>説明（タイトル下）</span>
-              <span className="text-[10px] text-stone-400 font-mono">description</span>
-            </span>
-            <input
-              type="text"
-              value={page.description || ""}
-              onChange={(event) => setPage("description", event.target.value)}
-              className={`mt-0.5 ${inputClass}`}
-            />
-          </label>
-
           {GROUPS.map(({ opt, label, dslKey, title, fields }) => {
             const checked = Boolean(options[opt]);
             const apply = title ? setTitle : setPage;
