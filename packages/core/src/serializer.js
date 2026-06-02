@@ -18,6 +18,10 @@ function serializePage(page) {
   const out = [];
   const entries = [
     ["description", page.description],
+    ["left-title", page.leftTitle],
+    ["left-subtitle", page.leftSubtitle],
+    ["right-title", page.rightTitle],
+    ["right-subtitle", page.rightSubtitle],
     ["header-left", page.headerLeft],
     ["header-center", page.headerCenter],
     ["header-right", page.headerRight],
