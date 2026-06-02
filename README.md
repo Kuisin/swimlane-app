@@ -15,7 +15,8 @@ A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm
 │   ├── vscode/               Packaged .vsix output
 │   └── cursor/kai-swimlane/  Cursor local plugin
 └── apps/
-    └── web/                  @kai-swimlane/web — Vite editor UI + dev LLM PNG API
+    ├── web/                  @kai-swimlane/web — Vite editor UI + dev LLM PNG API
+    └── txt-viewer/           Electron app — watch a `.txt` DSL file and preview SVG (optional)
 ```
 
 Shared logic lives in **`@kai-swimlane/core`**. The **`kai-swimlane`** and **`kai-swimlane-parts`** packages are thin React layers on top of that core (used by the web app help/templates tab and reusable in other markdown UIs).
@@ -118,9 +119,24 @@ The app is served under the Vite **`base`** path ([`apps/web/vite.config.js`](ap
 
 Implementation: [`apps/web/src/server/llm-handler.js`](apps/web/src/server/llm-handler.js) (uses `@kai-swimlane/core` for parse + render).
 
+## Web editor
+
+The Vite app (`apps/web`) provides two modes (toolbar links):
+
+| Mode | URL | Purpose |
+|------|-----|---------|
+| **Text** | `/swimlane-app/` | Edit raw DSL; **Format** normalizes indentation; role/block/prop counts in the status bar |
+| **GUI** | `/swimlane-app/gui` | Edit title, flow steps, branches, sections, and side branches; **Settings** writes `/page/` and `/option/` into the DSL |
+
+Shared features: multi-tab documents (browser `localStorage`), **Syntax** dialog (`help.md` + `template.md` catalog), theme picker (basic / washi / ink / mono), export **SVG** / **PNG** / `.txt` DSL, unsaved-change guard on reload. GUI adds **Templates** popups (roles, blocks, props) and a **step inspector** popup for the selected step. On parse errors, GUI offers **fix in text editor** or **continue** (only rows tied to error lines stay locked).
+
+Sample DSL: [`apps/web/src/content/complex-test-example.txt`](apps/web/src/content/complex-test-example.txt).
+
 ## DSL quick reference
 
-Sections: `/page/`, `/title/`, `/role/`, `/block/`, `/prop/`, `/line/`
+Wrap documents in `@kai-swimlane` … `@end` (optional inside Markdown ` ```kai-swimlane ` fences).
+
+**Sections:** `/title/`, `/page/`, `/option/`, `/role/`, `/block/`, `/prop/`, `/line/` (`/option/` may be omitted).
 
 ```txt
 @kai-swimlane
@@ -128,26 +144,42 @@ Sections: `/page/`, `/title/`, `/role/`, `/block/`, `/prop/`, `/line/`
 /title/
 Order Process
 
+/page/
+description: Optional subtitle under the title;
+header-center: ACME Corp;
+
+/option/
+show-left-gutter: true;
+show-right-gutter: true;
+left-title: Procedure;
+
 /role/
 <sales>
 label: Sales;
 
 /line/
 [sales: Receive order]
+label: Intake;
+desc: Customer submits the order.;
+remark: Shown in the right column when any step has remark:;
 
 @end
 ```
+
+**Step metadata** (lines after `[role: text] <block>`): `id:`, `label:`, `desc:`, `remark:`, `remark-desc:`, `skip;`, `arrow: solid|dashed|dotted;`, `props: A,B;` — with inline `**bold**`, `*italic*`, `~~strike~~` in `desc` / `remark` text.
 
 **Flow control** (inside `/line/`):
 
 | Construct | Meaning |
 |-----------|---------|
-| `if (cond) is (case) than` … `elseif (case) than` … `else` … `endif` | Exclusive branch — exactly one case runs. Renders decision/merge diamonds. |
-| `fork` … `and` … `endfork` | Parallel branch — all paths run concurrently. Renders split/join bars. |
+| `if (cond) is (case) than` … `elseif (case) than` … `else` … `endif` | Exclusive branch — exactly one case runs. Renders decision/merge diamonds. Optional `#color` after `than`. |
+| `fork` … `and` … `endfork` | Parallel branch — all paths run concurrently. Renders split/join bars. Optional `#color` on `fork` / `and`. |
 | `[loop]` | At the end of a case, route back to its own `if` decision (retry). |
-| `merge: <id>;` | At the end of a case, route to the step tagged `id: <id>;` downstream instead of the `endif` merge. |
+| `merge: <id>;` | At the end of a case, route to the step with matching `id: <id>;` downstream instead of the `endif` merge. |
+| `section (name) #color` … `end-section` | Visual box around steps; main flow continues through them. |
+| `branch (name) #color` … `end-branch` | Side path off the main flow; last step merges to the block after `end-branch` (or the next gateway). |
 
-See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide.
+`/option/` flags include gutters, header/footer/description visibility, `show-step-block-captions`, and `merge-at-previous-block` (join gateways at the previous step). See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide (Japanese).
 
 ## Headless rendering (for external plugins)
 
@@ -171,11 +203,16 @@ exported from the main `@kai-swimlane/core` barrel need them.
 ## Flow control & limitations
 
 The flow DSL is **block-structured**: every control block (`if` … `endif`,
-`fork` … `endfork`) must be properly nested. Within that model:
+`fork` … `endfork`, `section` … `end-section`, `branch` … `end-branch`) must be
+properly nested. Within that model:
 
 - **Exclusive vs parallel.** `if/elseif/else` picks exactly one case (decision
   + merge diamonds). `fork/and/endfork` runs every path concurrently (split +
   join bars). Use `fork` when steps in different lanes happen at the same time.
+- **Section vs branch.** `section` only groups steps in a dashed box; the main
+  flow still runs through them in order. `branch` starts a side path (no entry
+  arrow on its first step) that merges after `end-branch` into the next main-flow
+  block or gateway.
 - **Re-convergence.** A case normally rejoins the flow at its `endif`. `[loop]`
   instead routes back to the same decision (retry); `merge: <id>;` routes
   forward to a step with matching `id:`, so cases can reconverge at different points (e.g. a
@@ -190,6 +227,9 @@ The flow DSL is **block-structured**: every control block (`if` … `endif`,
   terminals attach to the gateway in that case.
 - Very wide fan-outs (many `elseif`/`and` cases sharing one lane) widen that
   lane to keep cases from overlapping, which can make the diagram broad.
+- **Comments:** `//` lines and lines starting with `***` are ignored in `/line/`
+  (attached to the next row when formatting). Lines inside `` ``` `` fences in
+  `desc:` / `remark:` are literal content, not comments.
 
 ## Contributing
 

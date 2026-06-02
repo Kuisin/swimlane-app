@@ -375,6 +375,10 @@ footer-right: 2026-06-02;
 
 /option/
 show-left-gutter: true;
+show-right-gutter: true;
+show-header: true;
+show-footer: true;
+show-description: true;
 show-step-block-captions: true;
 merge-at-previous-block: true;
 left-title: 手続き;
@@ -383,18 +387,22 @@ right-title: 備考;
 right-subtitle: メモ;
 ```
 
+`remark:` を使うフロー例では `show-right-gutter: true` にし、少なくとも1ステップに `remark:` を付けると右カラムが表示されます。
+
 ## フロー制御
 
 `/line/` で使う制御構文の詳細は [help.md](./help.md) を参照してください。
 
 | 構文 | 用途 |
 |------|------|
-| `if` / `elseif` / `else` / `endif` | 排他分岐（いずれか1ケース） |
+| `if` / `elseif` / `else` / `endif` | 排他分岐（いずれか1ケース）。`than #色` で条件ブロック色 |
 | `[loop]` | 同じ `if` へ戻る（再試行） |
-| `fork` / `and` / `endfork` | 並行分岐（全パス同時） |
+| `fork` / `and` / `endfork` | 並行分岐（全パス同時）。`fork` / `and` に `#色` 可 |
 | `section (名前) #色` / `end-section` | 本流はそのまま。関連ステップを点線ボックスで囲う |
-| `branch (名前) #色` / `end-branch` | 本流から支線が分岐し、末尾で直後ブロックへ合流 |
-| `merge: <id>;` + 下流の `id: <id>;` | `endif` を経由しない前方合流 |
+| `branch (名前) #色` / `end-branch` | 本流から支線が分岐し、末尾で直後ブロック（または直後の `if` / `fork`）へ合流 |
+| `merge: <id>;` + 下流の `id: <id>;` | `endif` を経由しない前方合流（`arrow:` で合流矢印の線種） |
+| `arrow: solid\|dashed\|dotted;` | 直後の矢印の線種（ステップの付属行） |
+| `remark:` / `remark-desc:` | 右カラムの備考（`show-right-gutter` が真のとき） |
 
 ## set
 
@@ -410,6 +418,7 @@ description: 領収書添付から承認・通知までの標準フロー;
 header-center: 経費申請;
 
 /option/
+show-right-gutter: true;
 left-title: 手続き;
 left-subtitle: 説明;
 right-title: 備考;

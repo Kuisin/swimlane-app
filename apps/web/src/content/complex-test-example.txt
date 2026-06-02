@@ -2,8 +2,9 @@
 
 /page/
 description: ```
-全機能の動作確認用サンプル。ページ／オプション／レーン／ブロック／プロップ／
-分岐・ループ・並行・マージ・詳細セクション・矢印線種・備考（右カラム）を 1 本のフローで網羅します。
+全機能の動作確認用サンプル。ページ／オプション（ガター・ヘッダー等）／レーン／
+ブロック／プロップ／排他・ループ・並行・section・branch・merge・矢印線種・
+備考（右カラム）・インライン装飾を 1 本のフローで網羅します。
 ```;
 header-left: アクメ株式会社;
 header-center: 注文フルフィルメント;
@@ -17,6 +18,10 @@ footer-right: 2026-06-02;
 
 /option/
 show-left-gutter: true;
+show-right-gutter: true;
+show-header: true;
+show-footer: true;
+show-description: true;
 show-step-block-captions: true;
 merge-at-previous-block: true;
 
@@ -127,7 +132,7 @@ endif
 label: 注文送信;
 desc: ```
 顧客がカートを送信します。**配送先住所** と
-_暗号化された決済トークン_ を含みます。
+*暗号化された決済トークン* を含みます。
 ```;
 props: reqdoc;
 remark: 冪等キーで二重送信を防止します。;
