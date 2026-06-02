@@ -448,7 +448,7 @@ export function FlowStepList({
                     onSelectRow(i);
                   }
                 }}
-                className="flex-1 text-left py-1.5 min-w-0 flex flex-row items-center cursor-pointer"
+                className="flex-1 text-left py-1.5 min-w-0 overflow-x-auto flex flex-row items-center cursor-pointer"
               >
                 <span
                   className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium text-stone-100 mr-1.5 shrink-0 ${rowKindBadgeClass(row)}`}
@@ -456,7 +456,7 @@ export function FlowStepList({
                 >
                   {badge}
                 </span>
-                <span className="flex-1 text-stone-100 leading-snug line-clamp-2">
+                <span className="text-stone-100 leading-snug whitespace-nowrap">
                   {summary}
                 </span>
               </div>
