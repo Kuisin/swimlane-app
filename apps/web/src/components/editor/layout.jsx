@@ -30,10 +30,6 @@ export function EditorLayout({
     setShowStepBlockCaptions,
     mergeAtPreviousBlock,
     setMergeAtPreviousBlock,
-    showRightRemarks,
-    setShowRightRemarks,
-    showLeftRemarks,
-    setShowLeftRemarks,
     showLeftGutter,
     setShowLeftGutter,
     showHelp,
@@ -51,8 +47,6 @@ export function EditorLayout({
   const resolvedDiagramOptions = resolveDiagramOptions(diagramModel.options, {
     showStepBlockCaptions,
     mergeAtPreviousBlock,
-    showRightRemarks,
-    showLeftRemarks,
     showLeftGutter,
   });
 
@@ -69,10 +63,6 @@ export function EditorLayout({
         onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
         mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
         onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
-        showRightRemarks={resolvedDiagramOptions.showRightRemarks}
-        onShowRightRemarksChange={setShowRightRemarks}
-        showLeftRemarks={resolvedDiagramOptions.showLeftRemarks}
-        onShowLeftRemarksChange={setShowLeftRemarks}
         showLeftGutter={resolvedDiagramOptions.showLeftGutter}
         onShowLeftGutterChange={setShowLeftGutter}
         guiActions={toolbarExtras}
@@ -89,8 +79,6 @@ export function EditorLayout({
               theme={theme}
               showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
               mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
-              showRightRemarks={resolvedDiagramOptions.showRightRemarks}
-              showLeftRemarks={resolvedDiagramOptions.showLeftRemarks}
               showLeftGutter={resolvedDiagramOptions.showLeftGutter}
               {...(diagramExtras || {})}
             />

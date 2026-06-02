@@ -139,8 +139,6 @@ export function Diagram({
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
   showLeftGutter = true,
-  showLeftRemarks = true,
-  showRightRemarks = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect,
@@ -259,16 +257,10 @@ export function Diagram({
     );
   }
 
-  /** Left/right remark (prop) chips can be hidden via the display options. */
-  function propSideVisible(side) {
-    return side === "left" ? showLeftRemarks : showRightRemarks;
-  }
-
   function stepPropCounts(row) {
     const acc = { left: 0, right: 0 };
     (row?.props || []).forEach((propId) => {
       const side = props[propId]?.side === "left" ? "left" : "right";
-      if (!propSideVisible(side)) return;
       acc[side] += 1;
     });
     return acc;
@@ -778,9 +770,7 @@ export function Diagram({
     const right = [];
     (row?.props || []).forEach((propId) => {
       const prop = props[propId] || { id: propId, side: "right" };
-      const side = prop.side === "left" ? "left" : "right";
-      if (!propSideVisible(side)) return;
-      if (side === "left") left.push(prop);
+      if (prop.side === "left") left.push(prop);
       else right.push(prop);
     });
     return { left: left.length, right: right.length };
@@ -1452,9 +1442,7 @@ export function Diagram({
     const right = [];
     (propIds || []).forEach((propId) => {
       const prop = props[propId] || { id: propId, label: propId, side: "right" };
-      const side = prop.side === "left" ? "left" : "right";
-      if (!propSideVisible(side)) return;
-      if (side === "left") left.push(prop);
+      if (prop.side === "left") left.push(prop);
       else right.push(prop);
     });
     return { left, right };

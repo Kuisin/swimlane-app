@@ -152,8 +152,6 @@ export function GuiModePanel({
         <p className="text-[10px] font-jp text-stone-500 pt-1">図オプション（/option/）</p>
         <div className="space-y-1">
           {[
-            ["showRightRemarks", "右側の備考（props）を表示"],
-            ["showLeftRemarks", "左側の備考（props）を表示"],
             ["showLeftGutter", "左カラム（番号・補足）を表示"],
             ["showStepBlockCaptions", "ステップ本文・ブロック参照を出力に含める"],
             ["mergeAtPreviousBlock", "クローズ位置を前ブロックに合わせる"],

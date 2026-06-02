@@ -34,8 +34,6 @@ export function EditorProvider({ children }) {
   const [themeKey, setThemeKey] = useState("basic");
   const [showStepBlockCaptions, setShowStepBlockCaptions] = useState(true);
   const [mergeAtPreviousBlock, setMergeAtPreviousBlock] = useState(true);
-  const [showRightRemarks, setShowRightRemarks] = useState(true);
-  const [showLeftRemarks, setShowLeftRemarks] = useState(true);
   const [showLeftGutter, setShowLeftGutter] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
@@ -52,8 +50,6 @@ export function EditorProvider({ children }) {
         setThemeKey,
         setShowStepBlockCaptions,
         setMergeAtPreviousBlock,
-        setShowRightRemarks,
-        setShowLeftRemarks,
         setShowLeftGutter,
       });
     } else if (raw) {
@@ -77,8 +73,6 @@ export function EditorProvider({ children }) {
         setThemeKey,
         setShowStepBlockCaptions,
         setMergeAtPreviousBlock,
-        setShowRightRemarks,
-        setShowLeftRemarks,
         setShowLeftGutter,
       });
     }
@@ -131,8 +125,6 @@ export function EditorProvider({ children }) {
     themeKey,
     showStepBlockCaptions,
     mergeAtPreviousBlock,
-    showRightRemarks,
-    showLeftRemarks,
     showLeftGutter,
   });
   const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
@@ -145,8 +137,6 @@ export function EditorProvider({ children }) {
       themeKey,
       showStepBlockCaptions,
       mergeAtPreviousBlock,
-      showRightRemarks,
-      showLeftRemarks,
       showLeftGutter,
     };
     hasUnsavedChangesRef.current = hasUnsavedChanges;
@@ -157,8 +147,6 @@ export function EditorProvider({ children }) {
     themeKey,
     showStepBlockCaptions,
     mergeAtPreviousBlock,
-    showRightRemarks,
-    showLeftRemarks,
     showLeftGutter,
     hasUnsavedChanges,
   ]);
@@ -180,8 +168,6 @@ export function EditorProvider({ children }) {
     themeKey,
     showStepBlockCaptions,
     mergeAtPreviousBlock,
-    showRightRemarks,
-    showLeftRemarks,
     showLeftGutter,
     isHydrated,
   ]);
@@ -326,10 +312,6 @@ export function EditorProvider({ children }) {
     setShowStepBlockCaptions,
     mergeAtPreviousBlock,
     setMergeAtPreviousBlock,
-    showRightRemarks,
-    setShowRightRemarks,
-    showLeftRemarks,
-    setShowLeftRemarks,
     showLeftGutter,
     setShowLeftGutter,
     showHelp,

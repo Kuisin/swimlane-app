@@ -17,8 +17,6 @@ describe("/page/ section", () => {
       "footer-right: Confidential;",
       "",
       "/option/",
-      "show-right-remarks: false;",
-      "show-left-remarks: true;",
       "show-left-gutter: true;",
       "show-step-block-captions: false;",
       "merge-at-previous-block: false;",
@@ -68,8 +66,6 @@ describe("/page/ section", () => {
       rightSubtitle: "Notes",
     });
     expect(model.options).toMatchObject({
-      showRightRemarks: false,
-      showLeftRemarks: true,
       showLeftGutter: true,
       showStepBlockCaptions: false,
       mergeAtPreviousBlock: false,

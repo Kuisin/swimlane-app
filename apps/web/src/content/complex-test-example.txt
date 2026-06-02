@@ -21,11 +21,8 @@ show-left-gutter: true;
 show-step-block-captions: true;
 merge-at-previous-block: true;
 
-show-left-remarks: true;
 left-title: Procedure;
 left-subtitle: Description;
-
-show-right-remarks: true;
 right-title: Remark;
 right-subtitle: 補足・備考;
 
@@ -250,7 +247,7 @@ branch (配送支線)
   [api: 追跡IDを通知]
 end-branch
 
-[api: 旧式互換テスト]
+[frontend: 旧式互換テスト]
 
 *** 支線の直後が fork のとき、合流先は fork ゲートウェイ ***
 branch (レガシー支線)
@@ -258,20 +255,20 @@ branch (レガシー支線)
 end-branch
 
 fork #purple
-  [api: レシートをメール送信] <notify>
-  desc: ```
-確定した注文のレシートを生成し、
-顧客へメールで送付します。
-  ```;
-  props: receipt;
-
-and
   [db: 在庫台帳を更新]
   desc: ```
 販売実績を在庫台帳へ反映し、
 集計用の数値を確定します。
   ```;
   props: auditlog;
+
+and
+  [api: レシートをメール送信] <notify>
+  desc: ```
+確定した注文のレシートを生成し、
+顧客へメールで送付します。
+  ```;
+  props: receipt;
 
 and
   [worker: 配送状況を初期化] <job>

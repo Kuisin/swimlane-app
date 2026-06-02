@@ -32,32 +32,18 @@ function render(opts) {
 }
 
 describe("display option toggles", () => {
-  it("show all by default", () => {
+  it("shows the gutter title and both prop chips by default", () => {
     const svg = render({});
     expect(svg).toContain("GUTTERONLY"); // left gutter title
-    expect(svg).toContain("LEFTDOC"); // left remark chip
-    expect(svg).toContain("RIGHTDOC"); // right remark chip
+    expect(svg).toContain("LEFTDOC"); // left prop chip
+    expect(svg).toContain("RIGHTDOC"); // right prop chip
   });
 
   it("showLeftGutter=false hides the left gutter column", () => {
     const svg = render({ showLeftGutter: false });
     expect(svg).not.toContain("GUTTERONLY");
-    // remark chips are independent of the gutter
+    // prop chips are independent of the gutter and always render
     expect(svg).toContain("LEFTDOC");
     expect(svg).toContain("RIGHTDOC");
-  });
-
-  it("showLeftRemarks=false hides left-side remark chips only", () => {
-    const svg = render({ showLeftRemarks: false });
-    expect(svg).not.toContain("LEFTDOC");
-    expect(svg).toContain("RIGHTDOC");
-    expect(svg).toContain("GUTTERONLY");
-  });
-
-  it("showRightRemarks=false hides right-side remark chips only", () => {
-    const svg = render({ showRightRemarks: false });
-    expect(svg).not.toContain("RIGHTDOC");
-    expect(svg).toContain("LEFTDOC");
-    expect(svg).toContain("GUTTERONLY");
   });
 });

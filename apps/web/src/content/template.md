@@ -92,9 +92,11 @@ icon: #mail;
 |------|------|
 | `rounded` | ユーザー操作（申請・承認・却下・通常業務など） |
 | `rect` | システム操作（自動処理・通知送信など） |
-| `hex` | 条件分岐内のステップ（`if`〜`endif` のケース） |
+| `hex` | 条件分岐・例外系のステップ |
 | `ellipse` | 開始・終端など端点ステップ |
 | `subroutine` | サブルーチン風の処理ブロック |
+| `cloud` | 通知・外部連携など（雲形） |
+| `note` | メモ・注記（付箋形） |
 
 ### 通常処理
 
@@ -151,7 +153,7 @@ icon: #circle-check;
 background-color: #f3e8ff;
 text-color: #6b21a8;
 border-color: #9333ea;
-shape: subroutine;
+shape: hex;
 icon: #git-branch;
 ```
 
@@ -373,8 +375,8 @@ footer-right: 2026-06-02;
 
 /option/
 show-left-gutter: true;
-show-left-remarks: true;
-show-right-remarks: true;
+show-step-block-captions: true;
+merge-at-previous-block: true;
 left-title: 手続き;
 left-subtitle: 説明;
 right-title: 備考;
@@ -387,10 +389,11 @@ right-subtitle: メモ;
 
 | 構文 | 用途 |
 |------|------|
-| `if` / `elseif` / `else` / `endif` | 排他分岐 |
+| `if` / `elseif` / `else` / `endif` | 排他分岐（いずれか1ケース） |
 | `[loop]` | 同じ `if` へ戻る（再試行） |
 | `fork` / `and` / `endfork` | 並行分岐（全パス同時） |
-| `section (名前) #色` / `end-section` | 本流をスキップする詳細セクション |
+| `section (名前) #色` / `end-section` | 本流はそのまま。関連ステップを点線ボックスで囲う |
+| `branch (名前) #色` / `end-branch` | 本流から支線が分岐し、末尾で直後ブロックへ合流 |
 | `merge: <id>;` + 下流の `id: <id>;` | `endif` を経由しない前方合流 |
 
 ## set
@@ -505,6 +508,8 @@ props: APPR_LOG;
 props: APPR_LOG;
 
 [role_applicant: 結果を確認]
+remark: 承認結果はメールでも通知。;
+remark-desc: ポータルの「申請一覧」からも確認できます。;
 props: NOTIFY;
 
 @end
@@ -674,6 +679,55 @@ and
 and
   [role_worker: 配送を初期化] <block_system>
 endfork
+
+@end
+```
+
+### 枠と支線（section / branch）
+
+`section` は本流を変えずに囲うだけ。`branch` は本流から支線が分岐し、`end-branch` の直後へ合流します。
+
+```kai-swimlane
+@kai-swimlane
+
+/title/
+枠と支線の例
+
+/role/
+
+<role_ops>
+label: 担当;
+text-color: #1e293b;
+background-color: #ffffff;
+
+<role_audit>
+label: 監査;
+text-color: #1e40af;
+background-color: #eff6ff;
+
+/block/
+
+<block_done>
+background-color: #dcfce7;
+text-color: #166534;
+border-color: #16a34a;
+shape: ellipse;
+
+/line/
+
+[role_ops: 注文を確定]
+
+section (監査ブロック) #blue
+  [role_audit: 監査明細を保存]
+  [role_audit: イベントを送信]
+end-section
+
+branch (配送支線)
+  [role_ops: ピッキングを記録]
+  [role_ops: 追跡IDを通知]
+end-branch
+
+[role_ops: 確認画面を表示] <block_done>
 
 @end
 ```
