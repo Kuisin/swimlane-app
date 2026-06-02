@@ -133,6 +133,90 @@ function PathHitTarget({ rowIndex, d, onSelect }) {
   );
 }
 
+/**
+ * Page "print" elements that frame the diagram table: header, title, page
+ * description (all above the grid) and the footer (below it). Kept separate
+ * from the swimlane table so the diagram render reads cleanly.
+ */
+function PrintLayer({
+  theme,
+  page,
+  title,
+  width,
+  xPad,
+  hasPageHeader,
+  pageHeaderY,
+  titleY,
+  pageDescLines,
+  pageDescStartY,
+  pageDescLineHeight,
+  hasPageFooter,
+  height,
+}) {
+  const serif = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
+  return (
+    <>
+      {hasPageHeader && pageHeaderY != null && (
+        <PageTriColumnText
+          y={pageHeaderY}
+          width={width}
+          xPad={xPad}
+          left={page.headerLeft}
+          center={page.headerCenter}
+          right={page.headerRight}
+          fill={theme.laneText || theme.title}
+          fontSize={11}
+        />
+      )}
+
+      {title && titleY != null && (
+        <text
+          x={width / 2}
+          y={titleY}
+          textAnchor="middle"
+          fill={theme.title}
+          fontFamily={serif}
+          fontSize="24"
+          fontWeight="600"
+          letterSpacing="0.05em"
+        >
+          {title}
+        </text>
+      )}
+
+      {pageDescLines.length > 0 && pageDescStartY != null && (
+        <text
+          x={width / 2}
+          y={pageDescStartY}
+          textAnchor="middle"
+          fill={theme.laneText || theme.title}
+          fontFamily={serif}
+          fontSize="13"
+        >
+          {pageDescLines.map((line, i) => (
+            <tspan key={i} x={width / 2} dy={i === 0 ? 0 : pageDescLineHeight}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      )}
+
+      {hasPageFooter && (
+        <PageTriColumnText
+          y={height - 12}
+          width={width}
+          xPad={xPad}
+          left={page.footerLeft}
+          center={page.footerCenter}
+          right={page.footerRight}
+          fill={theme.laneText || theme.title}
+          fontSize={11}
+        />
+      )}
+    </>
+  );
+}
+
 export function Diagram({
   model,
   theme,
@@ -1825,50 +1909,9 @@ export function Diagram({
         </pattern>
       </defs>
 
-      {hasPageHeader && pageHeaderY != null && (
-        <PageTriColumnText
-          y={pageHeaderY}
-          width={width}
-          xPad={xPad}
-          left={page.headerLeft}
-          center={page.headerCenter}
-          right={page.headerRight}
-          fill={theme.laneText || theme.title}
-          fontSize={11}
-        />
-      )}
-
-      {title && titleY != null && (
-        <text
-          x={width / 2}
-          y={titleY}
-          textAnchor="middle"
-          fill={theme.title}
-          fontFamily="'Shippori Mincho','Noto Serif JP',Georgia,serif"
-          fontSize="24"
-          fontWeight="600"
-          letterSpacing="0.05em"
-        >
-          {title}
-        </text>
-      )}
-
-      {pageDescLines.length > 0 && pageDescStartY != null && (
-        <text
-          x={width / 2}
-          y={pageDescStartY}
-          textAnchor="middle"
-          fill={theme.laneText || theme.title}
-          fontFamily="'Shippori Mincho','Noto Serif JP',Georgia,serif"
-          fontSize="13"
-        >
-          {pageDescLines.map((line, i) => (
-            <tspan key={i} x={width / 2} dy={i === 0 ? 0 : pageDescLineHeight}>
-              {line}
-            </tspan>
-          ))}
-        </text>
-      )}
+      {/* ── Diagram table (swimlane grid, rows, branches, connectors). The page
+          print elements — header, title, description, footer — are rendered by
+          <PrintLayer/> at the end. ── */}
 
       {/* Background grid is confined to the diagram band so the print
           elements (title, page header/description, footer) stay on a clean
@@ -3110,18 +3153,22 @@ export function Diagram({
           return null;
         })}
 
-      {hasPageFooter && (
-        <PageTriColumnText
-          y={height - 12}
-          width={width}
-          xPad={xPad}
-          left={page.footerLeft}
-          center={page.footerCenter}
-          right={page.footerRight}
-          fill={theme.laneText || theme.title}
-          fontSize={11}
-        />
-      )}
+      {/* ── Page print elements (header / title / description / footer) ── */}
+      <PrintLayer
+        theme={theme}
+        page={page}
+        title={title}
+        width={width}
+        xPad={xPad}
+        hasPageHeader={hasPageHeader}
+        pageHeaderY={pageHeaderY}
+        titleY={titleY}
+        pageDescLines={pageDescLines}
+        pageDescStartY={pageDescStartY}
+        pageDescLineHeight={pageDescLineHeight}
+        hasPageFooter={hasPageFooter}
+        height={height}
+      />
     </svg>
   );
 }

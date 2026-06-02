@@ -123,6 +123,72 @@ function PathHitTarget({ rowIndex, d, onSelect }) {
     }
   );
 }
+function PrintLayer({
+  theme,
+  page,
+  title,
+  width,
+  xPad,
+  hasPageHeader,
+  pageHeaderY,
+  titleY,
+  pageDescLines,
+  pageDescStartY,
+  pageDescLineHeight,
+  hasPageFooter,
+  height
+}) {
+  const serif = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
+  return /* @__PURE__ */ h(Fragment, null, hasPageHeader && pageHeaderY != null && /* @__PURE__ */ h(
+    PageTriColumnText,
+    {
+      y: pageHeaderY,
+      width,
+      xPad,
+      left: page.headerLeft,
+      center: page.headerCenter,
+      right: page.headerRight,
+      fill: theme.laneText || theme.title,
+      fontSize: 11
+    }
+  ), title && titleY != null && /* @__PURE__ */ h(
+    "text",
+    {
+      x: width / 2,
+      y: titleY,
+      textAnchor: "middle",
+      fill: theme.title,
+      fontFamily: serif,
+      fontSize: "24",
+      fontWeight: "600",
+      letterSpacing: "0.05em"
+    },
+    title
+  ), pageDescLines.length > 0 && pageDescStartY != null && /* @__PURE__ */ h(
+    "text",
+    {
+      x: width / 2,
+      y: pageDescStartY,
+      textAnchor: "middle",
+      fill: theme.laneText || theme.title,
+      fontFamily: serif,
+      fontSize: "13"
+    },
+    pageDescLines.map((line, i) => /* @__PURE__ */ h("tspan", { key: i, x: width / 2, dy: i === 0 ? 0 : pageDescLineHeight }, line))
+  ), hasPageFooter && /* @__PURE__ */ h(
+    PageTriColumnText,
+    {
+      y: height - 12,
+      width,
+      xPad,
+      left: page.footerLeft,
+      center: page.footerCenter,
+      right: page.footerRight,
+      fill: theme.laneText || theme.title,
+      fontSize: 11
+    }
+  ));
+}
 function renderDiagramSvg({
   model,
   theme,
@@ -1408,45 +1474,6 @@ function renderDiagramSvg({
         }
       )
     )),
-    hasPageHeader && pageHeaderY != null && /* @__PURE__ */ h(
-      PageTriColumnText,
-      {
-        y: pageHeaderY,
-        width,
-        xPad,
-        left: page.headerLeft,
-        center: page.headerCenter,
-        right: page.headerRight,
-        fill: theme.laneText || theme.title,
-        fontSize: 11
-      }
-    ),
-    title && titleY != null && /* @__PURE__ */ h(
-      "text",
-      {
-        x: width / 2,
-        y: titleY,
-        textAnchor: "middle",
-        fill: theme.title,
-        fontFamily: "'Shippori Mincho','Noto Serif JP',Georgia,serif",
-        fontSize: "24",
-        fontWeight: "600",
-        letterSpacing: "0.05em"
-      },
-      title
-    ),
-    pageDescLines.length > 0 && pageDescStartY != null && /* @__PURE__ */ h(
-      "text",
-      {
-        x: width / 2,
-        y: pageDescStartY,
-        textAnchor: "middle",
-        fill: theme.laneText || theme.title,
-        fontFamily: "'Shippori Mincho','Noto Serif JP',Georgia,serif",
-        fontSize: "13"
-      },
-      pageDescLines.map((line, i) => /* @__PURE__ */ h("tspan", { key: i, x: width / 2, dy: i === 0 ? 0 : pageDescLineHeight }, line))
-    ),
     /* @__PURE__ */ h(
       "rect",
       {
@@ -2554,17 +2581,22 @@ function renderDiagramSvg({
       }
       return null;
     }),
-    hasPageFooter && /* @__PURE__ */ h(
-      PageTriColumnText,
+    /* @__PURE__ */ h(
+      PrintLayer,
       {
-        y: height - 12,
+        theme,
+        page,
+        title,
         width,
         xPad,
-        left: page.footerLeft,
-        center: page.footerCenter,
-        right: page.footerRight,
-        fill: theme.laneText || theme.title,
-        fontSize: 11
+        hasPageHeader,
+        pageHeaderY,
+        titleY,
+        pageDescLines,
+        pageDescStartY,
+        pageDescLineHeight,
+        hasPageFooter,
+        height
       }
     )
   );
