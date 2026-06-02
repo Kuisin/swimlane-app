@@ -3,6 +3,7 @@ import { EditorLayout } from "../components/editor/layout";
 import { GuiModePanel } from "../components/gui/panel";
 import { useEditor } from "../hooks/use-editor";
 import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
+import { resolveDiagramOptions } from "@kai-swimlane/core";
 import {
   openStepInspectorPopup,
   syncStepInspectorPopup,
@@ -13,7 +14,6 @@ export function GuiPage() {
   const {
     activeDocumentId,
     theme,
-    showStepBlockCaptions,
     src,
     model,
     hasUnsavedChanges,
@@ -26,6 +26,10 @@ export function GuiPage() {
   const stepInspectorPopupRef = useRef(null);
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
+  const resolvedDiagramOptions = useMemo(
+    () => resolveDiagramOptions(guiModel.options),
+    [guiModel.options],
+  );
 
   function onEditRows(editFn) {
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
@@ -80,7 +84,7 @@ export function GuiPage() {
         model={model}
         guiModel={guiModel}
         themeBg={theme.bg}
-        showStepBlockCaptions={showStepBlockCaptions}
+        showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
         hasUnsavedChanges={hasUnsavedChanges}
         onSave={saveDocuments}
         onTitleChange={handleTitleChange}

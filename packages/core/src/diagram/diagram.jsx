@@ -1,9 +1,17 @@
+import { arrowLineStrokeProps, stepOutgoingArrowLine } from "../arrow-line.js";
 import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
 import {
   findNextFlowStepAfterBranchEnd,
   findNextSiblingBranchStart,
 } from "../branch-rows.js";
+import {
+  findEnclosingBranchGroupStart,
+  findFlowContinuityAfterGroupEnd,
+  findGroupEndIndex,
+  groupModeOf,
+  isInsideBranchGroup,
+} from "../group-rows.js";
 import { StepShape } from "./step-shape";
 import { BlockIcon } from "./block-icon";
 
@@ -16,6 +24,12 @@ export const BRANCH_COLOR_STYLES = {
   gray: { stroke: "#374151", bg: "#f3f4f6" },
   black: { stroke: "#111827", bg: "#e5e7eb" },
 };
+
+/**
+ * Fork (`fork`) / `endfork` circles — same visual weight as the endif merge
+ * diamond (mH = 28), with branch fill + stroke like `if`/`endif`.
+ */
+const FORK_GATEWAY_RADIUS = 14;
 
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
   const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
@@ -119,30 +133,130 @@ function PathHitTarget({ rowIndex, d, onSelect }) {
   );
 }
 
+/**
+ * Page "print" elements that frame the diagram table: header, title, page
+ * description (all above the grid) and the footer (below it). Kept separate
+ * from the swimlane table so the diagram render reads cleanly.
+ */
+function PrintLayer({
+  theme,
+  page,
+  title,
+  width,
+  xPad,
+  hasPageHeader,
+  pageHeaderY,
+  titleY,
+  pageDescLines,
+  pageDescStartY,
+  pageDescLineHeight,
+  hasPageFooter,
+  height,
+}) {
+  const serif = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
+  return (
+    <>
+      {hasPageHeader && pageHeaderY != null && (
+        <PageTriColumnText
+          y={pageHeaderY}
+          width={width}
+          xPad={xPad}
+          left={page.headerLeft}
+          center={page.headerCenter}
+          right={page.headerRight}
+          fill={theme.laneText || theme.title}
+          fontSize={11}
+        />
+      )}
+
+      {title && titleY != null && (
+        <text
+          x={width / 2}
+          y={titleY}
+          textAnchor="middle"
+          fill={theme.title}
+          fontFamily={serif}
+          fontSize="24"
+          fontWeight="600"
+          letterSpacing="0.05em"
+        >
+          {title}
+        </text>
+      )}
+
+      {pageDescLines.length > 0 && pageDescStartY != null && (
+        <text
+          x={width / 2}
+          y={pageDescStartY}
+          textAnchor="middle"
+          fill={theme.laneText || theme.title}
+          fontFamily={serif}
+          fontSize="13"
+        >
+          {pageDescLines.map((line, i) => (
+            <tspan key={i} x={width / 2} dy={i === 0 ? 0 : pageDescLineHeight}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      )}
+
+      {hasPageFooter && (
+        <PageTriColumnText
+          y={height - 12}
+          width={width}
+          xPad={xPad}
+          left={page.footerLeft}
+          center={page.footerCenter}
+          right={page.footerRight}
+          fill={theme.laneText || theme.title}
+          fontSize={11}
+        />
+      )}
+    </>
+  );
+}
+
 export function Diagram({
   model,
   theme,
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
+  showLeftGutter = true,
+  showRightGutter = true,
+  showHeader = true,
+  showFooter = true,
+  showDescription = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect,
 }) {
   const { title, page = {}, lanes, rows, blocks = {}, props = {} } = model;
-  const pageDescription = (page.description || "").trim();
+  const pageDescription = (showDescription ? page.description || "" : "").trim();
   const hasPageHeader = Boolean(
-    page.headerLeft?.trim() ||
-      page.headerCenter?.trim() ||
-      page.headerRight?.trim(),
+    showHeader &&
+      (page.headerLeft?.trim() ||
+        page.headerCenter?.trim() ||
+        page.headerRight?.trim()),
   );
   const hasPageFooter = Boolean(
-    page.footerLeft?.trim() ||
-      page.footerCenter?.trim() ||
-      page.footerRight?.trim(),
+    showFooter &&
+      (page.footerLeft?.trim() ||
+        page.footerCenter?.trim() ||
+        page.footerRight?.trim()),
   );
   const nodeW = 188;
   const xPad = 40;
-  const leftGutter = 300;
+  // The left gutter (step number / label / description column) collapses to zero
+  // width when hidden, so the lanes reflow against the left padding.
+  const leftGutter = showLeftGutter ? 300 : 0;
+  // The right gutter shows each step's `remark` text under the right-title
+  // header. Content-driven (only when some step has a remark) and toggleable.
+  const hasRemarks = (rows || []).some(
+    (r) => r.kind === "step" && (r.remark || "").trim(),
+  );
+  const rightGutterVisible = showRightGutter && hasRemarks;
+  const rightGutter = rightGutterVisible ? 240 : 0;
   const headerH = 72;
   const rowH = 80;
 
@@ -167,6 +281,8 @@ export function Diagram({
   const diamondH = 90;
   const mergeH = 60;
   const branchLoopH = 12;
+  const branchMergeH = 12;
+  const groupMarkerH = 16;
   const decisionYOffset = -15;
   const branchCaseBendYOffset = 10;
   const stepBoxH = 44;
@@ -179,37 +295,42 @@ export function Diagram({
     ? wrapTextToDisplayColumns(pageDescription, 48)
     : [];
   const pageDescLineHeight = 16;
-  const pageFooterPad = hasPageFooter ? 28 : 0;
+  const pageFooterPad = hasPageFooter ? 44 : 0;
+  /** Bottom gap of the diagram grid so the footer sits clear below it. */
+  const gridBottomPad = hasPageFooter ? 52 : 24;
 
   let pageHeaderY = null;
   let titleY = null;
   let pageDescStartY = null;
-  let topPad = 32;
+  let topPad = 40;
 
   if (!hasPageHeader && !pageDescription && title) {
-    topPad = 72;
-    titleY = 40;
+    topPad = 84;
+    titleY = 48;
   } else if (!hasPageHeader && !pageDescription && !title) {
-    topPad = 32;
+    topPad = 40;
   } else {
-    let layoutY = 14;
+    let layoutY = 18;
     if (hasPageHeader) {
       pageHeaderY = layoutY + 12;
-      layoutY += 22;
+      layoutY += 32;
     }
     if (title) {
-      titleY = layoutY + 22;
-      layoutY += 30;
+      titleY = layoutY + 24;
+      layoutY += 38;
     }
     if (pageDescLines.length > 0) {
-      pageDescStartY = layoutY + 8;
-      layoutY += pageDescLines.length * pageDescLineHeight + 12;
+      pageDescStartY = layoutY + 10;
+      layoutY += pageDescLines.length * pageDescLineHeight + 18;
     }
-    topPad = Math.max(layoutY + 12, title || pageDescLines.length > 0 ? 72 : 32);
+    topPad = Math.max(
+      layoutY + 20,
+      title || pageDescLines.length > 0 ? 84 : 40,
+    );
   }
 
   const rowMeta = [];
-  let y = topPad + headerH + 24;
+  let y = topPad + headerH + 40;
   const frames = [];
   const frameStack = [];
   const laneIndexById = new Map(lanes.map((lane, idx) => [lane.id, idx]));
@@ -222,6 +343,15 @@ export function Diagram({
     return custom;
   }
 
+  /** Vertical center of a branch decision / fork gateway in its layout row. */
+  function branchDecisionCy(f) {
+    return (
+      f.yDecision +
+      diamondH / 2 +
+      (f.parallel ? 0 : decisionYOffset)
+    );
+  }
+
   function stepPropCounts(row) {
     const acc = { left: 0, right: 0 };
     (row?.props || []).forEach((propId) => {
@@ -232,38 +362,30 @@ export function Diagram({
   }
 
   /**
-   * Extra height so the left-gutter description fits; compare after props have extended the row.
-   * Overflow may use vertical space before the next layout row:
-   * - Next row is a `skipIndex` step: subtract that step’s row height.
+   * Extra height so a wrapped gutter text block (left description or right
+   * remark) fits; compared after props have extended the row. Overflow may use
+   * vertical space before the next layout row:
    * - Next row is `branchStart` (if): subtract `diamondH`, same band the decision uses.
+   * `startOffset` is the y-offset of the first text line within the row (larger
+   * when a per-step title sits above the text, as the left description does).
    */
-  function stepDescriptionExtraHeight(row, rowIndex, heightWithProps) {
-    const desc = (row?.description || "").trim();
-    if (!desc) return 0;
-    const titleText = (row.name || row.text || "").trim();
-    const visualLines = wrapDescriptionToVisualLines(desc, 28);
+  function gutterTextExtraHeight(text, startOffset, rowIndex, heightWithProps) {
+    const t = (text || "").trim();
+    if (!t) return 0;
+    const visualLines = wrapDescriptionToVisualLines(t, 28);
     if (visualLines.length === 0) return 0;
-    const descStartOffset = titleText ? 40 : 20;
     const extent =
-      descStartOffset +
+      startOffset +
       visualLines.length * descriptionLineHeight +
       descriptionBottomPad;
-    let descExtra = Math.max(0, extent - heightWithProps);
-    if (descExtra <= 0) return 0;
+    let extra = Math.max(0, extent - heightWithProps);
+    if (extra <= 0) return 0;
 
     const next = rows[rowIndex + 1];
-    if (
-      next?.kind === "step" &&
-      !next.empty &&
-      next.role &&
-      next.skipIndex
-    ) {
-      const nextH = stepRowHeight(next, rowIndex + 1);
-      descExtra = Math.max(0, descExtra - nextH);
-    } else if (next?.kind === "branchStart") {
-      descExtra = Math.max(0, descExtra - diamondH);
+    if (next?.kind === "branchStart") {
+      extra = Math.max(0, extra - diamondH);
     }
-    return descExtra;
+    return extra;
   }
 
   function stepRowHeight(row, rowIndex) {
@@ -275,9 +397,22 @@ export function Diagram({
       (maxPropsPerSide > 0 && propRowExtraHBase) +
       Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
     const heightWithProps = rowH + propExtra;
-    const descExtra = stepDescriptionExtraHeight(row, rowIndex, heightWithProps);
+    // Left description sits below the per-step title; the right remark starts at
+    // the row top. The row must fit whichever gutter text is taller.
+    const titleText = (row.name || row.text || "").trim();
+    const descExtra = showLeftGutter
+      ? gutterTextExtraHeight(
+          row.description,
+          titleText ? 40 : 20,
+          rowIndex,
+          heightWithProps,
+        )
+      : 0;
+    const remarkExtra = rightGutterVisible
+      ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps)
+      : 0;
 
-    return heightWithProps + descExtra;
+    return heightWithProps + Math.max(descExtra, remarkExtra);
   }
 
   function rowCenterY(rowIndex) {
@@ -326,18 +461,30 @@ export function Diagram({
         id: r.id,
         depth: r.depth,
         cond: r.cond,
+        parallel: Boolean(r.parallel),
         yDecision: y,
         decisionColor: r.branchColor || null,
-        cases: (r.firstCase && String(r.firstCase).trim())
+        // A fork's first concurrent path opens at the `fork` line itself (no
+        // condition/firstCase), mirroring how an `if` opens its first case.
+        cases: r.parallel
           ? [
               {
-                label: r.firstCase.trim(),
+                label: "",
                 color: r.branchColor || null,
                 rowIndices: [],
                 startRow: i,
               },
             ]
-          : [],
+          : (r.firstCase && String(r.firstCase).trim())
+            ? [
+                {
+                  label: r.firstCase.trim(),
+                  color: r.branchColor || null,
+                  rowIndices: [],
+                  startRow: i,
+                },
+              ]
+            : [],
         parentCase: null,
         anchorX: null,
       };
@@ -374,6 +521,21 @@ export function Diagram({
       rowMeta[i] = { y, kind: "branchLoop" };
       pushToActiveCase(i);
       y += branchLoopH;
+    } else if (r.kind === "branchMerge") {
+      stepRowHeightByIndex.set(i, branchMergeH);
+      rowMeta[i] = { y, kind: "branchMerge" };
+      pushToActiveCase(i);
+      y += branchMergeH;
+    } else if (r.kind === "groupStart") {
+      stepRowHeightByIndex.set(i, groupMarkerH);
+      rowMeta[i] = { y, kind: "groupStart" };
+      pushToActiveCase(i);
+      y += groupMarkerH;
+    } else if (r.kind === "groupEnd") {
+      stepRowHeightByIndex.set(i, groupMarkerH);
+      rowMeta[i] = { y, kind: "groupEnd" };
+      pushToActiveCase(i);
+      y += groupMarkerH;
     } else if (r.kind === "step") {
       const h = stepRowHeight(r, i);
       stepRowHeightByIndex.set(i, h);
@@ -393,8 +555,31 @@ export function Diagram({
   function firstDirectStepIdx(c) {
     return c.rowIndices.find((idx) => {
       const row = rows[idx];
-      return row?.kind === "step" && !row.empty && row.role;
+      return (
+        row?.kind === "step" &&
+        !row.empty &&
+        row.role &&
+        !isInsideBranchGroup(rows, idx)
+      );
     });
+  }
+  function firstMainFlowStepIdx(c) {
+    return firstDirectStepIdx(c);
+  }
+  function lastMainFlowStepIdx(c) {
+    for (let k = c.rowIndices.length - 1; k >= 0; k--) {
+      const idx = c.rowIndices[k];
+      const row = rows[idx];
+      if (
+        row?.kind === "step" &&
+        !row.empty &&
+        row.role &&
+        !isInsideBranchGroup(rows, idx)
+      ) {
+        return idx;
+      }
+    }
+    return null;
   }
 
   /** First direct step in a case body after a nested if's endif (same-case continuation). */
@@ -492,12 +677,7 @@ export function Diagram({
       };
     }
 
-    const lastDirectStepIdx = [...c.rowIndices]
-      .reverse()
-      .find((idx) => {
-        const row = rows[idx];
-        return row?.kind === "step" && !row.empty && row.role;
-      });
+    const lastDirectStepIdx = lastMainFlowStepIdx(c);
     if (lastDirectStepIdx != null) {
       const r = rows[lastDirectStepIdx];
       const li = laneIndex(r.role);
@@ -792,8 +972,10 @@ export function Diagram({
     laneCursor += w;
   });
 
-  const width = laneCursor + xPad;
-  const baseBottomPadding = 50 + pageFooterPad;
+  // The right remark gutter sits just past the last lane.
+  const rightGutterX = laneCursor;
+  const width = laneCursor + rightGutter + xPad;
+  const baseBottomPadding = 64 + pageFooterPad;
 
   function stepRowBounds(rowIndex) {
     const row = rows[rowIndex];
@@ -856,14 +1038,48 @@ export function Diagram({
     return firstStepIdxInCase(c) == null;
   }
 
+  /** First interior step of a fork (skips branch-group side steps). */
+  function forkFirstBlockX(f) {
+    const startIdx = rows.findIndex(
+      (r) => r.kind === "branchStart" && r.id === f.id,
+    );
+    if (startIdx < 0) return null;
+    for (let j = startIdx + 1; j < rows.length; j++) {
+      const row = rows[j];
+      if (row.kind === "branchEnd" && row.id === f.id) break;
+      if (
+        row.kind === "step" &&
+        !row.empty &&
+        row.role &&
+        !isInsideBranchGroup(rows, j)
+      ) {
+        return nodeCenterX(j, row.role);
+      }
+    }
+    return null;
+  }
+
   function frameAnchorX(f) {
+    // With merge-at-previous-block, a fork's split gateway sits on its FIRST
+    // interior block (mirroring how the join sits on the last one).
+    if (f.parallel && mergeAtPreviousBlock) {
+      const fx = forkFirstBlockX(f);
+      if (fx != null) return fx;
+    }
     const startIdx = rows.findIndex(
       (r) => r.kind === "branchStart" && r.id === f.id,
     );
     if (startIdx > 0) {
       for (let j = startIdx - 1; j >= 0; j--) {
         const row = rows[j];
-        if (row.kind === "step" && !row.empty && row.role) {
+        // Skip steps inside a branch group: the gateway should anchor on the
+        // main flow, not on a side branch sitting just before it.
+        if (
+          row.kind === "step" &&
+          !row.empty &&
+          row.role &&
+          !isInsideBranchGroup(rows, j)
+        ) {
           return nodeCenterX(j, row.role);
         }
         if (
@@ -897,7 +1113,7 @@ export function Diagram({
 
     for (let j = endIdx - 1; j >= 0; j--) {
       const row = rows[j];
-      if (row.kind === "step" && !row.empty && row.role) {
+      if (row.kind === "step" && !row.empty && row.role && !isInsideBranchGroup(rows, j)) {
         return nodeCenterX(j, row.role);
       }
       if (row.kind === "branchEnd" && row.id !== f.id) {
@@ -939,13 +1155,15 @@ export function Diagram({
 
   function buildCaseFanOutEdgeD(f, c) {
     const dCx = frameAnchorX(f);
-    const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-    const dH = 50;
+    const dCy = branchDecisionCy(f);
+    // Fork gateways are circles; fan-out/fan-in meet at bottom/top of the circle.
+    const dH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 50;
     const mCy = f.yMerge + mergeH / 2;
-    const mH = 28;
+    const mH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 28;
 
     const child = c.childFrame;
-    const firstStepIdx = firstStepIdxInCase(c);
+    const firstMainStep = firstMainFlowStepIdx(c);
+    const firstStepIdx = firstMainStep ?? firstStepIdxInCase(c);
     const childStartIdx =
       child != null
         ? rows.findIndex((r) => r.kind === "branchStart" && r.id === child.id)
@@ -960,8 +1178,8 @@ export function Diagram({
      */
     const targetsNestedDecision =
       child != null &&
-      (firstStepIdx == null ||
-        (childStartIdx >= 0 && childStartIdx < firstStepIdx));
+      (firstMainStep == null ||
+        (childStartIdx >= 0 && childStartIdx < firstMainStep));
 
     const startX = dCx;
     const startY = dCy + dH / 2;
@@ -974,7 +1192,7 @@ export function Diagram({
 
     if (targetsNestedDecision) {
       targetX = frameAnchorX(child);
-      targetY = child.yDecision + diamondH / 2 + decisionYOffset - 22;
+      targetY = branchDecisionCy(child) - 22;
       const li = laneIndexForX(targetX);
       if (li >= 0) caseLaneWidth = laneWidth(li);
     } else if (firstStepIdx != null) {
@@ -1048,6 +1266,94 @@ export function Diagram({
           rows[idx].role
       );
     return { loopIdx, prevStepIdx: prevStepIdx ?? null };
+  }
+  function findStepIndexByMergeId(mergeId) {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (
+        r.kind === "step" &&
+        !r.empty &&
+        r.role &&
+        r.mergeId === mergeId
+      )
+        return i;
+    }
+    return -1;
+  }
+  /** A `merge <id>;` in this case: its source step and resolved target step. */
+  function mergeAnchorInCase(rowIndices, branchId) {
+    const mergeIdx = [...rowIndices]
+      .reverse()
+      .find(
+        (idx) =>
+          rows[idx]?.kind === "branchMerge" &&
+          rows[idx].mergeBranchId === branchId,
+      );
+    if (mergeIdx == null) return null;
+    let prevStepIdx = null;
+    for (const idx of rowIndices) {
+      if (
+        idx < mergeIdx &&
+        rows[idx]?.kind === "step" &&
+        !rows[idx].empty &&
+        rows[idx].role
+      )
+        prevStepIdx = idx;
+    }
+    const targetIdx = findStepIndexByMergeId(rows[mergeIdx].mergeTarget);
+    if (targetIdx < 0) return null;
+    return { mergeIdx, prevStepIdx, targetIdx };
+  }
+  /**
+   * Route a `merge` connector from a case's last step down to the step `id:`
+   * downstream step, along a side rail so it clears the endif merge diamond
+   * and any blocks in between. Mirrors buildLoopBackPath but travels forward.
+   */
+  function buildMergeForwardPath({ fromX, fromBottomY, targetIdx }) {
+    const toX = nodeCenterX(targetIdx, rows[targetIdx].role);
+    const toTopY = stepBlockCenterY(targetIdx) - 22;
+    const dropY = fromBottomY + loopDropPad;
+
+    const obstacles = [];
+    rows.forEach((row, idx) => {
+      if (idx === targetIdx) return;
+      if (row?.kind !== "step" || row.empty || !row.role) return;
+      const b = stepObstacleBounds(idx);
+      if (b.bottom >= dropY && b.top <= toTopY) obstacles.push(b);
+    });
+
+    let sideSign;
+    if (obstacles.length > 0) {
+      const minLeft = Math.min(...obstacles.map((o) => o.left));
+      const maxRight = Math.max(...obstacles.map((o) => o.right));
+      const spaceLeft = fromX - minLeft;
+      const spaceRight = maxRight - fromX;
+      sideSign = spaceRight >= spaceLeft ? 1 : -1;
+    } else {
+      sideSign = toX >= fromX ? 1 : -1;
+    }
+
+    let routeX;
+    if (sideSign < 0) {
+      routeX =
+        Math.min(fromX, toX, ...obstacles.map((o) => o.left)) - loopRouteMargin;
+    } else {
+      routeX =
+        Math.max(fromX, toX, ...obstacles.map((o) => o.right)) + loopRouteMargin;
+    }
+    const lastLaneIdx = lanes.length - 1;
+    const laneGridLeft = laneX(0);
+    const laneGridRight =
+      lastLaneIdx >= 0
+        ? laneX(lastLaneIdx) + laneWidth(lastLaneIdx)
+        : width - xPad;
+    routeX = Math.max(laneGridLeft, Math.min(laneGridRight, routeX));
+
+    const approachY = toTopY - 14;
+    if (Math.abs(fromX - routeX) < 0.5 && Math.abs(toX - routeX) < 0.5) {
+      return `M ${fromX} ${fromBottomY} L ${toX} ${toTopY}`;
+    }
+    return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${approachY} L ${toX} ${approachY} L ${toX} ${toTopY}`;
   }
   function applyCaseOffsetsForFrame(frame, inheritedByLane = null) {
     const inherited =
@@ -1275,9 +1581,7 @@ export function Diagram({
     );
   }
 
-  for (let i = 1; i < stepRows.length; i++) {
-    const prev = stepRows[i - 1];
-    const cur = stepRows[i];
+  function pushSequentialStepConnector(prev, cur, key) {
     const prevCase = caseOfStep(prev.i);
     const curCase = caseOfStep(cur.i);
     if (
@@ -1285,10 +1589,11 @@ export function Diagram({
       curCase &&
       (prevCase.frame !== curCase.frame ||
         prevCase.caseIdx !== curCase.caseIdx)
-    )
-      continue;
-    if (prevCase && !curCase) continue;
-    if (!prevCase && curCase) continue;
+    ) {
+      return;
+    }
+    if (prevCase && !curCase) return;
+    if (!prevCase && curCase) return;
     let hasBranchBetween = false;
     for (let j = prev.i + 1; j < cur.i; j++) {
       if (rows[j]?.kind === "branchStart") {
@@ -1296,22 +1601,129 @@ export function Diagram({
         break;
       }
     }
-    if (hasBranchBetween) continue;
-    if (rows[prev.i + 1]?.kind === "branchStart") continue;
+    if (hasBranchBetween) return;
+    if (rows[prev.i + 1]?.kind === "branchStart") return;
     const fromIdx = laneIndex(prev.r.role);
     const toIdx = laneIndex(cur.r.role);
-    if (fromIdx < 0 || toIdx < 0) continue;
-    const fromX = nodeCenterX(prev.i, prev.r.role);
-    const toX = nodeCenterX(cur.i, cur.r.role);
-    const prevCy = stepBlockCenterY(prev.i);
-    const curCy = stepBlockCenterY(cur.i);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const y1 = stepBlockCenterY(prev.i) + 22;
+    const y2 = stepBlockCenterY(cur.i) - 22;
+    // When a branch group sits between the two steps, bend the connector right
+    // before the step after end-branch (its blocks all sit above this point),
+    // so the arrow descends past the branch and only jogs across at the end.
+    let hasBranchGroupBetween = false;
+    for (let j = prev.i + 1; j < cur.i; j++) {
+      if (rows[j]?.kind === "groupStart" && groupModeOf(rows[j]) === "branch") {
+        hasBranchGroupBetween = true;
+        break;
+      }
+    }
+    const bendY = hasBranchGroupBetween
+      ? Math.max(y1 + 12, y2 - 16)
+      : undefined;
     connectors.push({
-      fromX,
-      toX,
-      y1: prevCy + 22,
-      y2: curCy - 22,
-      key: `c-${i}`,
+      fromX: nodeCenterX(prev.i, prev.r.role),
+      toX: nodeCenterX(cur.i, cur.r.role),
+      y1,
+      y2,
+      key,
+      lineType: stepOutgoingArrowLine(prev.r),
+      bendY,
     });
+  }
+
+  const mainFlowSteps = stepRows.filter((x) => !isInsideBranchGroup(rows, x.i));
+  for (let i = 1; i < mainFlowSteps.length; i++) {
+    pushSequentialStepConnector(
+      mainFlowSteps[i - 1],
+      mainFlowSteps[i],
+      `c-main-${i}`,
+    );
+  }
+
+  for (let i = 1; i < stepRows.length; i++) {
+    const prev = stepRows[i - 1];
+    const cur = stepRows[i];
+    if (!isInsideBranchGroup(rows, prev.i) || !isInsideBranchGroup(rows, cur.i)) continue;
+    if (
+      findEnclosingBranchGroupStart(rows, prev.i) !==
+      findEnclosingBranchGroupStart(rows, cur.i)
+    ) {
+      continue;
+    }
+    pushSequentialStepConnector(prev, cur, `c-grp-${i}`);
+  }
+
+  // Branch groups: only the last interior step merges back to the main flow
+  // after the close. The first interior step is intentionally left unconnected
+  // (a new branch begins mid flow); the main flow continues past the branch via
+  // the normal sequential connector. Section groups don't touch the flow.
+  rows.forEach((row, startIdx) => {
+    if (row.kind !== "groupStart" || groupModeOf(row) !== "branch") return;
+    const endIdx = findGroupEndIndex(rows, startIdx);
+    if (endIdx < 0) return;
+
+    const target = findFlowContinuityAfterGroupEnd(rows, endIdx);
+    if (!target) return;
+
+    let toX;
+    let toY;
+    if (target.type === "step") {
+      const toRow = rows[target.index];
+      if (laneIndex(toRow.role) < 0) return;
+      toX = nodeCenterX(target.index, toRow.role);
+      toY = stepBlockCenterY(target.index) - 22;
+    } else {
+      const branchRow = rows[target.index];
+      const frame = frames.find((f) => f.id === branchRow.id);
+      if (!frame) return;
+      toX = frameAnchorX(frame);
+      toY =
+        branchDecisionCy(frame) -
+        (frame.parallel ? FORK_GATEWAY_RADIUS : 25);
+    }
+
+    const innerLastIdx = lastStepInsideGroup(startIdx, endIdx);
+    if (innerLastIdx < 0) return;
+    const innerRow = rows[innerLastIdx];
+    if (laneIndex(innerRow.role) < 0) return;
+    const innerY1 = stepBlockCenterY(innerLastIdx) + 22;
+    connectors.push({
+      fromX: nodeCenterX(innerLastIdx, innerRow.role),
+      toX,
+      y1: innerY1,
+      y2: toY,
+      // Bend just before the continuation so this merge arrow shares its
+      // horizontal Y with the arrow coming from the block before the branch.
+      bendY: Math.max(innerY1 + 12, toY - 16),
+      key: `c-grp-merge-${startIdx}`,
+      lineType: stepOutgoingArrowLine(innerRow),
+    });
+  });
+
+  function lastStepInBranchSpan(startIdx, endIdx) {
+    for (let j = endIdx - 1; j > startIdx; j--) {
+      const row = rows[j];
+      if (
+        row?.kind === "step" &&
+        !row.empty &&
+        row.role &&
+        !isInsideBranchGroup(rows, j)
+      ) {
+        return j;
+      }
+    }
+    return -1;
+  }
+
+  function lastStepInsideGroup(startIdx, endIdx) {
+    for (let j = endIdx - 1; j > startIdx; j--) {
+      const row = rows[j];
+      if (row?.kind !== "step" || row.empty || !row.role) continue;
+      if (findEnclosingBranchGroupStart(rows, j) !== startIdx) continue;
+      return j;
+    }
+    return -1;
   }
 
   const frameById = new Map(frames.map((f) => [f.id, f]));
@@ -1324,6 +1736,7 @@ export function Diagram({
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (row.kind === "step" && !row.empty && row.role) {
+        if (isInsideBranchGroup(rows, i)) continue;
         if (laneIndex(row.role) < 0) return null;
         return { x: nodeCenterX(i, row.role), targetY: stepBlockCenterY(i) - 22 };
       }
@@ -1332,7 +1745,9 @@ export function Diagram({
         if (!frame) continue;
         return {
           x: frameAnchorX(frame),
-          targetY: frame.yDecision + diamondH / 2 + decisionYOffset - 25,
+          targetY:
+            branchDecisionCy(frame) -
+            (frame.parallel ? FORK_GATEWAY_RADIUS : 25),
         };
       }
     }
@@ -1342,19 +1757,30 @@ export function Diagram({
     for (let i = rows.length - 1; i >= 0; i--) {
       const row = rows[i];
       if (row.kind === "step" && !row.empty && row.role) {
+        if (isInsideBranchGroup(rows, i)) continue;
         return {
           x: nodeCenterX(i, row.role),
           sourceY: stepBlockCenterY(i) + 22,
+          lineType: stepOutgoingArrowLine(row),
         };
       }
       if (row.kind === "branchEnd") {
         const frame = frameById.get(row.id);
         if (!frame) continue;
+        const startIdx = rows.findIndex(
+          (r) => r.kind === "branchStart" && r.id === row.id,
+        );
+        const lastInBranch =
+          startIdx >= 0 ? lastStepInBranchSpan(startIdx, i) : -1;
         const mergeCenterX = mergeAnchorX(frame);
         const mergeBottomY = frame.yMerge + mergeH / 2 + 14;
         return {
           x: mergeCenterX,
           sourceY: mergeBottomY,
+          lineType:
+            lastInBranch >= 0
+              ? stepOutgoingArrowLine(rows[lastInBranch])
+              : "solid",
         };
       }
     }
@@ -1420,8 +1846,8 @@ export function Diagram({
         return;
       }
       if (row.kind !== "step" || !row.role) return;
-      // Skip steps show only their block (no title/desc, no row divider).
-      if (row.skipIndex) return;
+      // For skip rows, hide only the top divider (handled by previous-row check),
+      // but keep normal flow and lower divider behavior.
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
@@ -1446,7 +1872,9 @@ export function Diagram({
   }
   const swimlaneDividerX1 = xPad;
   const swimlaneDividerX2 =
-    lanes.length > 0 ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1) : 0;
+    (lanes.length > 0
+      ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1)
+      : 0) + rightGutter;
 
   return (
     <svg
@@ -1487,50 +1915,9 @@ export function Diagram({
         </pattern>
       </defs>
 
-      {hasPageHeader && pageHeaderY != null && (
-        <PageTriColumnText
-          y={pageHeaderY}
-          width={width}
-          xPad={xPad}
-          left={page.headerLeft}
-          center={page.headerCenter}
-          right={page.headerRight}
-          fill={theme.laneText || theme.title}
-          fontSize={11}
-        />
-      )}
-
-      {title && titleY != null && (
-        <text
-          x={width / 2}
-          y={titleY}
-          textAnchor="middle"
-          fill={theme.title}
-          fontFamily="'Shippori Mincho','Noto Serif JP',Georgia,serif"
-          fontSize="24"
-          fontWeight="600"
-          letterSpacing="0.05em"
-        >
-          {title}
-        </text>
-      )}
-
-      {pageDescLines.length > 0 && pageDescStartY != null && (
-        <text
-          x={width / 2}
-          y={pageDescStartY}
-          textAnchor="middle"
-          fill={theme.laneText || theme.title}
-          fontFamily="'Shippori Mincho','Noto Serif JP',Georgia,serif"
-          fontSize="13"
-        >
-          {pageDescLines.map((line, i) => (
-            <tspan key={i} x={width / 2} dy={i === 0 ? 0 : pageDescLineHeight}>
-              {line}
-            </tspan>
-          ))}
-        </text>
-      )}
+      {/* ── Diagram table (swimlane grid, rows, branches, connectors). The page
+          print elements — header, title, description, footer — are rendered by
+          <PrintLayer/> at the end. ── */}
 
       {/* Background grid is confined to the diagram band so the print
           elements (title, page header/description, footer) stay on a clean
@@ -1539,13 +1926,15 @@ export function Diagram({
         x={xPad}
         y={topPad}
         width={width - xPad * 2}
-        height={height - topPad - 20}
+        height={height - topPad - gridBottomPad}
         fill="url(#gridp)"
         opacity="0.5"
       />
 
       {/* Left gutter column: header cell + full-height frame, aligned with the
-          lane grid (same top/bottom and 1.2px border for consistency). */}
+          lane grid. Hidden entirely when the showLeftGutter option is off. */}
+      {showLeftGutter && (
+        <>
       <rect
         x={xPad}
         y={topPad}
@@ -1554,6 +1943,30 @@ export function Diagram({
         fill="white"
         opacity="0.9"
       />
+      {page.leftTitle?.trim() && (
+        <text
+          x={xPad + 12}
+          y={topPad + 30}
+          fill={theme.title}
+          fontFamily="'Noto Sans JP',sans-serif"
+          fontSize="13"
+          fontWeight="700"
+        >
+          {truncate(page.leftTitle.trim(), 22)}
+        </text>
+      )}
+      {page.leftSubtitle?.trim() && (
+        <text
+          x={xPad + 12}
+          y={topPad + 50}
+          fill={theme.laneText || theme.title}
+          opacity="0.7"
+          fontFamily="'Noto Sans JP',sans-serif"
+          fontSize="11"
+        >
+          {truncate(page.leftSubtitle.trim(), 26)}
+        </text>
+      )}
       <line
         x1={xPad}
         x2={xPad + leftGutter}
@@ -1568,7 +1981,7 @@ export function Diagram({
         x={xPad}
         y={topPad}
         width={leftGutter}
-        height={height - topPad - 20}
+        height={height - topPad - gridBottomPad}
         fill="none"
         stroke={theme.stroke}
         strokeWidth="1.2"
@@ -1641,6 +2054,106 @@ export function Diagram({
           </g>
         );
       })}
+        </>
+      )}
+
+      {/* Right remark gutter: header (right-title / right-subtitle) + per-step
+          remark text. Present only when some step carries a remark. */}
+      {rightGutterVisible && (
+        <>
+          <rect
+            x={rightGutterX}
+            y={topPad}
+            width={rightGutter}
+            height={headerH}
+            fill="white"
+            opacity="0.9"
+          />
+          {page.rightTitle?.trim() && (
+            <text
+              x={rightGutterX + 12}
+              y={topPad + 30}
+              fill={theme.title}
+              fontFamily="'Noto Sans JP',sans-serif"
+              fontSize="13"
+              fontWeight="700"
+            >
+              {truncate(page.rightTitle.trim(), 24)}
+            </text>
+          )}
+          {page.rightSubtitle?.trim() && (
+            <text
+              x={rightGutterX + 12}
+              y={topPad + 50}
+              fill={theme.laneText || theme.title}
+              opacity="0.7"
+              fontFamily="'Noto Sans JP',sans-serif"
+              fontSize="11"
+            >
+              {truncate(page.rightSubtitle.trim(), 28)}
+            </text>
+          )}
+          <line
+            x1={rightGutterX}
+            x2={rightGutterX + rightGutter}
+            y1={topPad + headerH}
+            y2={topPad + headerH}
+            stroke={theme.stroke}
+            strokeWidth="1.2"
+            vectorEffect="non-scaling-stroke"
+          />
+          <rect
+            x={rightGutterX}
+            y={topPad}
+            width={rightGutter}
+            height={height - topPad - gridBottomPad}
+            fill="none"
+            stroke={theme.stroke}
+            strokeWidth="1.2"
+            vectorEffect="non-scaling-stroke"
+          />
+          {rows.map((r, i) => {
+            if (r.kind !== "step" || r.empty || !r.role) return null;
+            const yRow = rowMeta[i]?.y;
+            if (yRow == null) return null;
+            const remark = (r.remark || "").trim();
+            if (!remark) return null;
+            const visualLines = wrapDescriptionToVisualLines(remark, 28);
+            const rx = rightGutterX + 12;
+            return (
+              <text
+                key={`step-remark-${i}`}
+                x={rx}
+                y={yRow + 26}
+                fill={theme.laneText || theme.title}
+                opacity="0.85"
+                fontFamily="'Noto Sans JP',sans-serif"
+                fontSize="10"
+                fontWeight="400"
+              >
+                {visualLines.map((runs, li) => (
+                  <tspan
+                    key={li}
+                    x={rx}
+                    dy={li === 0 ? 0 : descriptionLineHeight}
+                  >
+                    {runs.map((run, ri) => (
+                      <tspan
+                        key={ri}
+                        fontWeight={run.bold ? "600" : "400"}
+                        fontStyle={run.italic ? "italic" : "normal"}
+                        textDecoration={run.strike ? "line-through" : "none"}
+                      >
+                        {run.text}
+                      </tspan>
+                    ))}
+                  </tspan>
+                ))}
+              </text>
+            );
+          })}
+        </>
+      )}
 
       {/* Swimlane columns and lane headers */}
       {lanes.map((lane, i) => {
@@ -1654,7 +2167,7 @@ export function Diagram({
               x={x}
               y={topPad}
               width={currentLaneW}
-              height={height - topPad - 20}
+              height={height - topPad - gridBottomPad}
               fill={bg}
               opacity="0.12"
             />
@@ -1734,7 +2247,7 @@ export function Diagram({
             x={laneX(0)}
             y={topPad}
             width={laneWidths.reduce((sum, w) => sum + w, 0)}
-            height={height - topPad - 20}
+            height={height - topPad - gridBottomPad}
             fill="none"
             stroke={theme.stroke}
             strokeWidth="1.2"
@@ -1746,7 +2259,7 @@ export function Diagram({
               x1={laneX(i + 1)}
               x2={laneX(i + 1)}
               y1={topPad}
-              y2={height - 20}
+              y2={height - gridBottomPad}
               stroke={theme.stroke}
               strokeWidth="1.2"
               vectorEffect="non-scaling-stroke"
@@ -1759,11 +2272,15 @@ export function Diagram({
       {frames.map((f) => {
         if (f.yMerge == null) return null;
 
+        const isParallel = f.parallel;
         const dCx = frameAnchorX(f);
-        const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
-        const dW = Math.max(140, (f.cond.length + 4) * 9);
+        const dCy = branchDecisionCy(f);
+        const dW = isParallel ? 0 : Math.max(140, (f.cond.length + 4) * 9);
         const dH = 50;
         const decisionStyle = resolveBranchStyle(f.decisionColor);
+        const parallelGatewayStyle = resolveBranchStyle(
+          f.decisionColor || "purple",
+        );
 
         const mCx = mergeAnchorX(f);
         const mCy = f.yMerge + mergeH / 2;
@@ -1775,28 +2292,42 @@ export function Diagram({
 
         return (
           <g key={`branch-${f.id}`}>
-            <path
-              d={diamondPath(dCx, dCy, dW, dH)}
-              fill={theme.branchBg}
-              stroke={theme.branch}
-              strokeWidth="1.8"
-            />
-            <text
-              x={dCx}
-              y={dCy + 4}
-              textAnchor="middle"
-              fontFamily="'Noto Sans JP',sans-serif"
-              fontSize="13"
-              fontWeight="600"
-              fill={theme.branch}
-            >
-              {truncate(f.cond, 16)}
-            </text>
+            {isParallel ? (
+              <circle
+                cx={dCx}
+                cy={dCy}
+                r={FORK_GATEWAY_RADIUS}
+                fill={parallelGatewayStyle.bg}
+                stroke={parallelGatewayStyle.stroke}
+                strokeWidth="1.6"
+              />
+            ) : (
+              <>
+                <path
+                  d={diamondPath(dCx, dCy, dW, dH)}
+                  fill={theme.branchBg}
+                  stroke={theme.branch}
+                  strokeWidth="1.8"
+                />
+                <text
+                  x={dCx}
+                  y={dCy + 4}
+                  textAnchor="middle"
+                  fontFamily="'Noto Sans JP',sans-serif"
+                  fontSize="13"
+                  fontWeight="600"
+                  fill={theme.branch}
+                >
+                  {truncate(f.cond, 16)}
+                </text>
+              </>
+            )}
 
             {/* Branch fan-out: decision -> each case path */}
             {f.cases.map((c, ci) => {
               const edgeD = buildCaseFanOutEdgeD(f, c);
-              const firstStepIdx = firstStepIdxInCase(c);
+              const firstStepIdx =
+                firstMainFlowStepIdx(c) ?? firstStepIdxInCase(c);
               const showArrow =
                 firstStepIdx != null &&
                 caseStepLineTarget(firstStepIdx, c)?.showArrow;
@@ -1819,6 +2350,45 @@ export function Diagram({
               const stubCase = isStubCase(c, f.id);
               const startY = dCy + dH / 2;
               const caseRailY = startY + branchCaseBendYOffset;
+
+              // `merge <label>;` routes the case to a labeled downstream step
+              // instead of the endif gateway.
+              const mergeJump = mergeAnchorInCase(c.rowIndices, f.id);
+              if (mergeJump) {
+                let fromX;
+                let fromBottomY;
+                if (mergeJump.prevStepIdx != null) {
+                  const r = rows[mergeJump.prevStepIdx];
+                  const li = laneIndex(r.role);
+                  fromX =
+                    li >= 0 ? nodeCenterX(mergeJump.prevStepIdx, r.role) : c.x;
+                  fromBottomY = stepBlockBottomY(mergeJump.prevStepIdx);
+                } else {
+                  fromX = caseAnchorX(c);
+                  const mIdxY = rowMeta[mergeJump.mergeIdx]?.y ?? f.yDecision;
+                  fromBottomY = mIdxY + branchMergeH;
+                }
+                const d = buildMergeForwardPath({
+                  fromX,
+                  fromBottomY,
+                  targetIdx: mergeJump.targetIdx,
+                });
+                const mergeLineType =
+                  mergeJump.prevStepIdx != null
+                    ? stepOutgoingArrowLine(rows[mergeJump.prevStepIdx])
+                    : "solid";
+                return (
+                  <path
+                    key={`merge-${f.id}-${ci}`}
+                    d={d}
+                    fill="none"
+                    stroke={theme.stroke}
+                    strokeWidth="1.6"
+                    markerEnd="url(#arrowhead)"
+                    {...arrowLineStrokeProps(mergeLineType)}
+                  />
+                );
+              }
 
               const anchor = loopAnchorInCase(c.rowIndices, f.id);
               if (anchor) {
@@ -1849,6 +2419,10 @@ export function Diagram({
                   sourceStepIdx,
                   caseOffset: c.offset || 0,
                 });
+                const loopLineType =
+                  sourceStepIdx != null
+                    ? stepOutgoingArrowLine(rows[sourceStepIdx])
+                    : "solid";
                 return (
                   <path
                     key={`loop-${f.id}-${ci}`}
@@ -1857,6 +2431,7 @@ export function Diagram({
                     stroke={theme.stroke}
                     strokeWidth="1.6"
                     markerEnd="url(#arrowhead)"
+                    {...arrowLineStrokeProps(loopLineType)}
                   />
                 );
               }
@@ -1885,7 +2460,7 @@ export function Diagram({
                 }
               }
               const toX = mCx;
-              const toY = mCy - mH / 2;
+              const toY = mCy - (isParallel ? FORK_GATEWAY_RADIUS : mH / 2);
               const bendY2 = toY - 14;
               const sideOffset = c.offset || 0;
               const needsMergeElbow =
@@ -1893,6 +2468,11 @@ export function Diagram({
               const d = needsMergeElbow
                 ? `M ${fromX} ${fromY} L ${fromX} ${bendY2} L ${toX} ${bendY2} L ${toX} ${toY}`
                 : `M ${fromX} ${fromY} L ${toX} ${toY}`;
+              const lastInCase = lastMainFlowStepIdx(c) ?? lastStepIdxInCase(c);
+              const mrgLineType =
+                lastInCase != null
+                  ? stepOutgoingArrowLine(rows[lastInCase])
+                  : "solid";
               return (
                 <path
                   key={`mrg-${f.id}-${ci}`}
@@ -1900,6 +2480,7 @@ export function Diagram({
                   fill="none"
                   stroke={theme.stroke}
                   strokeWidth="1.6"
+                  {...arrowLineStrokeProps(mrgLineType)}
                 />
               );
             })}
@@ -1932,18 +2513,79 @@ export function Diagram({
               );
             })}
 
-            <path
-              d={diamondPath(mCx, mCy, mW, mH)}
-              fill={theme.branchBg}
-              stroke={theme.branch}
-              strokeWidth="1.6"
+            {isParallel ? (
+              <circle
+                cx={mCx}
+                cy={mCy}
+                r={FORK_GATEWAY_RADIUS}
+                fill={parallelGatewayStyle.bg}
+                stroke={parallelGatewayStyle.stroke}
+                strokeWidth="1.6"
+              />
+            ) : (
+              <path
+                d={diamondPath(mCx, mCy, mW, mH)}
+                fill={theme.branchBg}
+                stroke={theme.branch}
+                strokeWidth="1.6"
+              />
+            )}
+          </g>
+        );
+      })}
+
+      {/* Section boxes: visual container only ("section" groups). Branch
+          groups are flow constructs and draw no box. */}
+      {rows.map((row, i) => {
+        if (row.kind !== "groupStart" || groupModeOf(row) !== "section") {
+          return null;
+        }
+        const endIdx = findGroupEndIndex(rows, i);
+        if (endIdx < 0 || lanes.length === 0) return null;
+        const yTop = rowMeta[i]?.y ?? 0;
+        const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
+        // Keep the dashed container inside the lane grid outer frame (which
+        // spans laneX(0) → laneX(0) + total lane width) so the border never
+        // overflows the table.
+        const boxX = laneX(0) + 8;
+        const boxW = laneWidths.reduce((sum, w) => sum + w, 0) - 16;
+        const style =
+          row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor]
+            ? BRANCH_COLOR_STYLES[row.sectionColor]
+            : { stroke: theme.stroke, bg: theme.branchBg };
+        const label = (row.sectionName || "Section").trim() || "Section";
+
+        return (
+          <g key={`section-${row.id}`}>
+            <rect
+              x={boxX}
+              y={yTop - 4}
+              width={boxW}
+              height={yBottom - yTop + 8}
+              rx="8"
+              fill={style.bg}
+              fillOpacity="0.2"
+              stroke={style.stroke}
+              strokeWidth="1.1"
+              strokeDasharray="6 4"
             />
+            <text
+              x={boxX + 8}
+              y={yTop + 11}
+              fontFamily="'JetBrains Mono',monospace"
+              fontSize="9"
+              fill={style.stroke}
+              opacity="0.9"
+            >
+              {label}
+            </text>
           </g>
         );
       })}
 
       {/* Sequential flow connectors between normal step nodes */}
       {connectors.map((c) => {
+        const dash = arrowLineStrokeProps(c.lineType || "solid");
         if (Math.abs(c.fromX - c.toX) < 0.5) {
           const x = c.fromX;
           return (
@@ -1956,12 +2598,13 @@ export function Diagram({
               stroke={theme.stroke}
               strokeWidth="1.6"
               markerEnd="url(#arrowhead)"
+              {...dash}
             />
           );
         }
         const x1 = c.fromX;
         const x2 = c.toX;
-        const mid = (c.y1 + c.y2) / 2;
+        const mid = c.bendY ?? (c.y1 + c.y2) / 2;
         const d = `M ${x1} ${c.y1} L ${x1} ${mid} L ${x2} ${mid} L ${x2} ${c.y2}`;
         return (
           <path
@@ -1971,6 +2614,7 @@ export function Diagram({
             stroke={theme.stroke}
             strokeWidth="1.6"
             markerEnd="url(#arrowhead)"
+            {...dash}
           />
         );
       })}
@@ -2005,6 +2649,7 @@ export function Diagram({
             stroke={theme.stroke}
             strokeWidth="1.6"
             markerEnd="url(#arrowhead)"
+            {...arrowLineStrokeProps(endTerminal.lineType || "solid")}
           />
           <circle
             cx={endTerminal.x}
@@ -2136,10 +2781,12 @@ export function Diagram({
       {frames.map((f) => {
         if (f.yMerge == null) return null;
 
-        const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+        const dCy = branchDecisionCy(f);
         const dH = 50;
 
         return f.cases.map((c, ci) => {
+          // Fork paths and `else` have no condition label to draw.
+          if (!(c.label || "").trim()) return null;
           if (/^else$/i.test((c.label || "").trim())) return null;
 
           const firstStepIdx = firstStepIdxInCase(c);
@@ -2205,7 +2852,12 @@ export function Diagram({
         let prevStepIdx = -1;
         for (let j = startIdx - 1; j >= 0; j--) {
           const row = rows[j];
-          if (row.kind === "step" && !row.empty && row.role) {
+          if (
+            row.kind === "step" &&
+            !row.empty &&
+            row.role &&
+            !isInsideBranchGroup(rows, j)
+          ) {
             prevStepIdx = j;
             break;
           }
@@ -2236,17 +2888,36 @@ export function Diagram({
         );
 
         const dCx = frameAnchorX(f);
-        const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - 25;
+        const dCy = branchDecisionCy(f);
+        // Outer flow meets the gateway at its top (fork circle or if diamond tip).
+        const dTopY = dCy - (f.parallel ? FORK_GATEWAY_RADIUS : 25);
         const mCx = mergeAnchorX(f);
-        const mBotY = f.yMerge + mergeH / 2 + 14;
+        const mBotY =
+          f.yMerge + mergeH / 2 + (f.parallel ? FORK_GATEWAY_RADIUS : 14);
 
         const edges = [];
+        const branchLastStep = lastStepInBranchSpan(startIdx, endIdx);
         if (prevStepIdx >= 0) {
           const r = rows[prevStepIdx];
           const li = laneIndex(r.role);
           const sx = li >= 0 ? nodeCenterX(prevStepIdx, r.role) : dCx;
           const sy = stepBlockCenterY(prevStepIdx) + 22;
-          const bend = (sy + dTopY) / 2;
+          // When a branch group sits between this step and the gateway, bend
+          // right before the gateway so this arrow shares its horizontal Y with
+          // the branch's merge arrow (instead of the midpoint).
+          let branchGroupBeforeGateway = false;
+          for (let j = prevStepIdx + 1; j < startIdx; j++) {
+            if (
+              rows[j]?.kind === "groupStart" &&
+              groupModeOf(rows[j]) === "branch"
+            ) {
+              branchGroupBeforeGateway = true;
+              break;
+            }
+          }
+          const bend = branchGroupBeforeGateway
+            ? Math.max(sy + 12, dTopY - 16)
+            : (sy + dTopY) / 2;
           const d =
             sx === dCx
               ? `M ${sx} ${sy} L ${dCx} ${dTopY}`
@@ -2259,6 +2930,7 @@ export function Diagram({
               stroke={theme.stroke}
               strokeWidth="1.6"
               markerEnd="url(#arrowhead)"
+              {...arrowLineStrokeProps(stepOutgoingArrowLine(r))}
             />,
           );
         }
@@ -2272,6 +2944,10 @@ export function Diagram({
             tx === mCx
               ? `M ${mCx} ${mBotY} L ${tx} ${ty}`
               : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${tx} ${bend} L ${tx} ${ty}`;
+          const outLineType =
+            branchLastStep >= 0
+              ? stepOutgoingArrowLine(rows[branchLastStep])
+              : "solid";
           edges.push(
             <path
               key={`out-${f.id}`}
@@ -2280,6 +2956,7 @@ export function Diagram({
               stroke={theme.stroke}
               strokeWidth="1.6"
               markerEnd="url(#arrowhead)"
+              {...arrowLineStrokeProps(outLineType)}
             />,
           );
         } else if (nextBranchStartIdx >= 0) {
@@ -2288,12 +2965,17 @@ export function Diagram({
           if (nextFrame && nextRowY != null) {
             const nextCx = frameAnchorX(nextFrame);
             const nextTopY =
-              nextRowY + diamondH / 2 + decisionYOffset - 25;
+              branchDecisionCy(nextFrame) -
+              (nextFrame.parallel ? FORK_GATEWAY_RADIUS : 25);
             const bend = (mBotY + nextTopY) / 2;
             const d =
               Math.abs(nextCx - mCx) < 0.5
                 ? `M ${mCx} ${mBotY} L ${nextCx} ${nextTopY}`
                 : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${nextCx} ${bend} L ${nextCx} ${nextTopY}`;
+            const outLineType =
+              branchLastStep >= 0
+                ? stepOutgoingArrowLine(rows[branchLastStep])
+                : "solid";
             edges.push(
               <path
                 key={`out-if-${f.id}-${rows[nextBranchStartIdx].id}`}
@@ -2302,6 +2984,7 @@ export function Diagram({
                 stroke={theme.stroke}
                 strokeWidth="1.6"
                 markerEnd="url(#arrowhead)"
+                {...arrowLineStrokeProps(outLineType)}
               />,
             );
           }
@@ -2351,7 +3034,23 @@ export function Diagram({
             const f = frames.find((fr) => fr.id === r.id);
             if (!f) return null;
             const dCx = frameAnchorX(f);
-            const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+            const dCy = branchDecisionCy(f);
+            if (f.parallel) {
+              const pad = 12;
+              const r0 = FORK_GATEWAY_RADIUS;
+              return (
+                <RowHitTarget
+                  key={`hit-${i}`}
+                  rowIndex={i}
+                  x={dCx - r0 - pad}
+                  y={dCy - r0 - pad}
+                  w={r0 * 2 + pad * 2}
+                  h={r0 * 2 + pad * 2}
+                  selected={selectedRowIndex === i}
+                  onSelect={onRowSelect}
+                />
+              );
+            }
             const dW = Math.max(140, (f.cond.length + 4) * 9);
             const dH = 50;
             return (
@@ -2375,7 +3074,7 @@ export function Diagram({
             const c = f?.cases.find((ca) => ca.startRow === i);
             if (!f || !c) return null;
             const labelW = ((c.label || "").length + 2) * 8.5;
-            const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+            const dCy = branchDecisionCy(f);
             const dH = 50;
             const startY = dCy + dH / 2;
             const bendY = startY + branchCaseBendYOffset;
@@ -2412,6 +3111,22 @@ export function Diagram({
             if (!f || f.yMerge == null) return null;
             const mCx = mergeAnchorX(f);
             const mCy = f.yMerge + mergeH / 2;
+            if (f.parallel) {
+              const pad = 12;
+              const r0 = FORK_GATEWAY_RADIUS;
+              return (
+                <RowHitTarget
+                  key={`hit-${i}`}
+                  rowIndex={i}
+                  x={mCx - r0 - pad}
+                  y={mCy - r0 - pad}
+                  w={r0 * 2 + pad * 2}
+                  h={r0 * 2 + pad * 2}
+                  selected={selectedRowIndex === i}
+                  onSelect={onRowSelect}
+                />
+              );
+            }
             const mW = 40;
             const mH = 28;
             return (
@@ -2447,18 +3162,22 @@ export function Diagram({
           return null;
         })}
 
-      {hasPageFooter && (
-        <PageTriColumnText
-          y={height - 12}
-          width={width}
-          xPad={xPad}
-          left={page.footerLeft}
-          center={page.footerCenter}
-          right={page.footerRight}
-          fill={theme.laneText || theme.title}
-          fontSize={11}
-        />
-      )}
+      {/* ── Page print elements (header / title / description / footer) ── */}
+      <PrintLayer
+        theme={theme}
+        page={page}
+        title={title}
+        width={width}
+        xPad={xPad}
+        hasPageHeader={hasPageHeader}
+        pageHeaderY={pageHeaderY}
+        titleY={titleY}
+        pageDescLines={pageDescLines}
+        pageDescStartY={pageDescStartY}
+        pageDescLineHeight={pageDescLineHeight}
+        hasPageFooter={hasPageFooter}
+        height={height}
+      />
     </svg>
   );
 }

@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/swimlane-app.git",
+    "url": "https://github.com/Kuisin/swimlane-app.git",
     "directory": "extensions/vscode-kai-swimlane"
   },
   "engines": {

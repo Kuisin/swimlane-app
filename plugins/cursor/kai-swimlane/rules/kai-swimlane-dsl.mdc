@@ -97,7 +97,7 @@ For template fragments without lanes or flow, use `kai-swimlane-parts` with only
 
 Diagram preview in **Markdown: Open Preview** requires the bundled VSIX (not rules alone):
 
-- From the repo: `npm run install:cursor-plugin` (copies plugin + installs `vscode/*.vsix`)
+- From the repo: `pnpm run install:cursor-plugin` (copies plugin + installs `vscode/*.vsix`)
 - Or **Extensions → Install from VSIX…** → `vscode/vscode-kai-swimlane-<version>.vsix`
 
 Fences render as SVG diagrams with a collapsible **DSL** source section (like Mermaid, plus optional source).

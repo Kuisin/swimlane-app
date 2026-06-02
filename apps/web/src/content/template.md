@@ -92,7 +92,11 @@ icon: #mail;
 |------|------|
 | `rounded` | ユーザー操作（申請・承認・却下・通常業務など） |
 | `rect` | システム操作（自動処理・通知送信など） |
-| `hex` | 条件分岐内のステップ（`if`〜`endif` のケース） |
+| `hex` | 条件分岐・例外系のステップ |
+| `ellipse` | 開始・終端など端点ステップ |
+| `subroutine` | サブルーチン風の処理ブロック |
+| `cloud` | 通知・外部連携など（雲形） |
+| `note` | メモ・注記（付箋形） |
 
 ### 通常処理
 
@@ -149,7 +153,7 @@ icon: #circle-check;
 background-color: #f3e8ff;
 text-color: #6b21a8;
 border-color: #9333ea;
-shape: subroutine;
+shape: hex;
 icon: #git-branch;
 ```
 
@@ -355,6 +359,43 @@ max-chars: 6;
 title: 表示は6文字まで。ホバーで全文;
 ```
 
+## page と option
+
+図のヘッダー・フッター・タイトル下の説明は `/page/` に、表示フラグと左右カラムの見出しは `/option/` に書きます。構文の詳細は [help.md](./help.md) を参照してください。
+
+```
+/page/
+description: この図の概要;
+header-left: 株式会社サンプル;
+header-center: 業務フロー;
+header-right: v1.0;
+footer-left: 社外秘;
+footer-center: 1 / 1;
+footer-right: 2026-06-02;
+
+/option/
+show-left-gutter: true;
+show-step-block-captions: true;
+merge-at-previous-block: true;
+left-title: 手続き;
+left-subtitle: 説明;
+right-title: 備考;
+right-subtitle: メモ;
+```
+
+## フロー制御
+
+`/line/` で使う制御構文の詳細は [help.md](./help.md) を参照してください。
+
+| 構文 | 用途 |
+|------|------|
+| `if` / `elseif` / `else` / `endif` | 排他分岐（いずれか1ケース） |
+| `[loop]` | 同じ `if` へ戻る（再試行） |
+| `fork` / `and` / `endfork` | 並行分岐（全パス同時） |
+| `section (名前) #色` / `end-section` | 本流はそのまま。関連ステップを点線ボックスで囲う |
+| `branch (名前) #色` / `end-branch` | 本流から支線が分岐し、末尾で直後ブロックへ合流 |
+| `merge: <id>;` + 下流の `id: <id>;` | `endif` を経由しない前方合流 |
+
 ## set
 
 ### 経費申請
@@ -363,6 +404,15 @@ title: 表示は6文字まで。ホバーで全文;
 
 ```kai-swimlane
 @kai-swimlane
+
+/page/
+description: 領収書添付から承認・通知までの標準フロー;
+header-center: 経費申請;
+
+/option/
+left-title: 手続き;
+left-subtitle: 説明;
+right-title: 備考;
 
 /title/
 経費申請フロー
@@ -458,6 +508,8 @@ props: APPR_LOG;
 props: APPR_LOG;
 
 [role_applicant: 結果を確認]
+remark: 承認結果はメールでも通知。;
+remark-desc: ポータルの「申請一覧」からも確認できます。;
 props: NOTIFY;
 
 @end
@@ -549,13 +601,195 @@ props: REQ_DOC;
 [role_approver: 承認] <block_approve>
 props: APPR_LOG;
 
-if (金額) is (上限超) than
+if (金額) is (上限超) than #orange
   [role_accounting: 経理確認] <block_condition>
-elseif (以内) than
+elseif (以内) than #green
   [role_approver: 承認完了] <block_condition>
 else
-  [role_applicant: 差し戻し] <block_condition>
+  [role_applicant: 差し戻し] <block_reject>
 endif
+
+@end
+```
+
+### 並行後処理（fork）
+
+確定後にメール・台帳・配送を**同時**に行う例。`fork` 直後が1本目のパス、`and` で追加、`endfork` で結合します。
+
+```kai-swimlane
+@kai-swimlane
+
+/title/
+確定後の並行処理
+
+/role/
+
+<role_system>
+label: システム;
+text-color: #3730a3;
+background-color: #eef2ff;
+icon: #database;
+
+<role_accounting>
+label: 経理;
+text-color: #1e40af;
+background-color: #eff6ff;
+
+<role_worker>
+label: 倉庫;
+text-color: #1e293b;
+background-color: #f8fafc;
+
+/block/
+
+<block_notify>
+background-color: #e0f2fe;
+text-color: #075985;
+border-color: #0284c7;
+shape: rect;
+icon: #send;
+
+<block_system>
+background-color: #e0e7ff;
+text-color: #3730a3;
+border-color: #4f46e5;
+shape: rect;
+icon: #database;
+
+/prop/
+
+<NOTIFY>
+label: 通知;
+side: right;
+
+<AUDIT>
+label: 監査;
+side: left;
+
+/line/
+
+[role_system: 注文を確定] <block_system>
+
+fork #purple
+  [role_system: レシートをメール送信] <block_notify>
+  props: NOTIFY;
+and
+  [role_accounting: 台帳を更新] <block_system>
+  props: AUDIT;
+and
+  [role_worker: 配送を初期化] <block_system>
+endfork
+
+@end
+```
+
+### 枠と支線（section / branch）
+
+`section` は本流を変えずに囲うだけ。`branch` は本流から支線が分岐し、`end-branch` の直後へ合流します。
+
+```kai-swimlane
+@kai-swimlane
+
+/title/
+枠と支線の例
+
+/role/
+
+<role_ops>
+label: 担当;
+text-color: #1e293b;
+background-color: #ffffff;
+
+<role_audit>
+label: 監査;
+text-color: #1e40af;
+background-color: #eff6ff;
+
+/block/
+
+<block_done>
+background-color: #dcfce7;
+text-color: #166534;
+border-color: #16a34a;
+shape: ellipse;
+
+/line/
+
+[role_ops: 注文を確定]
+
+section (監査ブロック) #blue
+  [role_audit: 監査明細を保存]
+  [role_audit: イベントを送信]
+end-section
+
+branch (配送支線)
+  [role_ops: ピッキングを記録]
+  [role_ops: 追跡IDを通知]
+end-branch
+
+[role_ops: 確認画面を表示] <block_done>
+
+@end
+```
+
+### 途中マージ（merge + id）
+
+キャンセル時だけ終端へ飛ばす例。`merge` の `<id>` は下流ステップの `id:` と一致させます（`label:` では合流しません）。
+
+```kai-swimlane
+@kai-swimlane
+
+/title/
+キャンセル時の途中合流
+
+/role/
+
+<role_applicant>
+label: 申請者;
+text-color: #1e293b;
+background-color: #ffffff;
+
+<role_system>
+label: システム;
+text-color: #3730a3;
+background-color: #eef2ff;
+
+/block/
+
+<block_apply>
+background-color: #dbeafe;
+text-color: #1e40af;
+border-color: #2563eb;
+shape: rounded;
+
+<block_reject>
+background-color: #fee2e2;
+text-color: #991b1b;
+border-color: #dc2626;
+shape: rounded;
+icon: #alert-triangle;
+
+<block_done>
+background-color: #dcfce7;
+text-color: #166534;
+border-color: #16a34a;
+shape: ellipse;
+icon: #check;
+
+/line/
+
+[role_applicant: 申請を提出] <block_apply>
+
+if (キャンセル？) is (あり) than #red
+  [role_applicant: キャンセル受付] <block_reject>
+  merge: trans-comp;
+else
+  [role_system: 通常クローズ] <block_system>
+endif
+
+[role_applicant: 手続き完了] <block_done>
+id: trans-comp;
+label: 完了;
 
 @end
 ```

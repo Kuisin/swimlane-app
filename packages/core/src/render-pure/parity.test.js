@@ -80,6 +80,22 @@ describe("render-pure parity", () => {
     expect(diff, diff ? JSON.stringify(diff) : undefined).toBeNull();
   });
 
+  it("matches React Diagram for complex-test-example.txt (fork + merge)", () => {
+    const model = parseDSL(
+      readFixture("apps/web/src/content/complex-test-example.txt"),
+    );
+    const reactSvg = renderReactDiagram(model, theme);
+    const pureSvg = renderDiagramSvg({
+      model,
+      theme,
+      showStepBlockCaptions: false,
+    });
+    const pure = normalizeMarkup(pureSvg);
+    const react = normalizeMarkup(reactSvg);
+    const diff = firstDiff(pure, react);
+    expect(diff, diff ? JSON.stringify(diff) : undefined).toBeNull();
+  });
+
   it("matches PartsPreviewStatic for parts fence", () => {
     const reactHtml = renderToStaticMarkup(
       React.createElement(PartsPreviewStatic, { code: PARTS_SAMPLE, theme }),

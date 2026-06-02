@@ -10,7 +10,7 @@ VERSION="$(node -p "require('${REPO_ROOT}/extensions/vscode-kai-swimlane/package
 VSIX_SRC="${VSIX_DIR}/vscode-kai-swimlane-${VERSION}.vsix"
 
 if [[ ! -f "$VSIX_SRC" ]]; then
-  echo "error: missing ${VSIX_SRC}. Run: npm run package:extension" >&2
+  echo "error: missing ${VSIX_SRC}. Run: pnpm run package:extension" >&2
   exit 1
 fi
 

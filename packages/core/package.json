@@ -5,14 +5,14 @@
   "description": "Parser, themes, and SVG diagram renderers for the kai-swimlane DSL. Includes a React renderer and a dependency-free string renderer for headless/server use.",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/your-org/swimlane-app/tree/main/packages/core#readme",
+  "homepage": "https://github.com/Kuisin/swimlane-app/tree/main/packages/core#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/swimlane-app.git",
+    "url": "https://github.com/Kuisin/swimlane-app.git",
     "directory": "packages/core"
   },
   "bugs": {
-    "url": "https://github.com/your-org/swimlane-app/issues"
+    "url": "https://github.com/Kuisin/swimlane-app/issues"
   },
   "keywords": [
     "swimlane",

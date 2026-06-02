@@ -3,16 +3,21 @@ import {
   branchNestLevel,
   findBranchEndIndex,
   findEnclosingBranchStart,
+  findGroupEndIndex,
 } from "@kai-swimlane/core";
 
-export { findBranchEndIndex, findEnclosingBranchStart, branchNestLevel };
+export { findBranchEndIndex, findEnclosingBranchStart, branchNestLevel, findGroupEndIndex };
 
 /** Move branchStart.firstCase into a following branchCase row (GUI list shape). */
 export function normalizeBranchRows(rows) {
   const out = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (row.kind === "branchStart" && (row.firstCase || "").trim()) {
+    if (
+      row.kind === "branchStart" &&
+      !row.parallel &&
+      (row.firstCase || "").trim()
+    ) {
       const firstCase = row.firstCase.trim();
       const next = rows[i + 1];
       const alreadySplit =
@@ -54,9 +59,10 @@ export function normalizeBranchDepths(rows) {
     const endIdx = findBranchEndIndex(out, i);
     if (endIdx < 0) continue;
 
+    const isParallel = Boolean(out[i].parallel);
     out[i] = { ...out[i], depth: markerDepth };
     if (out[endIdx].kind === "branchEnd" && out[endIdx].id === branchId) {
-      out[endIdx] = { ...out[endIdx], depth: markerDepth };
+      out[endIdx] = { ...out[endIdx], depth: markerDepth, parallel: isParallel };
     }
 
     const caseDepth = markerDepth + 1;
@@ -65,11 +71,11 @@ export function normalizeBranchDepths(rows) {
       const row = out[j];
       if (row.kind === "branchStart" || row.kind === "branchEnd") continue;
       if (row.kind === "branchCase" && row.id === branchId) {
-        if ((row.depth ?? 0) !== caseDepth) {
-          out[j] = { ...row, depth: caseDepth };
-        }
+        out[j] = { ...row, depth: caseDepth, parallel: isParallel };
       } else if (
-        (row.kind === "step" || row.kind === "branchLoop") &&
+        (row.kind === "step" ||
+          row.kind === "branchLoop" ||
+          row.kind === "branchMerge") &&
         (row.depth ?? 0) < bodyDepth
       ) {
         out[j] = { ...row, depth: bodyDepth };
@@ -87,6 +93,40 @@ export function nextBranchId(rows) {
     }
   }
   return max + 1;
+}
+
+export function nextGroupId(rows) {
+  let max = 0;
+  for (const row of rows) {
+    if (row.kind === "groupStart" && typeof row.id === "number" && row.id > max) {
+      max = row.id;
+    }
+  }
+  return max + 1;
+}
+
+function findEnclosingGroupStartForGui(rows, rowIndex) {
+  let best = -1;
+  for (let i = 0; i <= rowIndex; i++) {
+    if (rows[i].kind !== "groupStart") continue;
+    const endIdx = findGroupEndIndex(rows, i);
+    if (endIdx < 0 || rowIndex >= endIdx) continue;
+    best = i;
+  }
+  return best;
+}
+
+export function groupMarkerDepthAt(rows, insertIndex) {
+  const anchor = Math.max(0, insertIndex - 1);
+  const enclosingGroup = findEnclosingGroupStartForGui(rows, anchor);
+  if (enclosingGroup >= 0) {
+    return (rows[enclosingGroup].depth ?? 0) + 1;
+  }
+  const enclosingBranch = findEnclosingBranchStart(rows, anchor);
+  if (enclosingBranch >= 0) {
+    return branchBodyDepthAt(rows, insertIndex);
+  }
+  return 0;
 }
 
 /** Depth for branchStart / branchEnd at insertIndex (nested if increments). */
@@ -131,7 +171,13 @@ export function rowListIndentDepth(rows, rowIndex) {
     if (startIdx < 0) return row.depth ?? 0;
     return branchNestLevel(rows, startIdx) * 2 + 1;
   }
-  if (row.kind === "step" || row.kind === "branchLoop") {
+  if (
+    row.kind === "step" ||
+    row.kind === "branchLoop" ||
+    row.kind === "branchMerge" ||
+    row.kind === "groupStart" ||
+    row.kind === "groupEnd"
+  ) {
     const enclosing = findEnclosingBranchStart(rows, rowIndex);
     if (enclosing < 0) return row.depth ?? 0;
     return branchNestLevel(rows, enclosing) * 2 + 2;
@@ -165,11 +211,205 @@ export function isInsideOpenBranch(rows, rowIndex) {
   return findEnclosingBranchStart(rows, rowIndex) >= 0;
 }
 
+/** The branchStart row enclosing rowIndex, or null. */
+export function enclosingBranchStartRow(rows, rowIndex) {
+  const idx = findEnclosingBranchStart(rows, rowIndex);
+  return idx >= 0 ? rows[idx] : null;
+}
+
+export function isInsideOpenIf(rows, rowIndex) {
+  const start = enclosingBranchStartRow(rows, rowIndex);
+  return Boolean(start) && !start.parallel;
+}
+
+export function isInsideOpenFork(rows, rowIndex) {
+  const start = enclosingBranchStartRow(rows, rowIndex);
+  return Boolean(start) && Boolean(start.parallel);
+}
+
 export function canAddElseIf(rows, rowIndex) {
   const branchStart = findEnclosingBranchStart(rows, rowIndex);
   if (branchStart < 0) return false;
+  if (rows[branchStart].parallel) return false;
   const endIdx = findBranchEndIndex(rows, branchStart);
   return endIdx > rowIndex;
+}
+
+/** Like canAddElseIf but for adding an `and` path inside a fork. */
+export function canAddAnd(rows, rowIndex) {
+  const branchStart = findEnclosingBranchStart(rows, rowIndex);
+  if (branchStart < 0) return false;
+  if (!rows[branchStart].parallel) return false;
+  const endIdx = findBranchEndIndex(rows, branchStart);
+  return endIdx > rowIndex;
+}
+
+/** Step `id:` values declared in the flow (for merge targets). */
+export function collectStepMergeIds(rows) {
+  const ids = [];
+  for (const row of rows) {
+    if (row.kind === "step" && !row.empty && row.role && (row.mergeId || "").trim()) {
+      ids.push(row.mergeId.trim());
+    }
+  }
+  return ids;
+}
+
+function collectUsedMergeIds(rows) {
+  const used = new Set(collectStepMergeIds(rows));
+  for (const row of rows) {
+    if (row.kind === "branchMerge") {
+      const target = (row.mergeTarget || "").trim();
+      if (target) used.add(target);
+    }
+  }
+  return used;
+}
+
+/** Display name for a step row (label, then body text). */
+export function stepBlockDisplayName(row, rowIndex = 0) {
+  const name = (row.name || "").trim();
+  const text = (row.text || "").trim();
+  return name || text || `手順 ${rowIndex + 1}`;
+}
+
+/** Steps that can be selected as merge targets in the GUI. */
+export function collectMergeTargetOptions(rows) {
+  const options = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind !== "step" || row.empty || !row.role) continue;
+    const mergeId = (row.mergeId || "").trim();
+    const blockName = stepBlockDisplayName(row, i);
+    options.push({
+      stepIndex: i,
+      mergeId,
+      blockName,
+      label: mergeId ? `${blockName} (id: ${mergeId})` : blockName,
+    });
+  }
+  return options;
+}
+
+/**
+ * When the user selects branchEnd, edit the paired branchStart in the inspector.
+ */
+export function resolveInspectorTarget(rows, rowIndex) {
+  const row = rows?.[rowIndex];
+  if (!row) {
+    return {
+      inspectorRow: null,
+      saveRowIndex: -1,
+      isBranchRow: false,
+      viaBranchEnd: false,
+    };
+  }
+
+  // Selecting a closing marker edits the paired opener in the inspector.
+  if (row.kind === "branchEnd" || row.kind === "groupEnd") {
+    const openKind = row.kind === "branchEnd" ? "branchStart" : "groupStart";
+    const startIndex = rows.findIndex(
+      (r) => r.kind === openKind && r.id === row.id,
+    );
+    if (startIndex >= 0) {
+      return {
+        inspectorRow: rows[startIndex],
+        saveRowIndex: startIndex,
+        isBranchRow: true,
+        viaBranchEnd: true,
+      };
+    }
+  }
+
+  const isBranchRow = [
+    "branchStart",
+    "branchCase",
+    "branchLoop",
+    "branchMerge",
+    "groupStart",
+  ].includes(row.kind);
+
+  return {
+    inspectorRow: row,
+    saveRowIndex: rowIndex,
+    isBranchRow,
+    viaBranchEnd: false,
+  };
+}
+
+export function mergeIdIsTaken(rows, mergeId, exceptStepIndex = -1) {
+  const id = (mergeId || "").trim();
+  if (!id) return false;
+  for (let i = 0; i < rows.length; i++) {
+    if (i === exceptStepIndex) continue;
+    const row = rows[i];
+    if (
+      row.kind === "step" &&
+      !row.empty &&
+      row.role &&
+      (row.mergeId || "").trim() === id
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Generate a unique merge id: a, b, … z, then aa, ab, … */
+export function nextStepMergeId(rows) {
+  const used = collectUsedMergeIds(rows);
+  for (let i = 0; i < 26; i++) {
+    const c = String.fromCharCode(97 + i);
+    if (!used.has(c)) return c;
+  }
+  for (let a = 0; a < 26; a++) {
+    for (let b = 0; b < 26; b++) {
+      const c =
+        String.fromCharCode(97 + a) + String.fromCharCode(97 + b);
+      if (!used.has(c)) return c;
+    }
+  }
+  return `z${rows.length + 1}`;
+}
+
+export function canAddMerge(rows, rowIndex) {
+  if (!isInsideOpenIf(rows, rowIndex)) return false;
+  const branchStart = findEnclosingBranchStart(rows, rowIndex);
+  if (branchStart < 0) return false;
+  const endIdx = findBranchEndIndex(rows, branchStart);
+  if (endIdx <= rowIndex) return false;
+  const branchId = rows[branchStart].id;
+  for (let i = rowIndex + 1; i < endIdx; i++) {
+    if (
+      rows[i].kind === "branchMerge" &&
+      rows[i].mergeBranchId === branchId
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * First step after branchEnd suitable as a merge target: existing `id:` or
+ * index of a step that needs an id assigned.
+ */
+export function findMergeTargetAfterBranch(rows, branchStartIndex) {
+  const endIdx = findBranchEndIndex(rows, branchStartIndex);
+  if (endIdx < 0) return { mergeId: nextStepMergeId(rows), stepIndex: -1 };
+  for (let i = endIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind === "branchStart") break;
+    if (row.kind === "step" && !row.empty && row.role) {
+      const existing = (row.mergeId || "").trim();
+      return {
+        mergeId: existing || nextStepMergeId(rows),
+        stepIndex: i,
+        needsId: !existing,
+      };
+    }
+  }
+  return { mergeId: nextStepMergeId(rows), stepIndex: -1, needsId: false };
 }
 
 function isElseBranchCase(row) {
@@ -628,13 +868,22 @@ export function rowBadge(row) {
     case "step":
       return row.empty ? "empty" : "step";
     case "branchStart":
-      return "if";
+      return row.parallel ? "fork" : "if";
     case "branchCase":
+      if (row.parallel) return "and";
       return /^else$/i.test((row.label || "").trim()) ? "else" : "elseif";
     case "branchEnd":
-      return "endif";
+      return row.parallel ? "endfork" : "endif";
     case "branchLoop":
       return "[loop]";
+    case "branchMerge":
+      return "merge";
+    case "groupStart":
+      return (row.groupMode ?? "branch") === "branch" ? "branch" : "section";
+    case "groupEnd":
+      return (row.groupMode ?? "branch") === "branch"
+        ? "end-branch"
+        : "end-section";
     default:
       return row.kind;
   }
@@ -653,13 +902,20 @@ export function rowBadgeLabel(row) {
     case "step":
       return row.empty ? "空行" : "手順";
     case "branchStart":
-      return "分岐開始";
+      return row.parallel ? "並行開始" : "分岐開始";
     case "branchCase":
+      if (row.parallel) return "並行";
       return /^else$/i.test((row.label || "").trim()) ? "else" : "分岐";
     case "branchEnd":
-      return "分岐終了";
+      return row.parallel ? "並行終了" : "分岐終了";
     case "branchLoop":
       return "ループ";
+    case "branchMerge":
+      return "合流";
+    case "groupStart":
+      return (row.groupMode ?? "branch") === "branch" ? "支線開始" : "枠開始";
+    case "groupEnd":
+      return (row.groupMode ?? "branch") === "branch" ? "支線終了" : "枠終了";
     default:
       return "行";
   }
@@ -673,13 +929,22 @@ export function rowSummaryText(row, lanes) {
       if (row.empty) return "（内容のない行）";
       const who = laneLabel(lanes, row.role);
       const title = (row.name || row.text || "").trim() || "（説明未入力）";
-      return `${who}：${title}`;
+      const idPart = (row.mergeId || "").trim()
+        ? `id=${row.mergeId} · `
+        : "";
+      const arrowPart =
+        row.arrowLine && row.arrowLine !== "solid"
+          ? `arrow=${row.arrowLine} · `
+          : "";
+      return `${idPart}${arrowPart}${who}：${title}`;
     }
     case "branchStart": {
+      if (row.parallel) return "並行処理（同時に実行）";
       const cond = (row.cond || "").trim() || "条件";
       return `${cond}`;
     }
     case "branchCase": {
+      if (row.parallel) return "並行パス";
       if (/^else$/i.test((row.label || "").trim())) {
         return "上記以外の場合";
       }
@@ -687,9 +952,19 @@ export function rowSummaryText(row, lanes) {
       return `${label}`;
     }
     case "branchEnd":
-      return "条件分岐の終わり";
+      return row.parallel ? "並行処理の終わり" : "条件分岐の終わり";
     case "branchLoop":
       return "分岐内の繰り返し";
+    case "branchMerge":
+      return `合流先 id：${(row.mergeTarget || "").trim() || "（未設定）"}`;
+    case "groupStart":
+      return (row.groupMode ?? "branch") === "branch"
+        ? "支線（本流から分岐・末尾で合流）"
+        : "枠（ボックス表示のみ・本流のまま）";
+    case "groupEnd":
+      return (row.groupMode ?? "branch") === "branch"
+        ? "支線の終わり（本流へ合流）"
+        : "枠の終わり";
     default:
       return "";
   }
@@ -702,11 +977,19 @@ export function rowKindBadgeClass(row) {
       return "bg-stone-600";
     case "branchStart":
     case "branchEnd":
-      return "bg-green-700";
+      return row.parallel ? "bg-purple-700" : "bg-green-700";
     case "branchCase":
+      if (row.parallel) return "bg-purple-800";
       return row.branchColor ? "" : "bg-amber-800";
     case "branchLoop":
       return "bg-stone-600";
+    case "branchMerge":
+      return "bg-sky-800";
+    case "groupStart":
+    case "groupEnd":
+      return (row.groupMode ?? "branch") === "branch"
+        ? "bg-indigo-700"
+        : "bg-slate-700";
     default:
       return "bg-stone-600";
   }

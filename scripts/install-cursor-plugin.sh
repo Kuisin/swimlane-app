@@ -46,7 +46,7 @@ if [[ -n "$VSIX" ]]; then
     echo "  Cursor: Extensions → Install from VSIX…"
   fi
 else
-  echo "No VSIX found. Build one with: npm run package:extension"
+  echo "No VSIX found. Build one with: pnpm run package:extension"
   echo "Or download from GitHub Releases."
 fi
 

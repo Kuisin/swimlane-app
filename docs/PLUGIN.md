@@ -5,19 +5,19 @@ The shareable plugin file is a **`.vsix`** package built from `extensions/vscode
 ## Prerequisites
 
 - Node.js 20+
-- npm (from the repository root)
+- pnpm 9+ (from the repository root)
 
 ## 1. Install dependencies
 
 ```bash
 cd /path/to/kai-swimlane
-npm install
+pnpm install
 ```
 
 ## 2. Build and create the `.vsix` file
 
 ```bash
-npm run package:extension
+pnpm run package:extension
 ```
 
 Output (version in the filename may differ):
@@ -32,8 +32,8 @@ plugins/vscode/vscode-kai-swimlane-0.1.0.vsix
 
 | Command | What it does |
 |---------|----------------|
-| `npm run build:extension` | Bundle extension → `extensions/vscode-kai-swimlane/dist/extension.js` |
-| `npm run package:extension` | Build + run `vsce package` → `.vsix` |
+| `pnpm run build:extension` | Bundle extension → `extensions/vscode-kai-swimlane/dist/extension.js` |
+| `pnpm run package:extension` | Build + run `vsce package` → `.vsix` |
 
 ## 3. Share the file
 
@@ -93,7 +93,7 @@ For block/prop snippets use ` ```kai-swimlane-parts `.
 ```bash
 cd extensions/vscode-kai-swimlane
 npx vsce login <publisher-id>
-npm run package
+pnpm run package
 npx vsce publish
 ```
 
@@ -102,20 +102,20 @@ Cursor can install extensions from the VS Code Marketplace; Open VSX is a separa
 ## Local development (F5)
 
 1. Open `extensions/vscode-kai-swimlane` in VS Code/Cursor.
-2. Run `npm run build` in that folder (or `npm run build:extension` from the repo root).
+2. Run `pnpm run build` in that folder (or `pnpm run build:extension` from the repo root).
 3. Press **F5** → Extension Development Host opens with the plugin loaded.
 4. Open a markdown file and preview.
 
 ## Bump version before sharing
 
-Edit `"version"` in `extensions/vscode-kai-swimlane/package.json`, then run `npm run package:extension` again so the new `.vsix` has a new filename.
+Edit `"version"` in `extensions/vscode-kai-swimlane/package.json`, then run `pnpm run package:extension` again so the new `.vsix` has a new filename.
 
 ## GitHub Actions (automated release)
 
 On push of a version tag (e.g. `v0.1.0`), the workflow [`.github/workflows/extension-release.yml`](../.github/workflows/extension-release.yml):
 
 1. Builds `vscode-kai-swimlane-<version>.vsix`
-2. Copies it into `plugins/cursor/kai-swimlane/vscode/` (`npm run bundle:cursor-plugin`)
+2. Copies it into `plugins/cursor/kai-swimlane/vscode/` (`pnpm run bundle:cursor-plugin`)
 3. Zips `plugins/cursor/kai-swimlane/` as `kai-swimlane-cursor-plugin-<version>.zip` (includes the VSIX)
 3. Uploads both to **GitHub Releases**
 
@@ -134,8 +134,8 @@ git push origin v0.1.0
 Install rules/skills into Cursor:
 
 ```bash
-npm run package:cursor-plugin      # build VSIX, copy into plugin, zip for release
-npm run install:cursor-plugin      # copy to ~/.cursor/plugins/local/kai-swimlane
+pnpm run package:cursor-plugin      # build VSIX, copy into plugin, zip for release
+pnpm run install:cursor-plugin      # copy to ~/.cursor/plugins/local/kai-swimlane
 ```
 
 Target path: `~/.cursor/plugins/local/kai-swimlane` (use a real copy, not a symlink).
@@ -147,6 +147,6 @@ The built-in preview uses VS Code’s [Markdown extension API](https://code.visu
 | Issue | Fix |
 |-------|-----|
 | Preview shows plain code block | Reload window; confirm extension is enabled; fence language must be exactly `kai-swimlane` or `kai-swimlane-parts`. |
-| `vsce: command not found` | Use `npm run package:extension` from the repo root (uses local `@vscode/vsce`). |
-| Build fails on `lucide-react` | Run `npm install` at repo root so workspace deps resolve. |
+| `vsce: command not found` | Use `pnpm run package:extension` from the repo root (uses local `@vscode/vsce`). |
+| Build fails on `lucide-react` | Run `pnpm install` at repo root so workspace deps resolve. |
 | Diagram error in preview | Check DSL markers `@kai-swimlane` / `@end` for full diagrams; expand **DSL** in preview for source. |

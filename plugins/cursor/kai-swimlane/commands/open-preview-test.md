@@ -11,8 +11,8 @@ Markdown preview renders diagrams only when the VSIX is installed:
 
 ```bash
 # From kai-swimlane repo root
-npm run package:cursor-plugin   # build VSIX into plugins/cursor/kai-swimlane/vscode/
-npm run install:cursor-plugin   # copy plugin + install VSIX via cursor/code CLI
+pnpm run package:cursor-plugin   # build VSIX into plugins/cursor/kai-swimlane/vscode/
+pnpm run install:cursor-plugin   # copy plugin + install VSIX via cursor/code CLI
 ```
 
 Then **Developer: Reload Window**.

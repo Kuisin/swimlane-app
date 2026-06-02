@@ -8,7 +8,7 @@ DIST="${EXT_DIR}/dist/extension.js"
 VSIX_DIR="${REPO_ROOT}/plugins/vscode"
 
 cd "$REPO_ROOT"
-npm run build:extension
+pnpm run build:extension
 
 if [[ ! -f "$DIST" ]]; then
   echo "error: missing $DIST" >&2
@@ -23,7 +23,7 @@ if [[ "$SIZE" -lt "$MIN_SIZE" ]]; then
 fi
 echo "OK: dist/extension.js (${SIZE} bytes)"
 
-npm run package:extension
+pnpm run package:extension
 
 VERSION="$(node -p "require('${EXT_DIR}/package.json').version")"
 VSIX_PATH="${VSIX_DIR}/vscode-kai-swimlane-${VERSION}.vsix"

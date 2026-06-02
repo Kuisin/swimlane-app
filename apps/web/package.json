@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@kai-swimlane/core": "*",
-    "kai-swimlane": "*",
-    "kai-swimlane-parts": "*",
+    "@kai-swimlane/core": "workspace:*",
+    "kai-swimlane": "workspace:*",
+    "kai-swimlane-parts": "workspace:*",
     "lucide-react": "^1.11.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

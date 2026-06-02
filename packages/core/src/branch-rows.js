@@ -1,5 +1,7 @@
 /** Shared branch row geometry (parser, diagram, GUI). */
 
+import { isInsideGroup } from "./group-rows.js";
+
 export function findBranchEndIndex(rows, startIndex) {
   const start = rows[startIndex];
   if (!start || start.kind !== "branchStart") return -1;
@@ -95,7 +97,7 @@ export function findNextFlowStepAfterBranchEnd(rows, branchStartIndex, afterRowI
       }
       continue;
     }
-    if (row.kind === "step" && !row.empty && row.role) {
+    if (row.kind === "step" && !row.empty && row.role && !isInsideGroup(rows, j)) {
       const stepParent = findEnclosingBranchStart(rows, j);
       if (stepParent === branchParent) return j;
     }

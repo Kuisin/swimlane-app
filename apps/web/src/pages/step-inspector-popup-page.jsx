@@ -6,17 +6,45 @@ import { useEditor } from "../hooks/use-editor";
 import { useUnsavedGuard } from "../hooks/use-unsaved-guard";
 import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
 import {
+  buildLockedGuiRowIndices,
+  canUseGuiEditing,
+  isGuiRowEditingLocked,
+  mustChooseParseErrorPolicy,
+} from "../lib/parse-error-policy";
+import {
   isStepInspectorMessage,
   postStepInspectorMessage,
 } from "../lib/step-inspector-channel";
 import { InspectorDraftPanel } from "../components/gui/inspector-draft-panel";
 
-const BRANCH_KINDS = ["branchStart", "branchCase", "branchEnd", "branchLoop"];
+const BRANCH_KINDS = [
+  "branchStart",
+  "branchCase",
+  "branchEnd",
+  "branchLoop",
+  "branchMerge",
+  "groupStart",
+  "groupEnd",
+];
 
-function inspectorTitle(row) {
+function inspectorTitle(row, rows) {
   if (!row) return "手順の詳細";
   if (row.kind === "step" && !row.empty) {
     return row.text?.trim() || row.name?.trim() || "ステップ";
+  }
+  if (row.kind === "branchEnd") {
+    const start = rows?.find(
+      (r) => r.kind === "branchStart" && r.id === row.id,
+    );
+    if (start?.parallel) return "並行処理（終了）";
+    return "条件分岐（終了）";
+  }
+  if (row.kind === "branchStart") {
+    return row.parallel ? "並行処理（開始）" : "条件分岐";
+  }
+  if (row.kind === "branchMerge") return "途中合流";
+  if (row.kind === "groupStart" || row.kind === "groupEnd") {
+    return (row.groupMode ?? "branch") === "branch" ? "支線" : "枠";
   }
   if (BRANCH_KINDS.includes(row.kind)) return "分岐";
   return "手順の詳細";
@@ -39,27 +67,56 @@ export function StepInspectorPopupPage() {
 
   const document = documents.find((doc) => doc.id === documentId);
   const src = document?.src ?? "";
+  // The React Compiler cannot prove buildLockedGuiRowIndices leaves guiModel.rows
+  // unmutated, so it won't preserve these src-derived memos and skips optimizing
+  // this component. The memoization is correct (everything derives from `src`),
+  // so suppress the false positive rather than drop the memos.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const model = useMemo(() => parseDSL(src), [src]);
+  const lockedRowIndices = useMemo(
+    () => buildLockedGuiRowIndices(guiModel.rows, model.errors),
+    [guiModel.rows, model.errors],
+  );
+  const needsChoice = mustChooseParseErrorPolicy(
+    model.errors,
+    document?.parseErrorPolicy ?? null,
+  );
+  const inspectorEditingDisabled =
+    !canUseGuiEditing(model.errors, document?.parseErrorPolicy ?? null) ||
+    (rowIndex != null &&
+      Number.isFinite(rowIndex) &&
+      isGuiRowEditingLocked(rowIndex, lockedRowIndices));
 
   const selectedRow =
     rowIndex != null && Number.isFinite(rowIndex)
       ? guiModel.rows[rowIndex]
       : null;
-  const isBranchRow =
-    selectedRow && BRANCH_KINDS.includes(selectedRow.kind);
 
   const applyRowToDocument = useCallback(
-    (rowDraft) => {
-      if (!documentId || rowIndex == null || !Number.isFinite(rowIndex)) return;
+    (rowDraft, saveRowIndex) => {
+      const idx =
+        typeof saveRowIndex === "number" && saveRowIndex >= 0
+          ? saveRowIndex
+          : rowIndex;
+      if (!documentId || idx == null || !Number.isFinite(idx)) return;
       updateDocumentSrc(
         documentId,
         applyModelEdit(src, (draft) => {
-          Object.assign(draft.rows[rowIndex], rowDraft);
-        })
+          Object.assign(draft.rows[idx], rowDraft);
+        }),
       );
     },
-    [documentId, rowIndex, src, updateDocumentSrc]
+    [documentId, rowIndex, src, updateDocumentSrc],
+  );
+
+  const applyRowsPatch = useCallback(
+    (editFn) => {
+      if (!documentId) return;
+      updateDocumentSrc(documentId, applyModelEdit(src, editFn));
+    },
+    [documentId, src, updateDocumentSrc],
   );
 
   const navigateToRow = useCallback(
@@ -149,7 +206,7 @@ export function StepInspectorPopupPage() {
       <PopupStyles />
       <header className="flex items-center justify-between px-3 py-2.5 border-b border-stone-700 shrink-0">
         <h1 className="font-jp text-sm font-medium text-stone-100 truncate pr-2">
-          {inspectorTitle(selectedRow)}
+          {inspectorTitle(selectedRow, guiModel.rows)}
         </h1>
         <button
           type="button"
@@ -163,13 +220,16 @@ export function StepInspectorPopupPage() {
       <InspectorPopupBody
         isHydrated={isHydrated}
         hasDocument={!!document}
-        isBranchRow={isBranchRow}
         selectedRow={selectedRow}
+        rowIndex={rowIndex}
         guiModel={guiModel}
         model={model}
         themeKey={themeKey}
         onSave={applyRowToDocument}
+        onRowsPatch={applyRowsPatch}
         onDirtyChange={onDirtyChange}
+        editingDisabled={inspectorEditingDisabled}
+        needsChoice={needsChoice}
       />
     </div>
   );
@@ -178,13 +238,16 @@ export function StepInspectorPopupPage() {
 function InspectorPopupBody({
   isHydrated,
   hasDocument,
-  isBranchRow,
   selectedRow,
+  rowIndex,
   guiModel,
   model,
   themeKey,
   onSave,
+  onRowsPatch,
   onDirtyChange,
+  editingDisabled,
+  needsChoice,
 }) {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
@@ -194,15 +257,21 @@ function InspectorPopupBody({
         <p className="text-xs font-jp text-stone-500 px-3 py-4">
           ドキュメントが見つかりません。
         </p>
+      ) : needsChoice ? (
+        <p className="text-xs font-jp text-stone-500 px-3 py-4">
+          メイン画面の GUI で構文エラーの続行方法を選んでください。
+        </p>
       ) : (
         <InspectorDraftPanel
           row={selectedRow}
-          isBranchRow={isBranchRow}
+          rowIndex={rowIndex}
           guiModel={guiModel}
           model={model}
           themeKey={themeKey}
           onSave={onSave}
+          onRowsPatch={onRowsPatch}
           onDirtyChange={onDirtyChange}
+          editingDisabled={editingDisabled}
         />
       )}
     </div>

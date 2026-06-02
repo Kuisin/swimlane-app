@@ -13,7 +13,7 @@ Copy this entire folder to your Cursor local plugins directory (real copy, not a
 From the repository root:
 
 ```bash
-npm run install:cursor-plugin
+pnpm run install:cursor-plugin
 ```
 
 Or manually:
@@ -59,4 +59,4 @@ See [docs/PLUGIN.md](../../../docs/PLUGIN.md) in the repo for details.
 
 ## Update
 
-Re-run `npm run install:cursor-plugin` after pulling changes, or copy the folder again.
+Re-run `pnpm run install:cursor-plugin` after pulling changes, or copy the folder again.

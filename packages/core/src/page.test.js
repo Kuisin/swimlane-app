@@ -16,6 +16,15 @@ describe("/page/ section", () => {
       "footer-center: Page 1;",
       "footer-right: Confidential;",
       "",
+      "/option/",
+      "show-left-gutter: true;",
+      "show-step-block-captions: false;",
+      "merge-at-previous-block: false;",
+      "left-title: Procedure;",
+      "left-subtitle: Description;",
+      "right-title: Remark;",
+      "right-subtitle: Notes;",
+      "",
       "/title/",
       "Order flow",
       "",
@@ -31,6 +40,12 @@ describe("/page/ section", () => {
       "Line one",
       "Line two",
       "```;",
+      "remark: ```",
+      "External memo",
+      "",
+      "Need manual confirmation",
+      "with accounting team",
+      "```;",
       "",
       "@end",
     ].join("\n");
@@ -45,13 +60,28 @@ describe("/page/ section", () => {
       footerLeft: "Internal",
       footerCenter: "Page 1",
       footerRight: "Confidential",
+      leftTitle: "Procedure",
+      leftSubtitle: "Description",
+      rightTitle: "Remark",
+      rightSubtitle: "Notes",
+    });
+    expect(model.options).toMatchObject({
+      showLeftGutter: true,
+      showStepBlockCaptions: false,
+      mergeAtPreviousBlock: false,
     });
     expect(model.rows[0].description).toBe("Line one\nLine two");
+    expect(model.rows[0].remark).toBe(
+      "External memo\n\nNeed manual confirmation\nwith accounting team",
+    );
 
     const serialized = serializeDSL(model);
     const roundTrip = parseDSL(serialized);
     expect(roundTrip.errors).toEqual([]);
     expect(roundTrip.page).toEqual(model.page);
     expect(roundTrip.rows[0].description).toBe("Line one\nLine two");
+    expect(roundTrip.rows[0].remark).toBe(
+      "External memo\n\nNeed manual confirmation\nwith accounting team",
+    );
   });
 });

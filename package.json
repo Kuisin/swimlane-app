@@ -2,15 +2,15 @@
   "name": "kai-swimlane",
   "private": true,
   "version": "0.0.0",
-  "description": "DSL-based swimlane diagram editor and renderers (web app, markdown fences, VS Code/Cursor plugins) in an npm workspaces monorepo.",
+  "description": "DSL-based swimlane diagram editor and renderers (web app, markdown fences, VS Code/Cursor plugins) in a pnpm workspace monorepo.",
   "license": "MIT",
-  "homepage": "https://github.com/your-org/swimlane-app#readme",
+  "homepage": "https://github.com/Kuisin/swimlane-app#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/swimlane-app.git"
+    "url": "https://github.com/Kuisin/swimlane-app.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/swimlane-app/issues"
+    "url": "https://github.com/Kuisin/swimlane-app/issues"
   },
   "keywords": [
     "swimlane",
@@ -20,19 +20,15 @@
     "markdown",
     "svg"
   ],
-  "workspaces": [
-    "packages/*",
-    "apps/*",
-    "extensions/*"
-  ],
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "npm run dev -w @kai-swimlane/web",
-    "build": "npm run build -w @kai-swimlane/web",
-    "lint": "npm run lint -w @kai-swimlane/web",
-    "test": "npm run test -w @kai-swimlane/core",
-    "preview": "npm run preview -w @kai-swimlane/web",
-    "build:extension": "npm run build -w vscode-kai-swimlane",
-    "package:extension": "npm run package -w vscode-kai-swimlane",
+    "dev": "pnpm --filter @kai-swimlane/web dev",
+    "build": "pnpm --filter @kai-swimlane/web build",
+    "lint": "pnpm --filter @kai-swimlane/web lint",
+    "test": "pnpm --filter @kai-swimlane/core test",
+    "preview": "pnpm --filter @kai-swimlane/web preview",
+    "build:extension": "pnpm --filter vscode-kai-swimlane build",
+    "package:extension": "pnpm --filter vscode-kai-swimlane package",
     "verify:extension": "bash scripts/verify-extension.sh",
     "bundle:cursor-plugin": "node scripts/bundle-cursor-plugin.mjs",
     "zip:cursor-plugin": "node scripts/zip-cursor-plugin.mjs",

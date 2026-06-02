@@ -2,6 +2,34 @@ import { THEMES } from "@kai-swimlane/core";
 
 export const STORAGE_KEY = "swimlane-editor-state-v1";
 
+/** Persist only last-saved DSL so reload after leaving discards unsaved edits. */
+export function serializeEditorStateForStorage(state) {
+  const {
+    documents,
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    showLeftGutter,
+  } = state;
+
+  return JSON.stringify({
+    documents: documents.map(({ id, name, savedSrc }) => ({
+      id,
+      name,
+      src: savedSrc,
+      savedSrc,
+    })),
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    showLeftGutter,
+  });
+}
+
 export function parseStoredEditorState(raw) {
   if (!raw) return null;
 
@@ -10,17 +38,21 @@ export function parseStoredEditorState(raw) {
     const result = {};
 
     if (Array.isArray(parsed.documents) && parsed.documents.length > 0) {
-      const restoredDocuments = parsed.documents.map((doc, index) => ({
-        id: doc.id || `doc-${index + 1}`,
-        name: doc.name || `Document ${index + 1}`,
-        src: typeof doc.src === "string" ? doc.src : "",
-        savedSrc:
+      const restoredDocuments = parsed.documents.map((doc, index) => {
+        const savedSrc =
           typeof doc.savedSrc === "string"
             ? doc.savedSrc
             : typeof doc.src === "string"
               ? doc.src
-              : "",
-      }));
+              : "";
+        return {
+          id: doc.id || `doc-${index + 1}`,
+          name: doc.name || `Document ${index + 1}`,
+          src: savedSrc,
+          savedSrc,
+          parseErrorPolicy: null,
+        };
+      });
       result.documents = restoredDocuments;
       const restoredIds = restoredDocuments.map((document) => document.id);
       const restoredOpenIds =
@@ -45,6 +77,9 @@ export function parseStoredEditorState(raw) {
     if (typeof parsed.mergeAtPreviousBlock === "boolean") {
       result.mergeAtPreviousBlock = parsed.mergeAtPreviousBlock;
     }
+  if (typeof parsed.showLeftGutter === "boolean") {
+    result.showLeftGutter = parsed.showLeftGutter;
+  }
 
     return result;
   } catch {
@@ -62,6 +97,7 @@ export function applyStoredEditorState(parsed, setters) {
     setThemeKey,
     setShowStepBlockCaptions,
     setMergeAtPreviousBlock,
+    setShowLeftGutter,
   } = setters;
 
   if (parsed.documents) {
@@ -79,5 +115,8 @@ export function applyStoredEditorState(parsed, setters) {
   }
   if (typeof parsed.mergeAtPreviousBlock === "boolean") {
     setMergeAtPreviousBlock(parsed.mergeAtPreviousBlock);
+  }
+  if (typeof parsed.showLeftGutter === "boolean") {
+    setShowLeftGutter(parsed.showLeftGutter);
   }
 }

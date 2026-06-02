@@ -1,9 +1,12 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { applyTabIndent } from "../../lib/editor-indent";
 
-const MONO_FONT = { fontFamily: "'JetBrains Mono', monospace" };
+const MONO_FONT = {
+  fontFamily: "'JetBrains Mono', monospace",
+  whiteSpace: "pre",
+};
 
-export function CodeArea({ src, onChange, errorLines }) {
+export function CodeArea({ src, onChange, errorLines = new Set() }) {
   const textareaRef = useRef(null);
   const lineNumbersRef = useRef(null);
   const highlightsRef = useRef(null);
@@ -47,16 +50,19 @@ export function CodeArea({ src, onChange, errorLines }) {
   function syncScroll() {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    const { scrollTop } = textarea;
+    const { scrollTop, scrollLeft } = textarea;
     if (lineNumbersRef.current) lineNumbersRef.current.scrollTop = scrollTop;
-    if (highlightsRef.current) highlightsRef.current.scrollTop = scrollTop;
+    if (highlightsRef.current) {
+      highlightsRef.current.scrollTop = scrollTop;
+      highlightsRef.current.scrollLeft = scrollLeft;
+    }
   }
 
   return (
     <div className="flex flex-1 min-h-0">
       <div
         ref={lineNumbersRef}
-        className="shrink-0 overflow-hidden py-4 pl-2 pr-4 select-none border-r border-stone-700/40"
+        className="shrink-0 overflow-y-auto overflow-x-hidden py-4 pl-2 pr-4 select-none border-r border-stone-700/40"
         aria-hidden
       >
         <div
@@ -81,18 +87,19 @@ export function CodeArea({ src, onChange, errorLines }) {
       <div className="relative flex-1 min-w-0 min-h-0">
         <div
           ref={highlightsRef}
-          className="absolute inset-0 overflow-hidden pointer-events-none"
+          className="absolute inset-0 overflow-auto pointer-events-none"
           aria-hidden
         >
           <div
-            className="py-4 pl-4 pr-2 font-mono text-sm leading-relaxed"
+            className="py-4 pl-4 pr-2 font-mono text-sm leading-relaxed w-max min-w-full"
             style={MONO_FONT}
           >
             {lineNumbers.map((n) => (
               <div
                 key={n}
                 className={
-                  errorLines.has(n) ? "bg-red-950/45 rounded-sm" : undefined
+                  errorLines.has(n) ? "bg-red-950/45 rounded-sm"
+                    : undefined
                 }
               >
                 {"\u00a0"}
@@ -108,7 +115,8 @@ export function CodeArea({ src, onChange, errorLines }) {
           onKeyDown={handleKeyDown}
           onScroll={syncScroll}
           spellCheck={false}
-          className="relative z-10 w-full h-full py-4 pl-4 pr-2 bg-transparent text-stone-100 font-mono text-sm leading-relaxed outline-none resize-none"
+          wrap="off"
+          className="relative z-10 block w-full h-full min-w-0 py-4 pl-4 pr-2 bg-transparent text-stone-100 font-mono text-sm leading-relaxed outline-none resize-none overflow-auto"
           style={MONO_FONT}
         />
       </div>

@@ -16,20 +16,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Verify extension build and VSIX
-        run: npm run verify:extension
+        run: pnpm run verify:extension
 
       - name: Bundle VSIX into Cursor plugin
-        run: npm run bundle:cursor-plugin
+        run: pnpm run bundle:cursor-plugin
 
       - name: Read extension version
         id: version
@@ -39,7 +44,7 @@ jobs:
           echo "Extension version: $VERSION"
 
       - name: Zip Cursor plugin (includes bundled VSIX)
-        run: npm run zip:cursor-plugin -- ${{ steps.version.outputs.version }}
+        run: pnpm run zip:cursor-plugin -- ${{ steps.version.outputs.version }}
 
       - name: Verify VSIX inside Cursor plugin zip
         run: |

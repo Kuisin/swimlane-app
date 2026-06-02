@@ -1,6 +1,6 @@
 # Kai Swimlane
 
-A DSL-based swimlane diagram editor built with React + Vite, organized as an npm workspaces monorepo so the web app and markdown fence renderers share one parser and diagram implementation.
+A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm workspace monorepo so the web app and markdown fence renderers share one parser and diagram implementation.
 
 ## Repository layout
 
@@ -25,8 +25,8 @@ Shared logic lives in **`@kai-swimlane/core`**. The **`kai-swimlane`** and **`ka
 Build a shareable `.vsix` and install it in VS Code or Cursor:
 
 ```bash
-npm install
-npm run package:extension
+pnpm install
+pnpm run package:extension
 ```
 
 Full steps: [docs/PLUGIN.md](docs/PLUGIN.md).
@@ -34,7 +34,7 @@ Full steps: [docs/PLUGIN.md](docs/PLUGIN.md).
 **Cursor local plugin** (rules + skill, copy to `~/.cursor/plugins/local/kai-swimlane`):
 
 ```bash
-npm run install:cursor-plugin
+pnpm run install:cursor-plugin
 ```
 
 See [plugins/cursor/kai-swimlane/README.md](plugins/cursor/kai-swimlane/README.md).
@@ -46,21 +46,21 @@ See [plugins/cursor/kai-swimlane/README.md](plugins/cursor/kai-swimlane/README.m
 From the repository root:
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Build and preview:
 
 ```bash
-npm run build
-npm run preview -w @kai-swimlane/web
+pnpm run build
+pnpm --filter @kai-swimlane/web preview
 ```
 
 The editor is published under the Vite base path **`/swimlane-app/`**:
 
-- **Text editor:** `https://<your-org>.github.io/swimlane-app/`
-- **GUI editor:** `https://<your-org>.github.io/swimlane-app/gui`
+- **Text editor:** `https://kuisin.github.io/swimlane-app/`
+- **GUI editor:** `https://kuisin.github.io/swimlane-app/gui`
 
 Deep links to `/gui` work on GitHub Pages via `apps/web/public/404.html` (SPA fallback).
 
@@ -107,7 +107,7 @@ import { KaiSwimlanePartsPreview } from "kai-swimlane-parts";
 
 ## LLM HTTP API (dev server only)
 
-While **`npm run dev`** is running, the Vite dev server exposes an HTTP API so tools can turn **DSL text** into a **PNG** without using the browser UI. This is **not** available from `npm run preview` or a static GitHub Pages deploy.
+While **`pnpm run dev`** is running, the Vite dev server exposes an HTTP API so tools can turn **DSL text** into a **PNG** without using the browser UI. This is **not** available from `pnpm run preview` or a static GitHub Pages deploy.
 
 The app is served under the Vite **`base`** path ([`apps/web/vite.config.js`](apps/web/vite.config.js)): **`/swimlane-app/`**.
 
@@ -138,6 +138,15 @@ label: Sales;
 @end
 ```
 
+**Flow control** (inside `/line/`):
+
+| Construct | Meaning |
+|-----------|---------|
+| `if (cond) is (case) than` … `elseif (case) than` … `else` … `endif` | Exclusive branch — exactly one case runs. Renders decision/merge diamonds. |
+| `fork` … `and` … `endfork` | Parallel branch — all paths run concurrently. Renders split/join bars. |
+| `[loop]` | At the end of a case, route back to its own `if` decision (retry). |
+| `merge: <id>;` | At the end of a case, route to the step tagged `id: <id>;` downstream instead of the `endif` merge. |
+
 See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide.
 
 ## Headless rendering (for external plugins)
@@ -159,21 +168,28 @@ identical by a parity test, so both paths produce the same diagram. `react`,
 `react-dom`, and `lucide-react` are optional peers — only the React components
 exported from the main `@kai-swimlane/core` barrel need them.
 
-## Known limitations
+## Flow control & limitations
 
-The flow DSL is **block-structured**: branches must be properly nested
-(`if` … `elseif`/`else` … `endif`) and cannot interleave. A few consequences
-worth knowing:
+The flow DSL is **block-structured**: every control block (`if` … `endif`,
+`fork` … `endfork`) must be properly nested. Within that model:
 
+- **Exclusive vs parallel.** `if/elseif/else` picks exactly one case (decision
+  + merge diamonds). `fork/and/endfork` runs every path concurrently (split +
+  join bars). Use `fork` when steps in different lanes happen at the same time.
+- **Re-convergence.** A case normally rejoins the flow at its `endif`. `[loop]`
+  instead routes back to the same decision (retry); `merge: <id>;` routes
+  forward to a step with matching `id:`, so cases can reconverge at different points (e.g. a
+  cancel path that skips straight to the end).
 - **Steps may freely change lanes within a single case** (e.g. `a → c → a → b`);
   connectors route between lanes automatically.
-- **Branches cannot be interleaved across each other.** "Mixing" two branches
-  means nesting one inside a case of the other, or sequencing them one after the
-  next — there is no way to weave steps from two sibling branches together.
+- **Control blocks cannot be interleaved across each other.** Two `if`/`fork`
+  blocks are either nested (one inside a case/path of the other) or sequenced
+  one after the next — there is no way to weave steps from two sibling blocks
+  together. `fork` covers genuine concurrency; `merge` covers a forward jump.
 - A flow may **start or end with a branch** (no surrounding step); the start/end
-  terminals attach to the decision/merge diamonds in that case.
-- Very wide fan-outs (many `elseif` cases sharing one lane) widen that lane to
-  keep cases from overlapping, which can make the diagram broad.
+  terminals attach to the gateway in that case.
+- Very wide fan-outs (many `elseif`/`and` cases sharing one lane) widen that
+  lane to keep cases from overlapping, which can make the diagram broad.
 
 ## Contributing
 

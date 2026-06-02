@@ -16,7 +16,7 @@ VSIX=("${VSCODE_DIR}"/vscode-kai-swimlane-*.vsix)
 shopt -u nullglob
 
 if [[ ${#VSIX[@]} -eq 0 ]]; then
-  echo "error: no VSIX in ${VSCODE_DIR}. Run: npm run bundle:cursor-plugin" >&2
+  echo "error: no VSIX in ${VSCODE_DIR}. Run: pnpm run bundle:cursor-plugin" >&2
   exit 1
 fi
 

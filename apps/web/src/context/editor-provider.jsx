@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContext } from "./editor-context";
 import SAMPLE from "../content/sample.txt?raw";
 import HELP_MD from "../content/help.md?raw";
@@ -9,11 +9,12 @@ import {
   STORAGE_KEY,
   parseStoredEditorState,
   applyStoredEditorState,
+  serializeEditorStateForStorage,
 } from "../lib/editor-storage";
 import { extractDocumentTitle } from "../lib/document-title";
 
 function createDocument(id, name, src) {
-  return { id, name, src, savedSrc: src };
+  return { id, name, src, savedSrc: src, parseErrorPolicy: null };
 }
 
 function createNextDocumentName(documents) {
@@ -33,8 +34,10 @@ export function EditorProvider({ children }) {
   const [themeKey, setThemeKey] = useState("basic");
   const [showStepBlockCaptions, setShowStepBlockCaptions] = useState(true);
   const [mergeAtPreviousBlock, setMergeAtPreviousBlock] = useState(true);
+  const [showLeftGutter, setShowLeftGutter] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -48,6 +51,7 @@ export function EditorProvider({ children }) {
         setThemeKey,
         setShowStepBlockCaptions,
         setMergeAtPreviousBlock,
+        setShowLeftGutter,
       });
     } else if (raw) {
       localStorage.removeItem(STORAGE_KEY);
@@ -70,6 +74,7 @@ export function EditorProvider({ children }) {
         setThemeKey,
         setShowStepBlockCaptions,
         setMergeAtPreviousBlock,
+        setShowLeftGutter,
       });
     }
 
@@ -87,27 +92,55 @@ export function EditorProvider({ children }) {
 
   const theme = THEMES[themeKey];
   const model = useMemo(() => parseDSL(src), [src]);
+  const activeParseErrorPolicy = activeDocument?.parseErrorPolicy ?? null;
+
+  // When parse errors clear, drop any stale per-document parse-error policy so a
+  // later error re-prompts. Done during render (React's "adjust state while
+  // rendering" pattern) instead of in an effect, and guarded so it only runs
+  // when something actually needs clearing — which also avoids a render loop.
+  if (model.errors.length === 0 && documents.some((doc) => doc.parseErrorPolicy)) {
+    setDocuments((current) =>
+      current.map((doc) =>
+        doc.parseErrorPolicy ? { ...doc, parseErrorPolicy: null } : doc,
+      ),
+    );
+  }
+
+  function setActiveDocumentParseErrorPolicy(policy) {
+    if (!activeDocumentId) return;
+    setDocuments((current) =>
+      current.map((doc) =>
+        doc.id === activeDocumentId ? { ...doc, parseErrorPolicy: policy } : doc,
+      ),
+    );
+  }
+
   const hasUnsavedChanges = documents.some(
     (document) => document.src !== document.savedSrc
   );
 
-  useEffect(() => {
-    if (!isHydrated) return;
+  const persistSnapshotRef = useRef({
+    documents,
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    showLeftGutter,
+  });
+  const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
 
-    const payload = {
-      documents: documents.map(({ id, name, src: docSrc, savedSrc }) => ({
-        id,
-        name,
-        src: docSrc,
-        savedSrc,
-      })),
+  useEffect(() => {
+    persistSnapshotRef.current = {
+      documents,
       openDocumentIds,
       activeDocumentId,
       themeKey,
       showStepBlockCaptions,
       mergeAtPreviousBlock,
+      showLeftGutter,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    hasUnsavedChangesRef.current = hasUnsavedChanges;
   }, [
     documents,
     openDocumentIds,
@@ -115,6 +148,28 @@ export function EditorProvider({ children }) {
     themeKey,
     showStepBlockCaptions,
     mergeAtPreviousBlock,
+    showLeftGutter,
+    hasUnsavedChanges,
+  ]);
+
+  function flushSavedStateToStorage() {
+    localStorage.setItem(
+      STORAGE_KEY,
+      serializeEditorStateForStorage(persistSnapshotRef.current),
+    );
+  }
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    flushSavedStateToStorage();
+  }, [
+    documents,
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    showLeftGutter,
     isHydrated,
   ]);
 
@@ -123,13 +178,24 @@ export function EditorProvider({ children }) {
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     if (window.location.pathname === `${base}/gui/step-inspector`) return;
 
+    function handleUnload() {
+      if (!hasUnsavedChangesRef.current) return;
+      flushSavedStateToStorage();
+    }
+
     function handleBeforeUnload(event) {
+      if (!hasUnsavedChangesRef.current) return;
+      flushSavedStateToStorage();
       event.preventDefault();
       event.returnValue = "";
     }
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleUnload);
+    };
   }, [hasUnsavedChanges]);
 
   function updateActiveDocumentSrc(nextSrc) {
@@ -247,13 +313,19 @@ export function EditorProvider({ children }) {
     setShowStepBlockCaptions,
     mergeAtPreviousBlock,
     setMergeAtPreviousBlock,
+    showLeftGutter,
+    setShowLeftGutter,
     showHelp,
     setShowHelp,
     showFileList,
     setShowFileList,
+    showOptions,
+    setShowOptions,
     isHydrated,
     src,
     model,
+    activeParseErrorPolicy,
+    setActiveDocumentParseErrorPolicy,
     hasUnsavedChanges,
     updateActiveDocumentSrc,
     updateDocumentSrc,

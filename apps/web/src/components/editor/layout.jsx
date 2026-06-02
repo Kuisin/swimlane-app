@@ -1,8 +1,10 @@
-import { Diagram } from "@kai-swimlane/core";
+import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
 import { useEditor } from "../../hooks/use-editor";
+import { applyModelEdit } from "../../lib/gui-model";
 import { Toolbar } from "./shell/toolbar";
 import { HelpModal } from "./shell/help-modal";
 import { FileListModal } from "./shell/file-list-modal";
+import { OptionsModal } from "./shell/options-modal";
 import { DocumentTabs } from "./document-tabs";
 
 const FONT_STYLE = `
@@ -26,14 +28,14 @@ export function EditorLayout({
     themeKey,
     setThemeKey,
     theme,
-    showStepBlockCaptions,
-    setShowStepBlockCaptions,
-    mergeAtPreviousBlock,
-    setMergeAtPreviousBlock,
+    src,
+    updateActiveDocumentSrc,
     showHelp,
     setShowHelp,
     showFileList,
     setShowFileList,
+    showOptions,
+    setShowOptions,
     addDocumentTab,
     closeDocumentTab,
     deleteDocumentFromStorage,
@@ -42,6 +44,10 @@ export function EditorLayout({
     helpMd,
     templateMd,
   } = useEditor();
+  // Display options now live in the document's /option/ section only.
+  const resolvedDiagramOptions = resolveDiagramOptions(diagramModel.options);
+  const applyOption = (editFn) =>
+    updateActiveDocumentSrc(applyModelEdit(src, editFn));
 
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 lg:flex lg:flex-col">
@@ -52,10 +58,6 @@ export function EditorLayout({
         onThemeChange={setThemeKey}
         onShowFileList={() => setShowFileList(true)}
         onShowHelp={() => setShowHelp(true)}
-        showStepBlockCaptions={showStepBlockCaptions}
-        onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
-        mergeAtPreviousBlock={mergeAtPreviousBlock}
-        onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
         guiActions={toolbarExtras}
       />
 
@@ -68,8 +70,13 @@ export function EditorLayout({
             <Diagram
               model={diagramModel}
               theme={theme}
-              showStepBlockCaptions
-              mergeAtPreviousBlock={mergeAtPreviousBlock}
+              showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
+              mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
+              showLeftGutter={resolvedDiagramOptions.showLeftGutter}
+              showRightGutter={resolvedDiagramOptions.showRightGutter}
+              showHeader={resolvedDiagramOptions.showHeader}
+              showFooter={resolvedDiagramOptions.showFooter}
+              showDescription={resolvedDiagramOptions.showDescription}
               {...(diagramExtras || {})}
             />
           </div>
@@ -92,6 +99,12 @@ export function EditorLayout({
         </div>
       </div>
 
+      <OptionsModal
+        open={showOptions}
+        model={diagramModel}
+        onApply={applyOption}
+        onClose={() => setShowOptions(false)}
+      />
       {showHelp && (
         <HelpModal
           helpMd={helpMd}

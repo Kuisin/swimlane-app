@@ -73,6 +73,7 @@ const { code } = await esbuild.transform(source, {
 // a duplicate export that breaks native-ESM consumers (e.g. external plugins).
 const stripped = code
   .replace(/^import \{[\s\S]*?\} from "\.\.\/branch-rows\.js";\n?/m, "")
+  .replace(/^import \{[\s\S]*?\} from "\.\.\/arrow-line\.js";\n?/m, "")
   .replace(/^import \{ StepShape \} from "\.\/step-shape\.js";\n/m, "")
   .replace(/^import \{ BlockIcon \} from "\.\/block-icon\.js";\n/m, "")
   .replace(/^import \{ h, Fragment \} from "\.\/svg-utils\.js";\n/m, "");
@@ -81,6 +82,7 @@ const imports = `import {
   findNextFlowStepAfterBranchEnd,
   findNextSiblingBranchStart,
 } from "../branch-rows.js";
+import { arrowLineStrokeProps, stepOutgoingArrowLine } from "../arrow-line.js";
 import { StepShape } from "./step-shape.js";
 import { BlockIcon } from "./block-icon.js";
 import { h, Fragment } from "./svg-utils.js";

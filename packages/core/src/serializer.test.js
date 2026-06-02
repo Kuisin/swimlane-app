@@ -28,7 +28,11 @@ function normalizeModel(model) {
       const copy = { ...row };
       delete copy.id;
       delete copy.loopBranchId;
+      delete copy.mergeBranchId;
       delete copy.stepId;
+      delete copy.mergeId;
+      delete copy.dslLines;
+      delete copy.arrowLine;
       return copy;
     }),
     errors: model.errors,
@@ -87,7 +91,11 @@ function leadingSpaces(line) {
 }
 
 describe("serializeDSL round-trip", () => {
-  for (const fixture of ["sample.txt", "default-tab-template.txt"]) {
+  for (const fixture of [
+    "sample.txt",
+    "default-tab-template.txt",
+    "complex-test-example.txt",
+  ]) {
     it(`parse → serialize → parse (${fixture})`, () => {
       const src = loadFixture(fixture);
       const first = parseDSL(src);
@@ -96,4 +104,47 @@ describe("serializeDSL round-trip", () => {
       expect(normalizeModel(second)).toEqual(normalizeModel(first));
     });
   }
+
+  it("round-trips fork/and/endfork and merge", () => {
+    const src = [
+      "@kai-swimlane",
+      "",
+      "/title/",
+      "t",
+      "",
+      "/role/",
+      "",
+      "<a>",
+      "label: A;",
+      "",
+      "<b>",
+      "label: B;",
+      "",
+      "/line/",
+      "",
+      "fork #purple",
+      "  [a: one]",
+      "and",
+      "  [b: two]",
+      "endfork",
+      "",
+      "if (x) is (yes) than #red",
+      "  [a: cancel]",
+      "  merge: done;",
+      "else",
+      "  [b: normal]",
+      "endif",
+      "",
+      "[a: finish]",
+      "id: done;",
+      "label: done;",
+      "",
+      "@end",
+    ].join("\n");
+    const first = parseDSL(src);
+    expect(first.errors).toEqual([]);
+    const second = parseDSL(serializeDSL(first));
+    expect(second.errors).toEqual([]);
+    expect(normalizeModel(second)).toEqual(normalizeModel(first));
+  });
 });

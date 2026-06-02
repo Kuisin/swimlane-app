@@ -11,18 +11,25 @@ import {
   branchCaseDepthAt,
   branchMarkerDepthAt,
   branchCaseBadgeStyle,
+  canAddAnd,
   canAddElseIf,
+  canAddMerge,
   canOutdentBranch,
+  findMergeTargetAfterBranch,
+  isInsideOpenIf,
+  nextStepMergeId,
   findAdjacentBranchBlockIndex,
   findAdjacentCaseIndex,
   findAdjacentStepIndex,
   findBranchEndIndex,
+  findGroupEndIndex,
   getMoveToTargets,
   getReorderBounds,
-  isInsideOpenBranch,
+  groupMarkerDepthAt,
   moveBranchOutOfNest,
   moveUnitToInsertBefore,
   nextBranchId,
+  nextGroupId,
   resolveMovedIndex,
   rowBadgeLabel,
   rowKindBadgeClass,
@@ -40,11 +47,18 @@ export function FlowStepList({
   onSelectRow,
   onEditRows,
   lanes,
+  editingDisabled = false,
+  lockedRowIndices = null,
 }) {
   const defaultRole = lanes[0]?.id || "role_applicant";
   const [moveFromIndex, setMoveFromIndex] = useState(null);
 
+  function isRowLocked(index) {
+    return editingDisabled || (lockedRowIndices?.has(index) ?? false);
+  }
+
   function insertAt(index, newRows) {
+    if (editingDisabled) return;
     onEditRows((draft) => {
       draft.rows.splice(index, 0, ...newRows);
     });
@@ -60,6 +74,7 @@ export function FlowStepList({
         depth: rows[idx - 1]?.depth ?? 0,
         blockRef: null,
         stepId: `step-new-${Date.now()}`,
+        mergeId: nextStepMergeId(rows),
       },
     ]);
     onSelectRow(idx);
@@ -102,6 +117,117 @@ export function FlowStepList({
     onSelectRow(idx);
   }
 
+  function handleAddFork() {
+    const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
+    const markerDepth = branchMarkerDepthAt(rows, idx);
+    const caseDepth = branchCaseDepthAt(rows, idx);
+    const branchId = nextBranchId(rows);
+    // A fork's first path opens at the `fork` row itself, so two concurrent
+    // paths need one `and` (branchCase) row.
+    insertAt(idx, [
+      {
+        kind: "branchStart",
+        parallel: true,
+        cond: null,
+        firstCase: null,
+        branchColor: "purple",
+        id: branchId,
+        depth: markerDepth,
+      },
+      {
+        kind: "branchCase",
+        parallel: true,
+        label: "",
+        branchColor: "purple",
+        id: branchId,
+        depth: caseDepth,
+      },
+      {
+        kind: "branchEnd",
+        parallel: true,
+        id: branchId,
+        depth: markerDepth,
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
+  function handleAddGroup(groupMode = "section") {
+    const idx = selectedRowIndex != null ? selectedRowIndex + 1 : rows.length;
+    const markerDepth = groupMarkerDepthAt(rows, idx);
+    const groupId = nextGroupId(rows);
+    insertAt(idx, [
+      {
+        kind: "groupStart",
+        id: groupId,
+        depth: markerDepth,
+        groupMode,
+        sectionName: groupMode === "branch" ? "Branch" : "Section",
+        sectionColor: null,
+      },
+      {
+        kind: "groupEnd",
+        id: groupId,
+        depth: markerDepth,
+        groupMode,
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
+  function handleAddAnd() {
+    if (selectedRowIndex == null || !canAddAnd(rows, selectedRowIndex)) return;
+    const idx = selectedRowIndex + 1;
+    const caseDepth = branchCaseDepthAt(rows, idx);
+    insertAt(idx, [
+      {
+        kind: "branchCase",
+        parallel: true,
+        label: "",
+        branchColor: null,
+        id: rows[findEnclosingStart(rows, selectedRowIndex)]?.id,
+        depth: caseDepth,
+      },
+    ]);
+    onSelectRow(idx);
+  }
+
+  function handleAddMerge() {
+    if (selectedRowIndex == null || !canAddMerge(rows, selectedRowIndex)) return;
+    const mergeInsertAt = selectedRowIndex + 1;
+    const start = findEnclosingStart(rows, selectedRowIndex);
+    const branchId = rows[start]?.id;
+    const endIdx = findBranchEndIndex(rows, start);
+    const { mergeId, stepIndex, needsId } = findMergeTargetAfterBranch(
+      rows,
+      start,
+    );
+    onEditRows((draft) => {
+      let insertAt = mergeInsertAt;
+      if (stepIndex < 0) {
+        draft.rows.splice(endIdx + 1, 0, {
+          kind: "step",
+          role: defaultRole,
+          text: "合流先",
+          mergeId,
+          depth: draft.rows[endIdx]?.depth ?? 0,
+          blockRef: null,
+          stepId: `step-new-${Date.now()}`,
+        });
+        if (endIdx + 1 < insertAt) insertAt += 1;
+      } else if (needsId && draft.rows[stepIndex]) {
+        draft.rows[stepIndex].mergeId = mergeId;
+      }
+      draft.rows.splice(insertAt, 0, {
+        kind: "branchMerge",
+        mergeTarget: mergeId,
+        mergeBranchId: branchId,
+        depth: branchBodyDepthAt(draft.rows, insertAt),
+      });
+    });
+    onSelectRow(mergeInsertAt);
+  }
+
   function handleAddElseIf() {
     if (selectedRowIndex == null || !canAddElseIf(rows, selectedRowIndex))
       return;
@@ -120,7 +246,7 @@ export function FlowStepList({
   }
 
   function handleAddLoop() {
-    if (selectedRowIndex == null || !isInsideOpenBranch(rows, selectedRowIndex))
+    if (selectedRowIndex == null || !isInsideOpenIf(rows, selectedRowIndex))
       return;
     const idx = selectedRowIndex + 1;
     const start = findEnclosingStart(rows, selectedRowIndex);
@@ -136,12 +262,28 @@ export function FlowStepList({
   }
 
   function handleDelete(index) {
+    if (isRowLocked(index)) return;
     const row = rows[index];
     if (row.kind === "branchEnd") return;
+    if (row.kind === "groupEnd") return;
+    if (row.kind === "groupStart") {
+      const endIdx = findGroupEndIndex(rows, index);
+      if (endIdx < 0) return;
+      if (!window.confirm("この詳細ブロックと、その中の手順をすべて削除しますか？")) {
+        return;
+      }
+      onEditRows((draft) => {
+        draft.rows.splice(index, endIdx - index + 1);
+      });
+      onSelectRow(Math.max(0, index - 1));
+      return;
+    }
     if (row.kind === "branchStart") {
       const endIdx = findBranchEndIndex(rows, index);
       if (endIdx < 0) return;
-      const msg = "この条件分岐と、その中の手順をすべて削除しますか？";
+      const msg = row.parallel
+        ? "この並行処理と、その中の手順をすべて削除しますか？"
+        : "この条件分岐と、その中の手順をすべて削除しますか？";
       if (!window.confirm(msg)) return;
       onEditRows((draft) => {
         draft.rows.splice(index, endIdx - index + 1);
@@ -156,6 +298,7 @@ export function FlowStepList({
   }
 
   function handleMove(index, direction) {
+    if (isRowLocked(index)) return;
     const { canUp, canDown } = getReorderBounds(rows, index);
     if (direction === "up" && !canUp) return;
     if (direction === "down" && !canDown) return;
@@ -190,6 +333,7 @@ export function FlowStepList({
   }
 
   function handleMoveTo(fromIndex, insertBefore) {
+    if (isRowLocked(fromIndex)) return;
     const newIndex = resolveMovedIndex(rows, fromIndex, insertBefore);
     onEditRows((draft) => {
       draft.rows = moveUnitToInsertBefore(draft.rows, fromIndex, insertBefore);
@@ -199,6 +343,7 @@ export function FlowStepList({
   }
 
   function handleOutdent(index) {
+    if (isRowLocked(index)) return;
     if (!canOutdentBranch(rows, index)) return;
     const endIdx = findBranchEndIndex(rows, index);
     if (endIdx < 0) return;
@@ -223,21 +368,52 @@ export function FlowStepList({
   const canBranch =
     selectedRowIndex != null && canAddElseIf(rows, selectedRowIndex);
   const canLoop =
-    selectedRowIndex != null && isInsideOpenBranch(rows, selectedRowIndex);
+    selectedRowIndex != null && isInsideOpenIf(rows, selectedRowIndex);
+  const canAnd =
+    selectedRowIndex != null && canAddAnd(rows, selectedRowIndex);
+  const canMerge =
+    selectedRowIndex != null && canAddMerge(rows, selectedRowIndex);
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <div className="px-2 py-2 border-b border-stone-700/60 flex flex-wrap gap-1">
         <p className="w-full text-[10px] font-jp text-stone-500 mb-1">
           手順一覧
+          {editingDisabled
+            ? "（構文エラー: 続行方法を選んでください）"
+            : lockedRowIndices?.size
+              ? "（グレー: エラー行のブロックは編集不可）"
+              : ""}
         </p>
-        <ToolBtn onClick={handleAddStep}>＋ 手順</ToolBtn>
-        <ToolBtn onClick={handleAddIf}>＋ 条件</ToolBtn>
-        <ToolBtn onClick={handleAddElseIf} disabled={!canBranch}>
+        <ToolBtn onClick={handleAddStep} disabled={editingDisabled}>
+          ＋ 手順
+        </ToolBtn>
+        <ToolBtn onClick={handleAddIf} disabled={editingDisabled}>
+          ＋ 条件
+        </ToolBtn>
+        <ToolBtn
+          onClick={handleAddElseIf}
+          disabled={editingDisabled || !canBranch}
+        >
           ＋ 分岐
         </ToolBtn>
-        <ToolBtn onClick={handleAddLoop} disabled={!canLoop}>
+        <ToolBtn onClick={handleAddLoop} disabled={editingDisabled || !canLoop}>
           ＋ ループ
+        </ToolBtn>
+        <ToolBtn onClick={handleAddFork} disabled={editingDisabled}>
+          ＋ 並行
+        </ToolBtn>
+        <ToolBtn onClick={() => handleAddGroup("section")} disabled={editingDisabled}>
+          ＋ 枠
+        </ToolBtn>
+        <ToolBtn onClick={() => handleAddGroup("branch")} disabled={editingDisabled}>
+          ＋ 支線
+        </ToolBtn>
+        <ToolBtn onClick={handleAddAnd} disabled={editingDisabled || !canAnd}>
+          ＋ 並行パス
+        </ToolBtn>
+        <ToolBtn onClick={handleAddMerge} disabled={editingDisabled || !canMerge}>
+          ＋ 合流
         </ToolBtn>
       </div>
       <ul className="flex-1 overflow-y-auto text-xs font-jp">
@@ -262,12 +438,17 @@ export function FlowStepList({
             showReorder && getMoveToTargets(rows, i, lanes).length > 0;
           const canOutdent = isMovableBranchStart && canOutdentBranch(rows, i);
           const summary = rowSummaryText(row, lanes);
+          const rowLocked = lockedRowIndices?.has(i) ?? false;
 
           return (
             <li
               key={`row-${i}`}
               className={`flex items-center gap-1 border-b border-stone-800/80 pr-2 ${
-                isSelected ? "bg-stone-700" : "hover:bg-stone-800/60"
+                rowLocked
+                  ? "opacity-45 bg-stone-950/70"
+                  : isSelected
+                    ? "bg-stone-700"
+                    : "hover:bg-stone-800/60"
               }`}
               style={{
                 paddingLeft: `${8 + depth * 14}px`
@@ -277,7 +458,7 @@ export function FlowStepList({
                 <span className="flex flex-col shrink-0">
                   <button
                     type="button"
-                    disabled={!canUp}
+                    disabled={!canUp || rowLocked}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleMove(i, "up");
@@ -289,7 +470,7 @@ export function FlowStepList({
                   </button>
                   <button
                     type="button"
-                    disabled={!canDown}
+                    disabled={!canDown || rowLocked}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleMove(i, "down");
@@ -312,7 +493,7 @@ export function FlowStepList({
                     onSelectRow(i);
                   }
                 }}
-                className="flex-1 text-left py-1.5 min-w-0 flex flex-row items-center cursor-pointer"
+                className="flex-1 text-left py-1.5 min-w-0 overflow-x-auto flex flex-row items-center cursor-pointer"
               >
                 <span
                   className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium text-stone-100 mr-1.5 shrink-0 ${rowKindBadgeClass(row)}`}
@@ -320,13 +501,14 @@ export function FlowStepList({
                 >
                   {badge}
                 </span>
-                <span className="flex-1 text-stone-100 leading-snug line-clamp-2">
+                <span className="text-stone-100 leading-snug whitespace-nowrap">
                   {summary}
                 </span>
               </div>
               {canMoveTo && (
                 <button
                   type="button"
+                  disabled={rowLocked}
                   onClick={() => setMoveFromIndex(i)}
                   className="shrink-0 p-0.5 text-stone-400 hover:text-stone-100"
                   aria-label="移動先を選ぶ"
@@ -338,6 +520,7 @@ export function FlowStepList({
               {canOutdent && (
                 <button
                   type="button"
+                  disabled={rowLocked}
                   onClick={() => handleOutdent(i)}
                   className="shrink-0 p-0.5 text-stone-400 hover:text-stone-100"
                   aria-label="ネストから出す"
@@ -349,7 +532,7 @@ export function FlowStepList({
               <button
                 type="button"
                 onClick={() => handleDelete(i)}
-                disabled={row.kind === "branchEnd"}
+                disabled={rowLocked || row.kind === "branchEnd" || row.kind === "groupEnd"}
                 className="shrink-0 p-1 text-stone-500 hover:text-red-400 disabled:opacity-30"
                 aria-label="削除"
               >

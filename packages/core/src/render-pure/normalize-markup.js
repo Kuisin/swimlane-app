@@ -1,6 +1,7 @@
 /** Map React camelCase SVG attribute names to kebab-case. */
 const CAMEL_ATTRS = {
   strokeWidth: "stroke-width",
+  strokeDasharray: "stroke-dasharray",
   strokeLinecap: "stroke-linecap",
   strokeLinejoin: "stroke-linejoin",
   fillOpacity: "fill-opacity",
