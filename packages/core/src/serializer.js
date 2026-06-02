@@ -160,6 +160,16 @@ function serializeStepLines(out, row, depth) {
       out.push(indent(depth, descLines));
     }
   }
+  if (row.remark) {
+    const remarkLines = emitMultilineProperty("remark", row.remark);
+    if (Array.isArray(remarkLines)) {
+      out.push(indent(depth, remarkLines[0]));
+      remarkLines.slice(1, -1).forEach((l) => out.push(l));
+      out.push(indent(depth, remarkLines[remarkLines.length - 1]));
+    } else {
+      out.push(indent(depth, remarkLines));
+    }
+  }
   if (row.skipIndex) out.push(indent(depth, "skip;"));
   if (row.props?.length) {
     out.push(indent(depth, `props: ${row.props.join(",")};`));
@@ -248,13 +258,15 @@ function serializeLineRows(rows) {
 
     if (row.kind === "groupStart") {
       if (depth === 0 && prevKind === "step") pushBlankLine(out);
-      out.push(indent(depth, "start-point"));
+      const sectionName = (row.sectionName || "Section").trim() || "Section";
+      const sectionColor = row.sectionColor ? ` #${row.sectionColor}` : "";
+      out.push(indent(depth, `section (${sectionName})${sectionColor}`));
       prevKind = "groupStart";
       continue;
     }
 
     if (row.kind === "groupEnd") {
-      out.push(indent(depth, "end-point"));
+      out.push(indent(depth, "end-section"));
       prevKind = "groupEnd";
       const next = rows[i + 1];
       if (next && next.kind === "step" && !next.empty && (next.depth ?? 0) <= depth) {

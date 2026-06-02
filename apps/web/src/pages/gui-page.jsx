@@ -3,6 +3,7 @@ import { EditorLayout } from "../components/editor/layout";
 import { GuiModePanel } from "../components/gui/panel";
 import { useEditor } from "../hooks/use-editor";
 import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
+import { resolveDiagramOptions } from "@kai-swimlane/core";
 import {
   openStepInspectorPopup,
   syncStepInspectorPopup,
@@ -26,6 +27,13 @@ export function GuiPage() {
   const stepInspectorPopupRef = useRef(null);
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
+  const resolvedDiagramOptions = useMemo(
+    () =>
+      resolveDiagramOptions(guiModel.options, {
+        showStepBlockCaptions,
+      }),
+    [guiModel.options, showStepBlockCaptions],
+  );
 
   function onEditRows(editFn) {
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
@@ -34,6 +42,18 @@ export function GuiPage() {
   function handleTitleChange(title) {
     onEditRows((draft) => {
       draft.title = title;
+    });
+  }
+
+  function handlePageChange(nextPage) {
+    onEditRows((draft) => {
+      draft.page = { ...(draft.page || {}), ...nextPage };
+    });
+  }
+
+  function handleDiagramOptionChange(key, value) {
+    onEditRows((draft) => {
+      draft.options = { ...(draft.options || {}), [key]: value };
     });
   }
 
@@ -84,6 +104,9 @@ export function GuiPage() {
         hasUnsavedChanges={hasUnsavedChanges}
         onSave={saveDocuments}
         onTitleChange={handleTitleChange}
+        onPageChange={handlePageChange}
+        onDiagramOptionChange={handleDiagramOptionChange}
+        resolvedDiagramOptions={resolvedDiagramOptions}
         selectedRowIndex={selectedRowIndex}
         onSelectRow={handleSelectRow}
         onEditRows={onEditRows}

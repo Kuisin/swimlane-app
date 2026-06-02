@@ -92,7 +92,9 @@ title: 顧客向けレシート;
 // ・[loop] … ケース末尾。同じ if へ戻る
 // ・fork|and|endfork … 並行（fork #色 可）
 // ・merge: <id>; … 下流 id: <id>; へ合流（矢印は直前ステップの arrow:）
-// ・start-point … end-point … 本流は内部をスキップ（詳細ブロック）
+// ・section (名前) #色 … end-section … 本流は内部をスキップ（詳細ブロック）
+// ・branch (名前) #色 … end-branch … section の互換エイリアス
+// ・start-point … end-point … 旧式エイリアス（読み取り互換）
 // ・arrow: solid|dashed|dotted; … 直後の矢印（省略＝実線）
 // ・// … 行頭コメント（本行のような行）
 *** レガシー行コメント（*** 始まりも可。desc 内の ***太字*** とは別） ***
@@ -209,9 +211,9 @@ else
   skip;
 endif
 
-// --- 詳細ブロック（start-point / end-point：本流は内部をスキップ） ---
-[a: 注文サマリーを表示]
-start-point
+// --- 詳細ブロック（section / end-section：本流は内部をスキップ） ---
+[customer: 注文サマリーを表示]
+section (監査詳細) #blue
   [db: 監査用に明細を永続化]
   desc: ```
 本流からはスキップされる詳細処理。
@@ -219,6 +221,18 @@ start-point
 ```;
   [api: 分析キューへイベント送信]
   skip;
+end-section
+
+// --- 互換エイリアス（branch / end-branch と start-point / end-point） ---
+[api: 追跡イベントを準備]
+branch (配送補足) #purple
+  [worker: ピッキング詳細を記録]
+  [api: 追跡IDを通知]
+end-branch
+
+[api: 旧式セクションの互換テスト]
+start-point
+  [db: レガシー形式の明細を保存]
 end-point
 
 // --- 並行処理（fork #purple / and ×2 / endfork） ---

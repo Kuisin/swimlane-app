@@ -1831,6 +1831,43 @@ function renderDiagramSvg({
         }
       ));
     }),
+    rows.map((row, i) => {
+      if (row.kind !== "groupStart") return null;
+      const endIdx = findGroupEndIndex(rows, i);
+      if (endIdx < 0 || lanes.length === 0) return null;
+      const yTop = rowMeta[i]?.y ?? 0;
+      const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
+      const boxX = laneX(0) - 10;
+      const boxW = laneWidths.reduce((sum, w) => sum + w, 0) + 20;
+      const style = row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor] ? BRANCH_COLOR_STYLES[row.sectionColor] : { stroke: theme.stroke, bg: theme.branchBg };
+      const label = (row.sectionName || "Section").trim() || "Section";
+      return /* @__PURE__ */ h("g", { key: `section-${row.id}` }, /* @__PURE__ */ h(
+        "rect",
+        {
+          x: boxX,
+          y: yTop - 4,
+          width: boxW,
+          height: yBottom - yTop + 8,
+          rx: "8",
+          fill: style.bg,
+          fillOpacity: "0.2",
+          stroke: style.stroke,
+          strokeWidth: "1.1",
+          strokeDasharray: "6 4"
+        }
+      ), /* @__PURE__ */ h(
+        "text",
+        {
+          x: boxX + 8,
+          y: yTop + 11,
+          fontFamily: "'JetBrains Mono',monospace",
+          fontSize: "9",
+          fill: style.stroke,
+          opacity: "0.9"
+        },
+        label
+      ));
+    }),
     connectors.map((c) => {
       const dash = arrowLineStrokeProps(c.lineType || "solid");
       if (Math.abs(c.fromX - c.toX) < 0.5) {

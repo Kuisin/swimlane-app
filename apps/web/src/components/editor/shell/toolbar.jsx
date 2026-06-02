@@ -18,6 +18,12 @@ export function Toolbar({
   onShowStepBlockCaptionsChange,
   mergeAtPreviousBlock,
   onMergeAtPreviousBlockChange,
+  showRightRemarks,
+  onShowRightRemarksChange,
+  showLeftRemarks,
+  onShowLeftRemarksChange,
+  showLeftGutter,
+  onShowLeftGutterChange,
   guiActions = null,
 }) {
   return (
@@ -112,6 +118,54 @@ export function Toolbar({
                   クローズ位置を前ブロックに合わせる
                   <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
                     Close diamond follows previous block (off = if-start)
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-stone-400"
+                  checked={showRightRemarks}
+                  onChange={(event) =>
+                    onShowRightRemarksChange(event.target.checked)
+                  }
+                />
+                <span>
+                  右側の備考（props）を表示
+                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
+                    Right-side remarks / document chips
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-stone-400"
+                  checked={showLeftRemarks}
+                  onChange={(event) =>
+                    onShowLeftRemarksChange(event.target.checked)
+                  }
+                />
+                <span>
+                  左側の備考（props）を表示
+                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
+                    Left-side remarks / document chips
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-stone-400"
+                  checked={showLeftGutter}
+                  onChange={(event) =>
+                    onShowLeftGutterChange(event.target.checked)
+                  }
+                />
+                <span>
+                  左カラム（番号・補足）を表示
+                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
+                    Left gutter with step notes
                   </span>
                 </span>
               </label>

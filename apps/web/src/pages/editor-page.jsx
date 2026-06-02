@@ -1,6 +1,7 @@
 import { EditorLayout } from "../components/editor/layout";
 import { TextModePanel } from "../components/text-mode/panel";
 import { useEditor } from "../hooks/use-editor";
+import { resolveDiagramOptions } from "@kai-swimlane/core";
 
 export function EditorPage() {
   const {
@@ -12,6 +13,9 @@ export function EditorPage() {
     updateActiveDocumentSrc,
     saveDocuments,
   } = useEditor();
+  const resolvedDiagramOptions = resolveDiagramOptions(model.options, {
+    showStepBlockCaptions,
+  });
 
   return (
     <EditorLayout diagramModel={model}>
@@ -21,7 +25,7 @@ export function EditorPage() {
         model={model}
         modelTitle={model.title}
         themeBg={theme.bg}
-        showStepBlockCaptions={showStepBlockCaptions}
+        showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
         hasUnsavedChanges={hasUnsavedChanges}
         onSave={saveDocuments}
       />

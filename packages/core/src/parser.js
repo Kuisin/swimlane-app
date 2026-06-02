@@ -1,4 +1,9 @@
 import { normalizeArrowLine } from "./arrow-line.js";
+import {
+  DIAGRAM_OPTION_DSL_MAP,
+  emptyDiagramOptions,
+  parseOptionBoolean,
+} from "./diagram-options.js";
 
 /** `key: value;` in /role/, /block/, /prop/ — trailing semicolon is required. */
 function parseSectionPropertyLine(text) {
@@ -10,6 +15,10 @@ function parseSectionPropertyLine(text) {
 
 const PAGE_PROPERTY_MAP = {
   description: "description",
+  "left-title": "leftTitle",
+  "left-subtitle": "leftSubtitle",
+  "right-title": "rightTitle",
+  "right-subtitle": "rightSubtitle",
   "header-left": "headerLeft",
   "header-center": "headerCenter",
   "header-right": "headerRight",
@@ -21,6 +30,10 @@ const PAGE_PROPERTY_MAP = {
 function emptyPage() {
   return {
     description: "",
+    leftTitle: "Procedure",
+    leftSubtitle: "Description",
+    rightTitle: "Remark",
+    rightSubtitle: "",
     headerLeft: "",
     headerCenter: "",
     headerRight: "",
@@ -28,6 +41,39 @@ function emptyPage() {
     footerCenter: "",
     footerRight: "",
   };
+}
+
+function parseOptionSection(items, errors) {
+  const options = emptyDiagramOptions();
+  for (const { text, line } of items) {
+    const t = text.trim();
+    if (!t) continue;
+    const kv = parseSectionPropertyLine(t);
+    if (kv?.missingSemicolon) {
+      errors.push({ line, text, msg: "property line must end with ';'" });
+      continue;
+    }
+    if (!kv) {
+      errors.push({ line, text, msg: "unrecognized /option/ line" });
+      continue;
+    }
+    const field = DIAGRAM_OPTION_DSL_MAP[kv.key];
+    if (!field) {
+      errors.push({ line, text, msg: `unknown /option/ key: ${kv.key}` });
+      continue;
+    }
+    const bool = parseOptionBoolean(kv.val);
+    if (bool === null) {
+      errors.push({
+        line,
+        text,
+        msg: `${kv.key}: expected true or false`,
+      });
+      continue;
+    }
+    options[field] = bool;
+  }
+  return options;
 }
 
 /**
@@ -137,6 +183,7 @@ export function parseDSL(src) {
     return {
       title: "",
       page: emptyPage(),
+      options: emptyDiagramOptions(),
       lanes: [],
       rows: [],
       blocks: {},
@@ -146,17 +193,31 @@ export function parseDSL(src) {
   }
 
   const lines = allLines.slice(startIdx + 1, endIdx);
-  const sections = { page: [], title: [], role: [], block: [], prop: [], line: [] };
+  const sections = {
+    page: [],
+    option: [],
+    title: [],
+    role: [],
+    block: [],
+    prop: [],
+    line: [],
+  };
   let current = null;
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const t = raw.trim();
-    if (!t) continue;
+    if (!t) {
+      if (current) {
+        const lineNum = startIdx + 1 + i + 1;
+        sections[current].push({ text: raw, line: lineNum });
+      }
+      continue;
+    }
     if (isDslCommentLine(t) || t.startsWith("@")) continue;
     const sec = t.match(/^\/(page|title|role|option|block|prop|line)\/$/);
     if (sec) {
-      current = sec[1] === "option" ? "role" : sec[1];
+      current = sec[1];
       continue;
     }
     const lineNum = startIdx + 1 + i + 1;
@@ -164,6 +225,7 @@ export function parseDSL(src) {
   }
 
   const page = parsePageSection(sections.page, errors);
+  const options = parseOptionSection(sections.option, errors);
 
   const title = sections.title
     .map((l) => l.text.trim())
@@ -280,7 +342,7 @@ export function parseDSL(src) {
    *                                   marks the `fork`/`and`/`endfork` variant
    *   - branchLoop                    `[loop]` back-edge to the enclosing `if`
    *   - branchMerge                   `merge: <id>;` jump to a step with matching `id:`
-   *   - groupStart / groupEnd         `start-point` … `end-point` detail block skipped by main flow
+   *   - groupStart / groupEnd         `section (...)` … `end-section` detail block skipped by main flow
    * `stack` tracks open branch frames so nested blocks get the right depth and
    * so each closer (`endif`/`endfork`) matches the frame type it closes.
    */
@@ -460,19 +522,119 @@ export function parseDSL(src) {
       continue;
     }
 
-    /** Detail group: main flow skips interior steps; end-point rejoins the next block. */
+    /** Detail group: main flow skips interior steps; end-section rejoins the next block. */
+    m = u.match(/^section\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      groupCounter++;
+      const id = groupCounter;
+      const depth = groupMarkerDepth();
+      groupStack.push({ id, depth });
+      pushLineRow(
+        {
+          kind: "groupStart",
+          id,
+          depth,
+          sectionName: m[1].trim(),
+          sectionColor: m[2] ? m[2].trim().toLowerCase() : null,
+        },
+        line,
+      );
+      continue;
+    }
+    m = u.match(/^section(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      groupCounter++;
+      const id = groupCounter;
+      const depth = groupMarkerDepth();
+      groupStack.push({ id, depth });
+      pushLineRow(
+        {
+          kind: "groupStart",
+          id,
+          depth,
+          sectionName: "Section",
+          sectionColor: m[1] ? m[1].trim().toLowerCase() : null,
+        },
+        line,
+      );
+      continue;
+    }
+    // Backward compatibility: legacy alias syntax.
+    m = u.match(/^section-start\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      groupCounter++;
+      const id = groupCounter;
+      const depth = groupMarkerDepth();
+      groupStack.push({ id, depth });
+      pushLineRow(
+        {
+          kind: "groupStart",
+          id,
+          depth,
+          sectionName: m[1].trim(),
+          sectionColor: m[2] ? m[2].trim().toLowerCase() : null,
+        },
+        line,
+      );
+      continue;
+    }
+    m = u.match(/^branch\s*\((.+?)\)(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      groupCounter++;
+      const id = groupCounter;
+      const depth = groupMarkerDepth();
+      groupStack.push({ id, depth });
+      pushLineRow(
+        {
+          kind: "groupStart",
+          id,
+          depth,
+          sectionName: m[1].trim(),
+          sectionColor: m[2] ? m[2].trim().toLowerCase() : null,
+        },
+        line,
+      );
+      continue;
+    }
+    m = u.match(/^branch(?:\s+#([A-Za-z]+))?$/i);
+    if (m) {
+      groupCounter++;
+      const id = groupCounter;
+      const depth = groupMarkerDepth();
+      groupStack.push({ id, depth });
+      pushLineRow(
+        {
+          kind: "groupStart",
+          id,
+          depth,
+          sectionName: "Section",
+          sectionColor: m[1] ? m[1].trim().toLowerCase() : null,
+        },
+        line,
+      );
+      continue;
+    }
     if (/^start-point$/i.test(u)) {
       groupCounter++;
       const id = groupCounter;
       const depth = groupMarkerDepth();
       groupStack.push({ id, depth });
-      pushLineRow({ kind: "groupStart", id, depth }, line);
+      pushLineRow(
+        {
+          kind: "groupStart",
+          id,
+          depth,
+          sectionName: "Section",
+          sectionColor: null,
+        },
+        line,
+      );
       continue;
     }
-    if (/^end-point$/i.test(u)) {
+    if (/^end-section$/i.test(u) || /^end-point$/i.test(u) || /^end-branch$/i.test(u)) {
       const top = groupStack.pop();
       if (!top) {
-        errors.push({ line, text, msg: "end-point without start-point" });
+        errors.push({ line, text, msg: "end-section without section" });
         continue;
       }
       pushLineRow({ kind: "groupEnd", id: top.id, depth: top.depth }, line);
@@ -547,6 +709,40 @@ export function parseDSL(src) {
       if (fenced) {
         if (fenced.error) errors.push(fenced.error);
         else rows[lastRealStepIndex].description = fenced.value || "";
+        attachSectionLinesToRow(lastRealStepIndex, lineIdx, fenced.nextIndex);
+        lineIdx = fenced.nextIndex - 1;
+        continue;
+      }
+      continue;
+    }
+    if (/^remark:\s*/i.test(u)) {
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "remark: has no preceding step" });
+        continue;
+      }
+      const fenced = parseKeyedProperty(sections.line, lineIdx, "remark");
+      if (fenced) {
+        if (fenced.error) errors.push(fenced.error);
+        else rows[lastRealStepIndex].remark = fenced.value || "";
+        attachSectionLinesToRow(lastRealStepIndex, lineIdx, fenced.nextIndex);
+        lineIdx = fenced.nextIndex - 1;
+        continue;
+      }
+      continue;
+    }
+    if (/^remark-desc:\s*/i.test(u)) {
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "remark-desc: has no preceding step" });
+        continue;
+      }
+      const fenced = parseKeyedProperty(sections.line, lineIdx, "remark-desc");
+      if (fenced) {
+        if (fenced.error) errors.push(fenced.error);
+        else {
+          const next = fenced.value || "";
+          const prev = rows[lastRealStepIndex].remark || "";
+          rows[lastRealStepIndex].remark = prev ? `${prev}\n\n${next}` : next;
+        }
         attachSectionLinesToRow(lastRealStepIndex, lineIdx, fenced.nextIndex);
         lineIdx = fenced.nextIndex - 1;
         continue;
@@ -717,7 +913,7 @@ export function parseDSL(src) {
     errors.push({
       line: lineNum,
       text: openText,
-      msg: "unclosed start-point (missing end-point)",
+      msg: "unclosed section (missing end-section)",
     });
   }
 
@@ -758,7 +954,7 @@ export function parseDSL(src) {
     icon: (roles[id] && roles[id].icon) || null,
   }));
 
-  return { title, page, lanes, rows, blocks, props, errors };
+  return { title, page, options, lanes, rows, blocks, props, errors };
 }
 
 /** Parse /block/ and /prop/ fragments (wraps for parseDSL; not for clipboard). */

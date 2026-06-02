@@ -876,9 +876,9 @@ export function rowBadge(row) {
     case "branchMerge":
       return "merge";
     case "groupStart":
-      return "start-point";
+      return "section";
     case "groupEnd":
-      return "end-point";
+      return "end-section";
     default:
       return row.kind;
   }

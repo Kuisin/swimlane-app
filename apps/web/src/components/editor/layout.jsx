@@ -1,4 +1,4 @@
-import { Diagram } from "@kai-swimlane/core";
+import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
 import { useEditor } from "../../hooks/use-editor";
 import { Toolbar } from "./shell/toolbar";
 import { HelpModal } from "./shell/help-modal";
@@ -30,6 +30,12 @@ export function EditorLayout({
     setShowStepBlockCaptions,
     mergeAtPreviousBlock,
     setMergeAtPreviousBlock,
+    showRightRemarks,
+    setShowRightRemarks,
+    showLeftRemarks,
+    setShowLeftRemarks,
+    showLeftGutter,
+    setShowLeftGutter,
     showHelp,
     setShowHelp,
     showFileList,
@@ -42,6 +48,13 @@ export function EditorLayout({
     helpMd,
     templateMd,
   } = useEditor();
+  const resolvedDiagramOptions = resolveDiagramOptions(diagramModel.options, {
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    showRightRemarks,
+    showLeftRemarks,
+    showLeftGutter,
+  });
 
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 lg:flex lg:flex-col">
@@ -52,10 +65,16 @@ export function EditorLayout({
         onThemeChange={setThemeKey}
         onShowFileList={() => setShowFileList(true)}
         onShowHelp={() => setShowHelp(true)}
-        showStepBlockCaptions={showStepBlockCaptions}
+        showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
         onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
-        mergeAtPreviousBlock={mergeAtPreviousBlock}
+        mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
         onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
+        showRightRemarks={resolvedDiagramOptions.showRightRemarks}
+        onShowRightRemarksChange={setShowRightRemarks}
+        showLeftRemarks={resolvedDiagramOptions.showLeftRemarks}
+        onShowLeftRemarksChange={setShowLeftRemarks}
+        showLeftGutter={resolvedDiagramOptions.showLeftGutter}
+        onShowLeftGutterChange={setShowLeftGutter}
         guiActions={toolbarExtras}
       />
 
@@ -68,8 +87,11 @@ export function EditorLayout({
             <Diagram
               model={diagramModel}
               theme={theme}
-              showStepBlockCaptions
-              mergeAtPreviousBlock={mergeAtPreviousBlock}
+              showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
+              mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
+              showRightRemarks={resolvedDiagramOptions.showRightRemarks}
+              showLeftRemarks={resolvedDiagramOptions.showLeftRemarks}
+              showLeftGutter={resolvedDiagramOptions.showLeftGutter}
               {...(diagramExtras || {})}
             />
           </div>

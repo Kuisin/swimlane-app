@@ -11,6 +11,9 @@ export function serializeEditorStateForStorage(state) {
     themeKey,
     showStepBlockCaptions,
     mergeAtPreviousBlock,
+    showRightRemarks,
+    showLeftRemarks,
+    showLeftGutter,
   } = state;
 
   return JSON.stringify({
@@ -25,6 +28,9 @@ export function serializeEditorStateForStorage(state) {
     themeKey,
     showStepBlockCaptions,
     mergeAtPreviousBlock,
+    showRightRemarks,
+    showLeftRemarks,
+    showLeftGutter,
   });
 }
 
@@ -75,6 +81,15 @@ export function parseStoredEditorState(raw) {
     if (typeof parsed.mergeAtPreviousBlock === "boolean") {
       result.mergeAtPreviousBlock = parsed.mergeAtPreviousBlock;
     }
+  if (typeof parsed.showRightRemarks === "boolean") {
+    result.showRightRemarks = parsed.showRightRemarks;
+  }
+  if (typeof parsed.showLeftRemarks === "boolean") {
+    result.showLeftRemarks = parsed.showLeftRemarks;
+  }
+  if (typeof parsed.showLeftGutter === "boolean") {
+    result.showLeftGutter = parsed.showLeftGutter;
+  }
 
     return result;
   } catch {
@@ -92,6 +107,9 @@ export function applyStoredEditorState(parsed, setters) {
     setThemeKey,
     setShowStepBlockCaptions,
     setMergeAtPreviousBlock,
+    setShowRightRemarks,
+    setShowLeftRemarks,
+    setShowLeftGutter,
   } = setters;
 
   if (parsed.documents) {
@@ -109,5 +127,14 @@ export function applyStoredEditorState(parsed, setters) {
   }
   if (typeof parsed.mergeAtPreviousBlock === "boolean") {
     setMergeAtPreviousBlock(parsed.mergeAtPreviousBlock);
+  }
+  if (typeof parsed.showRightRemarks === "boolean") {
+    setShowRightRemarks(parsed.showRightRemarks);
+  }
+  if (typeof parsed.showLeftRemarks === "boolean") {
+    setShowLeftRemarks(parsed.showLeftRemarks);
+  }
+  if (typeof parsed.showLeftGutter === "boolean") {
+    setShowLeftGutter(parsed.showLeftGutter);
   }
 }

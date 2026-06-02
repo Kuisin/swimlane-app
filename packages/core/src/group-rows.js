@@ -1,4 +1,4 @@
-/** Shared start-point / end-point group geometry (parser, diagram, GUI). */
+/** Shared section / end-section geometry (parser, diagram, GUI). */
 
 export function findGroupEndIndex(rows, startIndex) {
   const start = rows[startIndex];
@@ -37,7 +37,7 @@ export function findEnclosingGroupStart(rows, rowIndex) {
   return best;
 }
 
-/** Last main-flow step immediately before a start-point row. */
+/** Last main-flow step immediately before a section row. */
 export function findLastMainFlowStepBeforeGroupStart(rows, groupStartIndex) {
   for (let j = groupStartIndex - 1; j >= 0; j--) {
     const row = rows[j];
@@ -49,7 +49,7 @@ export function findLastMainFlowStepBeforeGroupStart(rows, groupStartIndex) {
   return -1;
 }
 
-/** True when rowIndex sits strictly inside a start-point … end-point span. */
+/** True when rowIndex sits strictly inside a section … end-section span. */
 export function isInsideGroup(rows, rowIndex) {
   return findEnclosingGroupStart(rows, rowIndex) >= 0;
 }
@@ -68,7 +68,7 @@ export function findNextMainFlowStepAfterGroupEnd(rows, groupEndIndex) {
 }
 
 /**
- * Next main-flow continuation after end-point: a step, or the next branch
+ * Next main-flow continuation after end-section: a step, or the next branch
  * gateway when the group is immediately followed by if/fork.
  */
 export function findFlowContinuityAfterGroupEnd(rows, groupEndIndex) {

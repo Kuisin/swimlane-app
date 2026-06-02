@@ -18,15 +18,15 @@ label: A;
 label: B;
 /line/
 [a: before]
-start-point
+section (Audit Detail) #blue
   [b: detail one]
   [b: detail two]
-end-point
+end-section
 [a: after]
 @end`;
 
-describe("start-point grouping", () => {
-  it("parses start-point and end-point rows", () => {
+describe("section grouping", () => {
+  it("parses section and end-section rows", () => {
     const model = parseDSL(GROUP_BYPASS);
     expect(model.errors).toEqual([]);
     expect(model.rows.map((r) => r.kind)).toEqual([
@@ -40,6 +40,29 @@ describe("start-point grouping", () => {
     expect(model.rows[1].kind).toBe("groupStart");
     expect(model.rows[4].kind).toBe("groupEnd");
     expect(model.rows[1].id).toBe(model.rows[4].id);
+    expect(model.rows[1].sectionName).toBe("Audit Detail");
+    expect(model.rows[1].sectionColor).toBe("blue");
+  });
+
+  it("accepts legacy branch / end-branch aliases", () => {
+    const model = parseDSL(`@kai-swimlane
+/role/
+<a>
+label: A;
+<b>
+label: B;
+/line/
+[a: before]
+branch (Legacy Detail) #purple
+  [b: inside]
+end-branch
+[a: after]
+@end`);
+    expect(model.errors).toEqual([]);
+    expect(model.rows[1].kind).toBe("groupStart");
+    expect(model.rows[1].sectionName).toBe("Legacy Detail");
+    expect(model.rows[1].sectionColor).toBe("purple");
+    expect(model.rows[3].kind).toBe("groupEnd");
   });
 
   it("marks interior steps as inside the group", () => {
@@ -53,6 +76,7 @@ describe("start-point grouping", () => {
   it("renders main-flow bypass and interior detail connectors", () => {
     const svg = render(GROUP_BYPASS);
     expect((svg.match(/markerEnd/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(svg).toContain("Audit Detail");
     const model = parseDSL(GROUP_BYPASS);
     const beforeIdx = model.rows.findIndex(
       (r) => r.kind === "step" && r.text === "before",
@@ -69,16 +93,16 @@ describe("start-point grouping", () => {
     expect(innerIdx).toBeLessThan(afterIdx);
   });
 
-  it("bypasses a detail group when fork follows end-point", () => {
+  it("bypasses a detail group when fork follows end-section", () => {
     const dsl = `@kai-swimlane
 /role/
 <a> label: A;
 <b> label: B;
 /line/
 [a: 注文サマリー]
-start-point
+section (Parallel Detail) #green
   [b: 監査明細]
-end-point
+end-section
 fork
   [a: パス1]
 and
@@ -94,33 +118,33 @@ endfork
   it("round-trips through serializeDSL", () => {
     const model = parseDSL(GROUP_BYPASS);
     const text = serializeDSL(model);
-    expect(text).toContain("start-point");
-    expect(text).toContain("end-point");
+    expect(text).toContain("section (Audit Detail) #blue");
+    expect(text).toContain("end-section");
     expect(parseDSL(text).errors).toEqual([]);
   });
 
-  it("errors on end-point without start-point", () => {
+  it("errors on end-section without section", () => {
     const model = parseDSL(`@kai-swimlane
 /role/
 <a>
 label: A;
 /line/
-end-point
+end-section
 @end`);
-    expect(model.errors.map((e) => e.msg)).toContain("end-point without start-point");
+    expect(model.errors.map((e) => e.msg)).toContain("end-section without section");
   });
 
-  it("errors on unclosed start-point", () => {
+  it("errors on unclosed section", () => {
     const model = parseDSL(`@kai-swimlane
 /role/
 <a>
 label: A;
 /line/
-start-point
+section (legacy)
 [a: detail]
 @end`);
     expect(model.errors.map((e) => e.msg)).toContain(
-      "unclosed start-point (missing end-point)",
+      "unclosed section (missing end-section)",
     );
   });
 });

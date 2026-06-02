@@ -366,6 +366,7 @@ title: 表示は6文字まで。ホバーで全文;
 | `if` / `elseif` / `else` / `endif` | 排他分岐 |
 | `[loop]` | 同じ `if` へ戻る（再試行） |
 | `fork` / `and` / `endfork` | 並行分岐（全パス同時） |
+| `section (名前) #色` / `end-section` | 本流をスキップする詳細セクション |
 | `merge: <id>;` + 下流の `id: <id>;` | `endif` を経由しない前方合流 |
 
 ## set

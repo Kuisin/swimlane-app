@@ -134,6 +134,19 @@ export function StepInspector({
         />
       </div>
       <div>
+        <label className="block text-[10px] text-stone-500 mb-1">
+          右カラム備考（remark）
+        </label>
+        <textarea
+          value={row.remark || ""}
+          onChange={(e) =>
+            onPatch({ remark: e.target.value || undefined })
+          }
+          rows={4}
+          className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100 resize-y"
+        />
+      </div>
+      <div>
         <label className="block text-[10px] text-stone-500 mb-1">プロップ</label>
         <PropsFieldWithPicker
           value={row.props}

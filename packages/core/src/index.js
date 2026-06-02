@@ -36,6 +36,15 @@ export {
   arrowLineStrokeProps,
   stepOutgoingArrowLine,
 } from "./arrow-line.js";
+export {
+  DEFAULT_DIAGRAM_OPTIONS,
+  DIAGRAM_OPTION_DSL_MAP,
+  DIAGRAM_OPTION_KEYS,
+  emptyDiagramOptions,
+  hasDiagramOptionContent,
+  parseOptionBoolean,
+  resolveDiagramOptions,
+} from "./diagram-options.js";
 export { Diagram, BRANCH_COLOR_STYLES } from "./diagram/diagram.jsx";
 export { StepShape } from "./diagram/step-shape.jsx";
 export { BlockIcon } from "./diagram/block-icon.jsx";
