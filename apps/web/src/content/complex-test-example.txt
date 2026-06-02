@@ -6,10 +6,6 @@ description: ```
 分岐・ループ・並行・マージ・詳細セクション・矢印線種・備考（右カラム）・
 // と *** コメントを 1 本のフローで網羅します。
 ```;
-left-title: Procedure;
-left-subtitle: Description;
-right-title: Remark;
-right-subtitle: 補足・備考;
 header-left: アクメ株式会社;
 header-center: 注文フルフィルメント;
 header-right: v2.0;
@@ -26,6 +22,10 @@ show-left-remarks: true;
 show-right-remarks: true;
 show-step-block-captions: true;
 merge-at-previous-block: true;
+left-title: Procedure;
+left-subtitle: Description;
+right-title: Remark;
+right-subtitle: 補足・備考;
 
 /role/
 <customer>

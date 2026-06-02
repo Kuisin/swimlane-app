@@ -37,11 +37,16 @@ export {
   stepOutgoingArrowLine,
 } from "./arrow-line.js";
 export {
+  DEFAULT_COLUMN_TITLES,
   DEFAULT_DIAGRAM_OPTIONS,
   DIAGRAM_OPTION_DSL_MAP,
   DIAGRAM_OPTION_KEYS,
+  OPTION_COLUMN_TITLE_DSL_MAP,
+  OPTION_COLUMN_TITLE_KEYS,
   emptyDiagramOptions,
   hasDiagramOptionContent,
+  hasOptionColumnTitleOverrides,
+  hasOptionSectionContent,
   parseOptionBoolean,
   resolveDiagramOptions,
 } from "./diagram-options.js";

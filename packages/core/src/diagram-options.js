@@ -16,7 +16,23 @@ export const DIAGRAM_OPTION_DSL_MAP = {
   "merge-at-previous-block": "mergeAtPreviousBlock",
 };
 
+/** Gutter column headings in `/option/` (stored on `page` in the model). */
+export const OPTION_COLUMN_TITLE_DSL_MAP = {
+  "left-title": "leftTitle",
+  "left-subtitle": "leftSubtitle",
+  "right-title": "rightTitle",
+  "right-subtitle": "rightSubtitle",
+};
+
+export const DEFAULT_COLUMN_TITLES = {
+  leftTitle: "Procedure",
+  leftSubtitle: "Description",
+  rightTitle: "Remark",
+  rightSubtitle: "",
+};
+
 export const DIAGRAM_OPTION_KEYS = Object.values(DIAGRAM_OPTION_DSL_MAP);
+export const OPTION_COLUMN_TITLE_KEYS = Object.values(OPTION_COLUMN_TITLE_DSL_MAP);
 
 export function emptyDiagramOptions() {
   return {};
@@ -25,6 +41,20 @@ export function emptyDiagramOptions() {
 export function hasDiagramOptionContent(options) {
   if (!options) return false;
   return DIAGRAM_OPTION_KEYS.some((key) => options[key] !== undefined);
+}
+
+export function hasOptionColumnTitleOverrides(page) {
+  if (!page) return false;
+  return OPTION_COLUMN_TITLE_KEYS.some(
+    (key) => (page[key] ?? DEFAULT_COLUMN_TITLES[key]) !== DEFAULT_COLUMN_TITLES[key],
+  );
+}
+
+export function hasOptionSectionContent(model) {
+  return (
+    hasDiagramOptionContent(model?.options) ||
+    hasOptionColumnTitleOverrides(model?.page)
+  );
 }
 
 /** @param {string} raw */

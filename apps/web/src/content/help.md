@@ -57,10 +57,6 @@ Sample text
 ```
 /page/
 description: タイトル下に表示する説明;
-left-title: 手続き;
-left-subtitle: 説明;
-right-title: 備考;
-right-subtitle: メモ;
 header-left: 左ヘッダー;
 header-center: 中央ヘッダー;
 header-right: 右ヘッダー;
@@ -71,7 +67,22 @@ footer-right: 右フッター;
 
 図全体のヘッダー・フッター（左・中央・右）と、タイトル直下の説明文を設定します。各行は `;` で終えます。複数行は `` ``` `` フェンスでも書けます。
 
-`left-title` / `left-subtitle` は左カラム（番号・ラベル・説明）の見出しになります。`right-title` / `right-subtitle` は右カラム（各ステップの `remark`）の見出しです。右カラムは、いずれかのステップに `remark` がある場合だけ表示されます。
+## 図オプション
+
+```
+/option/
+show-left-gutter: true;
+show-left-remarks: true;
+show-right-remarks: true;
+show-step-block-captions: true;
+merge-at-previous-block: true;
+left-title: 手続き;
+left-subtitle: 説明;
+right-title: 備考;
+right-subtitle: メモ;
+```
+
+表示フラグ（`true` / `false`）と、左右カラムの見出しを設定します。`left-title` / `left-subtitle` は左カラム（番号・ラベル・説明）の見出しです。`right-title` / `right-subtitle` は右カラム（各ステップの `remark`）の見出しです。右カラムは、いずれかのステップに `remark` がある場合だけ表示されます。見出しを省略した場合の既定値は `Procedure` / `Description` / `Remark` / （空）です。
 
 ```
 description: ```

@@ -1,3 +1,11 @@
+import {
+  DEFAULT_COLUMN_TITLES,
+  DIAGRAM_OPTION_DSL_MAP,
+  OPTION_COLUMN_TITLE_DSL_MAP,
+  hasDiagramOptionContent,
+  hasOptionColumnTitleOverrides,
+} from "./diagram-options.js";
+
 function emitProperty(key, value) {
   if (value == null || value === "") return null;
   return `${key}: ${value};`;
@@ -18,10 +26,6 @@ function serializePage(page) {
   const out = [];
   const entries = [
     ["description", page.description],
-    ["left-title", page.leftTitle],
-    ["left-subtitle", page.leftSubtitle],
-    ["right-title", page.rightTitle],
-    ["right-subtitle", page.rightSubtitle],
     ["header-left", page.headerLeft],
     ["header-center", page.headerCenter],
     ["header-right", page.headerRight],
@@ -34,6 +38,24 @@ function serializePage(page) {
     if (!lines) continue;
     if (Array.isArray(lines)) out.push(...lines);
     else out.push(lines);
+  }
+  return out;
+}
+
+function serializeOption(model) {
+  const out = [];
+  const options = model.options || {};
+  for (const [dslKey, field] of Object.entries(DIAGRAM_OPTION_DSL_MAP)) {
+    if (options[field] !== undefined) {
+      out.push(`${dslKey}: ${options[field]};`);
+    }
+  }
+  const page = model.page || {};
+  for (const [dslKey, field] of Object.entries(OPTION_COLUMN_TITLE_DSL_MAP)) {
+    const val = page[field] ?? DEFAULT_COLUMN_TITLES[field];
+    if (val !== DEFAULT_COLUMN_TITLES[field]) {
+      out.push(`${dslKey}: ${val};`);
+    }
   }
   return out;
 }
@@ -303,6 +325,15 @@ export function serializeDSL(model) {
   lines.push("/title/");
   if (model.title) lines.push(model.title);
   lines.push("");
+
+  if (
+    hasDiagramOptionContent(model.options) ||
+    hasOptionColumnTitleOverrides(model.page)
+  ) {
+    lines.push("/option/");
+    lines.push(...serializeOption(model));
+    lines.push("");
+  }
 
   lines.push("/role/");
   lines.push("");

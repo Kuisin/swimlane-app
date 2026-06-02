@@ -1,6 +1,8 @@
 import { normalizeArrowLine } from "./arrow-line.js";
 import {
+  DEFAULT_COLUMN_TITLES,
   DIAGRAM_OPTION_DSL_MAP,
+  OPTION_COLUMN_TITLE_DSL_MAP,
   emptyDiagramOptions,
   parseOptionBoolean,
 } from "./diagram-options.js";
@@ -30,10 +32,7 @@ const PAGE_PROPERTY_MAP = {
 function emptyPage() {
   return {
     description: "",
-    leftTitle: "Procedure",
-    leftSubtitle: "Description",
-    rightTitle: "Remark",
-    rightSubtitle: "",
+    ...DEFAULT_COLUMN_TITLES,
     headerLeft: "",
     headerCenter: "",
     headerRight: "",
@@ -45,6 +44,7 @@ function emptyPage() {
 
 function parseOptionSection(items, errors) {
   const options = emptyDiagramOptions();
+  const columnTitles = {};
   for (const { text, line } of items) {
     const t = text.trim();
     if (!t) continue;
@@ -57,23 +57,28 @@ function parseOptionSection(items, errors) {
       errors.push({ line, text, msg: "unrecognized /option/ line" });
       continue;
     }
-    const field = DIAGRAM_OPTION_DSL_MAP[kv.key];
-    if (!field) {
-      errors.push({ line, text, msg: `unknown /option/ key: ${kv.key}` });
+    const boolField = DIAGRAM_OPTION_DSL_MAP[kv.key];
+    if (boolField) {
+      const bool = parseOptionBoolean(kv.val);
+      if (bool === null) {
+        errors.push({
+          line,
+          text,
+          msg: `${kv.key}: expected true or false`,
+        });
+        continue;
+      }
+      options[boolField] = bool;
       continue;
     }
-    const bool = parseOptionBoolean(kv.val);
-    if (bool === null) {
-      errors.push({
-        line,
-        text,
-        msg: `${kv.key}: expected true or false`,
-      });
+    const titleField = OPTION_COLUMN_TITLE_DSL_MAP[kv.key];
+    if (titleField) {
+      columnTitles[titleField] = kv.val;
       continue;
     }
-    options[field] = bool;
+    errors.push({ line, text, msg: `unknown /option/ key: ${kv.key}` });
   }
-  return options;
+  return { options, columnTitles };
 }
 
 /**
@@ -225,7 +230,10 @@ export function parseDSL(src) {
   }
 
   const page = parsePageSection(sections.page, errors);
-  const options = parseOptionSection(sections.option, errors);
+  const { options, columnTitles } = parseOptionSection(sections.option, errors);
+  for (const [field, value] of Object.entries(columnTitles)) {
+    page[field] = value;
+  }
 
   const title = sections.title
     .map((l) => l.text.trim())
