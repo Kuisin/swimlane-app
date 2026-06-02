@@ -65,15 +65,22 @@ side: right;
 title: 顧客向けレシート;
 
 /line/
+*** このファイルで使うフロー制御（help.md と同じルール） ***
+*** ・if / elseif / else / endif … 排他分岐（ダイヤモンドで合流） ***
+*** ・[loop] … ケース末尾。同じ if の条件へ戻る（endif 合流を使わない） ***
+*** ・fork / and / endfork … 並行分岐（全パス同時。バーで分岐・結合） ***
+*** ・merge: <id>; … if ケース末尾。endif ではなく id: <id>; の下流ステップへ直接合流 ***
+***   合流先ステップには id: <id>; が必須（label: では合流できない）。id はファイル内で一意 ***
+
 if (受付チャネルは？) is (Web) than #blue
-[frontend: Webフォームを開く]
-skip;
+  [frontend: Webフォームを開く]
+  skip;
 elseif (モバイル) than #green
-[frontend: モバイルアプリを開く]
-skip;
+  [frontend: モバイルアプリを開く]
+  skip;
 else
-[customer: サポート窓口に電話]
-skip;
+  [customer: サポート窓口に電話]
+  skip;
 endif
 
 [customer: 注文を確定] <start>
@@ -92,51 +99,51 @@ desc: ```
 props: reqdoc, auditlog;
 
 if (フォームは有効？) is (有効) than #green
-[api: リクエストを受理]
-desc: ```
+  [api: リクエストを受理]
+  desc: ```
 呼び出し元を認証し、注文をフルフィルメント用の
 キューに登録します。
 ```;
-props: auditlog;
-[worker: 在庫を確保] <job>
-desc: ```
+  props: auditlog;
+  [worker: 在庫を確保] <job>
+  desc: ```
 出荷準備が完了するまで在庫を仮押さえします。
 ```;
 
-if (在庫はある？) is (在庫あり) than #blue
-[db: 在庫を減算]
-desc: ```
+  if (在庫はある？) is (在庫あり) than #blue
+    [db: 在庫を減算]
+    desc: ```
 注文内の各明細について、引当可能在庫を
 アトミックに減算します。
 ```;
-[worker: 出荷を作成] <job>
-desc: ```
+    [worker: 出荷を作成] <job>
+    desc: ```
 配送業者を割り当て、配送ラベルを生成します。
 ```;
-props: receipt;
-elseif (取り寄せ) than #orange
-[worker: 取り寄せをキュー] <job>
-[customer: 遅延を通知]
-skip;
-else
-[customer: 返金]
-[db: 返金を記録]
-endif
+    props: receipt;
+  elseif (取り寄せ) than #orange
+    [worker: 取り寄せをキュー] <job>
+    [customer: 遅延を通知]
+    skip;
+  else
+    [customer: 返金]
+    [db: 返金を記録]
+  endif
 
-[api: 注文を確定]
-desc: ```
+  [api: 注文を確定]
+  desc: ```
 最終的な注文状態を永続化し、確定イベントを
 下流の各サービスへ通知します。
 ```;
 elseif (回復可能) than #orange
-[frontend: 再試行を表示]
-[customer: 再送信]
-[loop]
+  [frontend: 再試行を表示]
+  [customer: 再送信]
+  [loop]
 else
-[frontend: 致命的エラーを表示]
-skip;
-[api: 失敗メトリクスを送信]
-skip;
+  [frontend: 致命的エラーを表示]
+  skip;
+  [api: 失敗メトリクスを送信]
+  skip;
 endif
 
 [customer: 確認を受信] <terminal>
@@ -147,57 +154,57 @@ desc: ```
 ```;
 
 if (レシートは必要？) is (はい) than #purple
-[api: レシートを生成]
-desc: ```
+  [api: レシートを生成]
+  desc: ```
 注文情報と決済記録からPDFレシートを
 生成します。
 ```;
-props: receipt;
-[customer: レシートをダウンロード]
-skip;
+  props: receipt;
+  [customer: レシートをダウンロード]
+  skip;
 endif
 
-*** 並行処理（fork / and / endfork）— 確定後の後処理を同時に実行 ***
+*** 並行処理: fork で全パス同時実行 → endfork で結合（#色 は than #色 と同じ） ***
 fork #purple
-[api: レシートをメール送信]
-desc: ```
+  [api: レシートをメール送信]
+  desc: ```
 確定した注文のレシートを生成し、
 顧客へメールで送付します。
 ```;
-props: receipt;
+  props: receipt;
 and
-[db: 在庫台帳を更新]
-desc: ```
+  [db: 在庫台帳を更新]
+  desc: ```
 販売実績を在庫台帳へ反映し、
 集計用の数値を確定します。
 ```;
-props: auditlog;
+  props: auditlog;
 and
-[worker: 配送状況を初期化] <job>
-desc: ```
+  [worker: 配送状況を初期化] <job>
+  desc: ```
 追跡番号を採番し、配送状況の
 初期レコードを作成します。
 ```;
 endfork
 
-*** 途中マージ（merge ＜id＞）— キャンセル時は通常処理を飛ばして終端へ合流 ***
+*** 途中マージ: merge: trans-comp; → 下流の id: trans-comp; へ矢印（endif 合流をスキップ） ***
 if (キャンセル要求は？) is (あり) than #red
-[customer: キャンセルを受付]
-desc: ```
+  [customer: キャンセルを受付]
+  desc: ```
 顧客がキャンセルを要求。以降の通常処理を
 スキップし、終端ステップへ直接合流します。
 ```;
-merge 取引完了;
+  merge: trans-comp;
 else
-[api: 通常クローズ処理]
-desc: ```
+  [api: 通常クローズ処理]
+  desc: ```
 請求を確定し、関連リソースを解放して
 取引を正常に締めます。
 ```;
 endif
 
 [customer: 取引完了] <terminal>
-id: 取引完了;
+id: trans-comp;
 label: 取引完了;
 desc: ```
 すべての記録が確定し、取引が完了します。

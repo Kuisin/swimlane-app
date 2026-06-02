@@ -93,6 +93,8 @@ icon: #mail;
 | `rounded` | ユーザー操作（申請・承認・却下・通常業務など） |
 | `rect` | システム操作（自動処理・通知送信など） |
 | `hex` | 条件分岐内のステップ（`if`〜`endif` のケース） |
+| `ellipse` | 開始・終端など端点ステップ |
+| `subroutine` | サブルーチン風の処理ブロック |
 
 ### 通常処理
 
@@ -355,6 +357,17 @@ max-chars: 6;
 title: 表示は6文字まで。ホバーで全文;
 ```
 
+## フロー制御
+
+`/line/` で使う制御構文の詳細は [help.md](./help.md) を参照してください。
+
+| 構文 | 用途 |
+|------|------|
+| `if` / `elseif` / `else` / `endif` | 排他分岐 |
+| `[loop]` | 同じ `if` へ戻る（再試行） |
+| `fork` / `and` / `endfork` | 並行分岐（全パス同時） |
+| `merge: <id>;` + 下流の `id: <id>;` | `endif` を経由しない前方合流 |
+
 ## set
 
 ### 経費申請
@@ -549,13 +562,146 @@ props: REQ_DOC;
 [role_approver: 承認] <block_approve>
 props: APPR_LOG;
 
-if (金額) is (上限超) than
+if (金額) is (上限超) than #orange
   [role_accounting: 経理確認] <block_condition>
-elseif (以内) than
+elseif (以内) than #green
   [role_approver: 承認完了] <block_condition>
 else
-  [role_applicant: 差し戻し] <block_condition>
+  [role_applicant: 差し戻し] <block_reject>
 endif
+
+@end
+```
+
+### 並行後処理（fork）
+
+確定後にメール・台帳・配送を**同時**に行う例。`fork` 直後が1本目のパス、`and` で追加、`endfork` で結合します。
+
+```kai-swimlane
+@kai-swimlane
+
+/title/
+確定後の並行処理
+
+/role/
+
+<role_system>
+label: システム;
+text-color: #3730a3;
+background-color: #eef2ff;
+icon: #database;
+
+<role_accounting>
+label: 経理;
+text-color: #1e40af;
+background-color: #eff6ff;
+
+<role_worker>
+label: 倉庫;
+text-color: #1e293b;
+background-color: #f8fafc;
+
+/block/
+
+<block_notify>
+background-color: #e0f2fe;
+text-color: #075985;
+border-color: #0284c7;
+shape: rect;
+icon: #send;
+
+<block_system>
+background-color: #e0e7ff;
+text-color: #3730a3;
+border-color: #4f46e5;
+shape: rect;
+icon: #database;
+
+/prop/
+
+<NOTIFY>
+label: 通知;
+side: right;
+
+<AUDIT>
+label: 監査;
+side: left;
+
+/line/
+
+[role_system: 注文を確定] <block_system>
+
+fork #purple
+  [role_system: レシートをメール送信] <block_notify>
+  props: NOTIFY;
+and
+  [role_accounting: 台帳を更新] <block_system>
+  props: AUDIT;
+and
+  [role_worker: 配送を初期化] <block_system>
+endfork
+
+@end
+```
+
+### 途中マージ（merge + id）
+
+キャンセル時だけ終端へ飛ばす例。`merge` の `<id>` は下流ステップの `id:` と一致させます（`label:` では合流しません）。
+
+```kai-swimlane
+@kai-swimlane
+
+/title/
+キャンセル時の途中合流
+
+/role/
+
+<role_applicant>
+label: 申請者;
+text-color: #1e293b;
+background-color: #ffffff;
+
+<role_system>
+label: システム;
+text-color: #3730a3;
+background-color: #eef2ff;
+
+/block/
+
+<block_apply>
+background-color: #dbeafe;
+text-color: #1e40af;
+border-color: #2563eb;
+shape: rounded;
+
+<block_reject>
+background-color: #fee2e2;
+text-color: #991b1b;
+border-color: #dc2626;
+shape: rounded;
+icon: #alert-triangle;
+
+<block_done>
+background-color: #dcfce7;
+text-color: #166534;
+border-color: #16a34a;
+shape: ellipse;
+icon: #check;
+
+/line/
+
+[role_applicant: 申請を提出] <block_apply>
+
+if (キャンセル？) is (あり) than #red
+  [role_applicant: キャンセル受付] <block_reject>
+  merge: trans-comp;
+else
+  [role_system: 通常クローズ] <block_system>
+endif
+
+[role_applicant: 手続き完了] <block_done>
+id: trans-comp;
+label: 完了;
 
 @end
 ```

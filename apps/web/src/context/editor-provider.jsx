@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContext } from "./editor-context";
 import SAMPLE from "../content/sample.txt?raw";
 import HELP_MD from "../content/help.md?raw";
@@ -9,11 +9,12 @@ import {
   STORAGE_KEY,
   parseStoredEditorState,
   applyStoredEditorState,
+  serializeEditorStateForStorage,
 } from "../lib/editor-storage";
 import { extractDocumentTitle } from "../lib/document-title";
 
 function createDocument(id, name, src) {
-  return { id, name, src, savedSrc: src };
+  return { id, name, src, savedSrc: src, parseErrorPolicy: null };
 }
 
 function createNextDocumentName(documents) {
@@ -87,27 +88,70 @@ export function EditorProvider({ children }) {
 
   const theme = THEMES[themeKey];
   const model = useMemo(() => parseDSL(src), [src]);
+  const activeParseErrorPolicy = activeDocument?.parseErrorPolicy ?? null;
+
+  useEffect(() => {
+    if (model.errors.length > 0) return;
+    setDocuments((current) =>
+      current.map((doc) =>
+        doc.parseErrorPolicy ? { ...doc, parseErrorPolicy: null } : doc,
+      ),
+    );
+  }, [model.errors.length]);
+
+  function setActiveDocumentParseErrorPolicy(policy) {
+    if (!activeDocumentId) return;
+    setDocuments((current) =>
+      current.map((doc) =>
+        doc.id === activeDocumentId ? { ...doc, parseErrorPolicy: policy } : doc,
+      ),
+    );
+  }
+
   const hasUnsavedChanges = documents.some(
     (document) => document.src !== document.savedSrc
   );
 
-  useEffect(() => {
-    if (!isHydrated) return;
+  const persistSnapshotRef = useRef({
+    documents,
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+  });
+  const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
 
-    const payload = {
-      documents: documents.map(({ id, name, src: docSrc, savedSrc }) => ({
-        id,
-        name,
-        src: docSrc,
-        savedSrc,
-      })),
+  useEffect(() => {
+    persistSnapshotRef.current = {
+      documents,
       openDocumentIds,
       activeDocumentId,
       themeKey,
       showStepBlockCaptions,
       mergeAtPreviousBlock,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    hasUnsavedChangesRef.current = hasUnsavedChanges;
+  }, [
+    documents,
+    openDocumentIds,
+    activeDocumentId,
+    themeKey,
+    showStepBlockCaptions,
+    mergeAtPreviousBlock,
+    hasUnsavedChanges,
+  ]);
+
+  function flushSavedStateToStorage() {
+    localStorage.setItem(
+      STORAGE_KEY,
+      serializeEditorStateForStorage(persistSnapshotRef.current),
+    );
+  }
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    flushSavedStateToStorage();
   }, [
     documents,
     openDocumentIds,
@@ -123,13 +167,24 @@ export function EditorProvider({ children }) {
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     if (window.location.pathname === `${base}/gui/step-inspector`) return;
 
+    function handleUnload() {
+      if (!hasUnsavedChangesRef.current) return;
+      flushSavedStateToStorage();
+    }
+
     function handleBeforeUnload(event) {
+      if (!hasUnsavedChangesRef.current) return;
+      flushSavedStateToStorage();
       event.preventDefault();
       event.returnValue = "";
     }
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleUnload);
+    };
   }, [hasUnsavedChanges]);
 
   function updateActiveDocumentSrc(nextSrc) {
@@ -254,6 +309,8 @@ export function EditorProvider({ children }) {
     isHydrated,
     src,
     model,
+    activeParseErrorPolicy,
+    setActiveDocumentParseErrorPolicy,
     hasUnsavedChanges,
     updateActiveDocumentSrc,
     updateDocumentSrc,

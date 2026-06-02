@@ -23,7 +23,7 @@ describe("DSL format (fork / merge / step id)", () => {
       "endfork",
       "if (x) is (y) than",
       "[a: cancel]",
-      "merge done;",
+      "merge: done;",
       "endif",
       "[a: finish]",
       "label: 完了;",
@@ -36,7 +36,7 @@ describe("DSL format (fork / merge / step id)", () => {
     expect(value).toContain("fork #purple");
     expect(value).toContain("\nand\n");
     expect(value).toContain("endfork");
-    expect(value).toContain("  merge done;");
+    expect(value).toContain("  merge: done;");
     expect(value).toContain("id: done;");
     expect(value).toMatch(/id: done;\s*\n\s*label: 完了;/);
     expect(parseDSL(value).errors).toEqual([]);
@@ -50,7 +50,7 @@ label: A;
 /line/
 if (a) is (b) than
 [a: x]
-merge ghost;
+merge: ghost;
 endif
 @end`);
     expect(missing.ok).toBe(false);

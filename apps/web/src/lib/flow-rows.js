@@ -218,6 +218,85 @@ export function collectStepMergeIds(rows) {
   return ids;
 }
 
+function collectUsedMergeIds(rows) {
+  const used = new Set(collectStepMergeIds(rows));
+  for (const row of rows) {
+    if (row.kind === "branchMerge") {
+      const target = (row.mergeTarget || "").trim();
+      if (target) used.add(target);
+    }
+  }
+  return used;
+}
+
+/** Display name for a step row (label, then body text). */
+export function stepBlockDisplayName(row, rowIndex = 0) {
+  const name = (row.name || "").trim();
+  const text = (row.text || "").trim();
+  return name || text || `手順 ${rowIndex + 1}`;
+}
+
+/** Steps that can be selected as merge targets in the GUI. */
+export function collectMergeTargetOptions(rows) {
+  const options = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.kind !== "step" || row.empty || !row.role) continue;
+    const mergeId = (row.mergeId || "").trim();
+    const blockName = stepBlockDisplayName(row, i);
+    options.push({
+      stepIndex: i,
+      mergeId,
+      blockName,
+      label: mergeId ? `${blockName} (id: ${mergeId})` : blockName,
+    });
+  }
+  return options;
+}
+
+/**
+ * When the user selects branchEnd, edit the paired branchStart in the inspector.
+ */
+export function resolveInspectorTarget(rows, rowIndex) {
+  const row = rows?.[rowIndex];
+  if (!row) {
+    return {
+      inspectorRow: null,
+      saveRowIndex: -1,
+      isBranchRow: false,
+      viaBranchEnd: false,
+    };
+  }
+
+  if (row.kind === "branchEnd") {
+    const startIndex = rows.findIndex(
+      (r) => r.kind === "branchStart" && r.id === row.id,
+    );
+    if (startIndex >= 0) {
+      return {
+        inspectorRow: rows[startIndex],
+        saveRowIndex: startIndex,
+        isBranchRow: true,
+        viaBranchEnd: true,
+      };
+    }
+  }
+
+  const isBranchRow = [
+    "branchStart",
+    "branchCase",
+    "branchLoop",
+    "branchMerge",
+  ].includes(row.kind);
+
+  return {
+    inspectorRow: row,
+    saveRowIndex: rowIndex,
+    isBranchRow,
+    viaBranchEnd: false,
+  };
+}
+
 export function mergeIdIsTaken(rows, mergeId, exceptStepIndex = -1) {
   const id = (mergeId || "").trim();
   if (!id) return false;
@@ -236,17 +315,21 @@ export function mergeIdIsTaken(rows, mergeId, exceptStepIndex = -1) {
   return false;
 }
 
-/** Generate a unique step id for `id:` / `merge` (e.g. step-1, step-2). */
-export function nextStepMergeId(rows, preferredBase) {
-  const base = (preferredBase || "step").trim() || "step";
-  const used = new Set(collectStepMergeIds(rows));
-  let n = 1;
-  let candidate = `${base}-${n}`;
-  while (used.has(candidate)) {
-    n += 1;
-    candidate = `${base}-${n}`;
+/** Generate a unique merge id: a, b, … z, then aa, ab, … */
+export function nextStepMergeId(rows) {
+  const used = collectUsedMergeIds(rows);
+  for (let i = 0; i < 26; i++) {
+    const c = String.fromCharCode(97 + i);
+    if (!used.has(c)) return c;
   }
-  return candidate;
+  for (let a = 0; a < 26; a++) {
+    for (let b = 0; b < 26; b++) {
+      const c =
+        String.fromCharCode(97 + a) + String.fromCharCode(97 + b);
+      if (!used.has(c)) return c;
+    }
+  }
+  return `z${rows.length + 1}`;
 }
 
 export function canAddMerge(rows, rowIndex) {

@@ -238,7 +238,7 @@ function serializeLineRows(rows) {
     }
 
     if (row.kind === "branchMerge") {
-      out.push(indent(depth, `merge ${row.mergeTarget};`));
+      out.push(indent(depth, `merge: ${row.mergeTarget};`));
       prevKind = "branchMerge";
       continue;
     }

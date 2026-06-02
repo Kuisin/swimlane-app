@@ -3,7 +3,11 @@ import {
   PropsFieldWithPicker,
 } from "./step-parts-pickers";
 
-import { mergeIdIsTaken } from "../../lib/flow-rows";
+import {
+  collectMergeTargetOptions,
+  mergeIdIsTaken,
+  nextStepMergeId,
+} from "../../lib/flow-rows";
 
 export function StepInspector({
   row,
@@ -68,10 +72,17 @@ export function StepInspector({
         </label>
         <input
           type="text"
+          list="step-merge-id-suggestions"
           value={row.mergeId || ""}
+          placeholder={nextStepMergeId(rows || [])}
           onChange={(e) => onPatch({ mergeId: e.target.value || undefined })}
           className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
         />
+        <datalist id="step-merge-id-suggestions">
+          {collectMergeTargetOptions(rows || []).map((opt) => (
+            <option key={opt.stepIndex} value={opt.mergeId || opt.blockName} />
+          ))}
+        </datalist>
         {mergeIdDuplicate && (
           <p className="text-[10px] text-amber-400 mt-1">
             この id は他のステップと重複しています。ファイル内で一意にしてください。

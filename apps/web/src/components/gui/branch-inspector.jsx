@@ -1,8 +1,18 @@
 import { BRANCH_COLOR_STYLES } from "@kai-swimlane/core";
+import {
+  collectMergeTargetOptions,
+  nextStepMergeId,
+} from "../../lib/flow-rows";
 
 const BRANCH_COLOR_KEYS = Object.keys(BRANCH_COLOR_STYLES);
 
-export function BranchInspector({ row, rows, onPatch }) {
+export function BranchInspector({
+  row,
+  rows,
+  onPatch,
+  viaBranchEnd = false,
+  onMergeTargetPick,
+}) {
   if (!row) {
     return (
       <p className="text-xs font-jp text-stone-500 px-3 py-4">
@@ -15,6 +25,7 @@ export function BranchInspector({ row, rows, onPatch }) {
     if (row.parallel) {
       return (
         <div className="px-3 py-3 space-y-3 text-xs font-jp">
+          {viaBranchEnd && <BranchEndHint parallel />}
           <p className="text-stone-300">並行処理（同時に実行）</p>
           <BranchColorSelect
             value={row.branchColor || ""}
@@ -30,6 +41,7 @@ export function BranchInspector({ row, rows, onPatch }) {
     }
     return (
       <div className="px-3 py-3 space-y-3 text-xs font-jp">
+        {viaBranchEnd && <BranchEndHint />}
         <div>
           <label className="block text-[10px] text-stone-500 mb-1">条件</label>
           <input
@@ -102,7 +114,7 @@ export function BranchInspector({ row, rows, onPatch }) {
 
   if (row.kind === "branchLoop") {
     const parent = rows.find(
-      (r) => r.kind === "branchStart" && r.id === row.loopBranchId
+      (r) => r.kind === "branchStart" && r.id === row.loopBranchId,
     );
     return (
       <div className="px-3 py-3 text-xs font-jp text-stone-400">
@@ -113,37 +125,71 @@ export function BranchInspector({ row, rows, onPatch }) {
   }
 
   if (row.kind === "branchMerge") {
-    const ids = (rows || [])
-      .filter((r) => r.kind === "step" && !r.empty && r.role && (r.mergeId || "").trim())
-      .map((r) => r.mergeId.trim());
-    const valid = ids.includes((row.mergeTarget || "").trim());
+    const options = collectMergeTargetOptions(rows || []);
+    const target = (row.mergeTarget || "").trim();
+    const selectedStepIndex = options.find(
+      (opt) => opt.mergeId && opt.mergeId === target,
+    )?.stepIndex;
+    const valid = target && options.some((opt) => opt.mergeId === target);
+
+    function handleSelectChange(event) {
+      const raw = event.target.value;
+      if (raw === "") {
+        onPatch({ mergeTarget: "" });
+        return;
+      }
+      const stepIndex = Number(raw);
+      const opt = options.find((o) => o.stepIndex === stepIndex);
+      if (!opt) return;
+      const mergeId = opt.mergeId || nextStepMergeId(rows);
+      if (onMergeTargetPick) {
+        onMergeTargetPick(stepIndex, mergeId);
+      } else {
+        onPatch({ mergeTarget: mergeId });
+      }
+    }
+
     return (
       <div className="px-3 py-3 space-y-2 text-xs font-jp">
         <div>
           <label className="block text-[10px] text-stone-500 mb-1">
-            合流先（ステップの id）
+            合流先ブロック
+          </label>
+          <select
+            value={
+              selectedStepIndex != null ? String(selectedStepIndex) : ""
+            }
+            onChange={handleSelectChange}
+            className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
+          >
+            <option value="">— 手順を選択 —</option>
+            {options.map((opt) => (
+              <option key={opt.stepIndex} value={String(opt.stepIndex)}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] text-stone-500 mb-1">
+            合流 id（merge）
           </label>
           <input
             type="text"
-            list="merge-target-options"
             value={row.mergeTarget || ""}
             onChange={(e) => onPatch({ mergeTarget: e.target.value })}
-            className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
+            className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100 font-mono"
           />
-          <datalist id="merge-target-options">
-            {ids.map((id) => (
-              <option key={id} value={id} />
-            ))}
-          </datalist>
         </div>
-        {!valid && (row.mergeTarget || "").trim() && (
+        {!valid && target && (
           <p className="text-[10px] text-amber-400">
-            一致する id のステップがありません。合流先ステップに id: を設定してください。
+            一致する id のステップがありません。上の一覧から選ぶか、合流先に
+            id: を設定してください。
           </p>
         )}
-        {!(row.mergeTarget || "").trim() && (
+        {!target && (
           <p className="text-[10px] text-stone-500">
-            下流のステップに id: を付け、その id を指定します。
+            一覧から手順を選ぶと id が自動設定されます（未設定時は a, b, c …）。
           </p>
         )}
       </div>
@@ -153,6 +199,16 @@ export function BranchInspector({ row, rows, onPatch }) {
   return (
     <p className="text-xs font-jp text-stone-500 px-3 py-4">
       分岐行を選択してください
+    </p>
+  );
+}
+
+function BranchEndHint({ parallel = false }) {
+  return (
+    <p className="text-[10px] text-stone-400 border border-stone-700/60 rounded-sm px-2 py-1.5 bg-stone-900/50">
+      {parallel
+        ? "終了（endfork）— 開始（fork）と同じ設定を編集しています。"
+        : "終了（endif）— 開始（if）と同じ設定を編集しています。"}
     </p>
   );
 }

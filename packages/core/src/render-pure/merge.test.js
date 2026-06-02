@@ -19,7 +19,7 @@ label: B;
 [a: 開始]
 if (キャンセル?) is (あり) than #red
 [a: キャンセル受付]
-merge done;
+merge: done;
 else
 [b: 通常処理]
 endif
@@ -51,7 +51,7 @@ label: A;
 /line/
 if (x) is (y) than
 [a: step]
-merge nowhere;
+merge: nowhere;
 endif
 @end`);
     expect(model.errors.map((e) => e.msg)).toContain(
@@ -73,6 +73,22 @@ id: dup;
     expect(model.errors.filter((e) => e.msg.includes('duplicate step id "dup"')).length).toBe(2);
   });
 
+  it("errors on legacy merge <id>; without colon", () => {
+    const model = parseDSL(`@kai-swimlane
+/role/
+<a>
+label: A;
+/line/
+if (x) is (y) than
+[a: step]
+merge legacy;
+endif
+@end`);
+    expect(model.errors.map((e) => e.msg)).toContain(
+      "use merge: <id>; instead of merge <id>;",
+    );
+  });
+
   it("errors when merge is used outside an if", () => {
     const model = parseDSL(`@kai-swimlane
 /role/
@@ -81,7 +97,7 @@ label: A;
 /line/
 [a: step]
 id: home;
-merge home;
+merge: home;
 @end`);
     expect(model.errors.map((e) => e.msg)).toContain("merge outside if");
   });

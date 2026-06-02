@@ -3,7 +3,7 @@ import { applyTabIndent } from "../../lib/editor-indent";
 
 const MONO_FONT = { fontFamily: "'JetBrains Mono', monospace" };
 
-export function CodeArea({ src, onChange, errorLines }) {
+export function CodeArea({ src, onChange, errorLines = new Set() }) {
   const textareaRef = useRef(null);
   const lineNumbersRef = useRef(null);
   const highlightsRef = useRef(null);
@@ -92,7 +92,8 @@ export function CodeArea({ src, onChange, errorLines }) {
               <div
                 key={n}
                 className={
-                  errorLines.has(n) ? "bg-red-950/45 rounded-sm" : undefined
+                  errorLines.has(n) ? "bg-red-950/45 rounded-sm"
+                    : undefined
                 }
               >
                 {"\u00a0"}

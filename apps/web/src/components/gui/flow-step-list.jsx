@@ -44,11 +44,18 @@ export function FlowStepList({
   onSelectRow,
   onEditRows,
   lanes,
+  editingDisabled = false,
+  lockedRowIndices = null,
 }) {
   const defaultRole = lanes[0]?.id || "role_applicant";
   const [moveFromIndex, setMoveFromIndex] = useState(null);
 
+  function isRowLocked(index) {
+    return editingDisabled || (lockedRowIndices?.has(index) ?? false);
+  }
+
   function insertAt(index, newRows) {
+    if (editingDisabled) return;
     onEditRows((draft) => {
       draft.rows.splice(index, 0, ...newRows);
     });
@@ -229,6 +236,7 @@ export function FlowStepList({
   }
 
   function handleDelete(index) {
+    if (isRowLocked(index)) return;
     const row = rows[index];
     if (row.kind === "branchEnd") return;
     if (row.kind === "branchStart") {
@@ -251,6 +259,7 @@ export function FlowStepList({
   }
 
   function handleMove(index, direction) {
+    if (isRowLocked(index)) return;
     const { canUp, canDown } = getReorderBounds(rows, index);
     if (direction === "up" && !canUp) return;
     if (direction === "down" && !canDown) return;
@@ -285,6 +294,7 @@ export function FlowStepList({
   }
 
   function handleMoveTo(fromIndex, insertBefore) {
+    if (isRowLocked(fromIndex)) return;
     const newIndex = resolveMovedIndex(rows, fromIndex, insertBefore);
     onEditRows((draft) => {
       draft.rows = moveUnitToInsertBefore(draft.rows, fromIndex, insertBefore);
@@ -294,6 +304,7 @@ export function FlowStepList({
   }
 
   function handleOutdent(index) {
+    if (isRowLocked(index)) return;
     if (!canOutdentBranch(rows, index)) return;
     const endIdx = findBranchEndIndex(rows, index);
     if (endIdx < 0) return;
@@ -329,20 +340,34 @@ export function FlowStepList({
       <div className="px-2 py-2 border-b border-stone-700/60 flex flex-wrap gap-1">
         <p className="w-full text-[10px] font-jp text-stone-500 mb-1">
           手順一覧
+          {editingDisabled
+            ? "（構文エラー: 続行方法を選んでください）"
+            : lockedRowIndices?.size
+              ? "（グレー: エラー行のブロックは編集不可）"
+              : ""}
         </p>
-        <ToolBtn onClick={handleAddStep}>＋ 手順</ToolBtn>
-        <ToolBtn onClick={handleAddIf}>＋ 条件</ToolBtn>
-        <ToolBtn onClick={handleAddElseIf} disabled={!canBranch}>
+        <ToolBtn onClick={handleAddStep} disabled={editingDisabled}>
+          ＋ 手順
+        </ToolBtn>
+        <ToolBtn onClick={handleAddIf} disabled={editingDisabled}>
+          ＋ 条件
+        </ToolBtn>
+        <ToolBtn
+          onClick={handleAddElseIf}
+          disabled={editingDisabled || !canBranch}
+        >
           ＋ 分岐
         </ToolBtn>
-        <ToolBtn onClick={handleAddLoop} disabled={!canLoop}>
+        <ToolBtn onClick={handleAddLoop} disabled={editingDisabled || !canLoop}>
           ＋ ループ
         </ToolBtn>
-        <ToolBtn onClick={handleAddFork}>＋ 並行</ToolBtn>
-        <ToolBtn onClick={handleAddAnd} disabled={!canAnd}>
+        <ToolBtn onClick={handleAddFork} disabled={editingDisabled}>
+          ＋ 並行
+        </ToolBtn>
+        <ToolBtn onClick={handleAddAnd} disabled={editingDisabled || !canAnd}>
           ＋ 並行パス
         </ToolBtn>
-        <ToolBtn onClick={handleAddMerge} disabled={!canMerge}>
+        <ToolBtn onClick={handleAddMerge} disabled={editingDisabled || !canMerge}>
           ＋ 合流
         </ToolBtn>
       </div>
@@ -368,12 +393,17 @@ export function FlowStepList({
             showReorder && getMoveToTargets(rows, i, lanes).length > 0;
           const canOutdent = isMovableBranchStart && canOutdentBranch(rows, i);
           const summary = rowSummaryText(row, lanes);
+          const rowLocked = lockedRowIndices?.has(i) ?? false;
 
           return (
             <li
               key={`row-${i}`}
               className={`flex items-center gap-1 border-b border-stone-800/80 pr-2 ${
-                isSelected ? "bg-stone-700" : "hover:bg-stone-800/60"
+                rowLocked
+                  ? "opacity-45 bg-stone-950/70"
+                  : isSelected
+                    ? "bg-stone-700"
+                    : "hover:bg-stone-800/60"
               }`}
               style={{
                 paddingLeft: `${8 + depth * 14}px`
@@ -383,7 +413,7 @@ export function FlowStepList({
                 <span className="flex flex-col shrink-0">
                   <button
                     type="button"
-                    disabled={!canUp}
+                    disabled={!canUp || rowLocked}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleMove(i, "up");
@@ -395,7 +425,7 @@ export function FlowStepList({
                   </button>
                   <button
                     type="button"
-                    disabled={!canDown}
+                    disabled={!canDown || rowLocked}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleMove(i, "down");
@@ -433,6 +463,7 @@ export function FlowStepList({
               {canMoveTo && (
                 <button
                   type="button"
+                  disabled={rowLocked}
                   onClick={() => setMoveFromIndex(i)}
                   className="shrink-0 p-0.5 text-stone-400 hover:text-stone-100"
                   aria-label="移動先を選ぶ"
@@ -444,6 +475,7 @@ export function FlowStepList({
               {canOutdent && (
                 <button
                   type="button"
+                  disabled={rowLocked}
                   onClick={() => handleOutdent(i)}
                   className="shrink-0 p-0.5 text-stone-400 hover:text-stone-100"
                   aria-label="ネストから出す"
@@ -455,7 +487,7 @@ export function FlowStepList({
               <button
                 type="button"
                 onClick={() => handleDelete(i)}
-                disabled={row.kind === "branchEnd"}
+                disabled={rowLocked || row.kind === "branchEnd"}
                 className="shrink-0 p-1 text-stone-500 hover:text-red-400 disabled:opacity-30"
                 aria-label="削除"
               >

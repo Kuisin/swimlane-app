@@ -271,7 +271,7 @@ export function parseDSL(src) {
    *                                   an `if`/`fork` block; `parallel: true`
    *                                   marks the `fork`/`and`/`endfork` variant
    *   - branchLoop                    `[loop]` back-edge to the enclosing `if`
-   *   - branchMerge                   `merge <id>;` jump to a step with matching `id:`
+   *   - branchMerge                   `merge: <id>;` jump to a step with matching `id:`
    * `stack` tracks open branch frames so nested blocks get the right depth and
    * so each closer (`endif`/`endfork`) matches the frame type it closes.
    */
@@ -296,6 +296,23 @@ export function parseDSL(src) {
   /** @type {Map<string, { line: number, text: string }>} */
   const mergeIdsSeen = new Map();
 
+  function pushLineRow(fields, line) {
+    rows.push({ ...fields, dslLines: [line] });
+  }
+
+  function appendLineToRow(rowIndex, line) {
+    if (rowIndex < 0 || rowIndex >= rows.length) return;
+    const row = rows[rowIndex];
+    if (!row.dslLines) row.dslLines = [line];
+    else if (!row.dslLines.includes(line)) row.dslLines.push(line);
+  }
+
+  function attachSectionLinesToRow(rowIndex, startIdx, endIdx) {
+    for (let k = startIdx; k < endIdx; k++) {
+      appendLineToRow(rowIndex, sections.line[k].line);
+    }
+  }
+
   for (let lineIdx = 0; lineIdx < sections.line.length; lineIdx++) {
     const { text, line } = sections.line[lineIdx];
     if (!text.trim()) continue;
@@ -308,14 +325,17 @@ export function parseDSL(src) {
       const id = branchCounter;
       const depth = branchMarkerDepth();
       stack.push({ id, depth, type: "if" });
-      rows.push({
-        kind: "branchStart",
-        cond: m[1].trim(),
-        firstCase: m[2].trim(),
-        branchColor: m[3] ? m[3].trim().toLowerCase() : null,
-        id,
-        depth,
-      });
+      pushLineRow(
+        {
+          kind: "branchStart",
+          cond: m[1].trim(),
+          firstCase: m[2].trim(),
+          branchColor: m[3] ? m[3].trim().toLowerCase() : null,
+          id,
+          depth,
+        },
+        line,
+      );
       continue;
     }
     m = u.match(/^elseif\s*\((.+?)\)\s*than(?:\s+#([A-Za-z]+))?$/i);
@@ -325,13 +345,16 @@ export function parseDSL(src) {
         errors.push({ line, text, msg: "elseif without if" });
         continue;
       }
-      rows.push({
-        kind: "branchCase",
-        label: m[1].trim(),
-        branchColor: m[2] ? m[2].trim().toLowerCase() : null,
-        id: top.id,
-        depth: branchControlDepth(),
-      });
+      pushLineRow(
+        {
+          kind: "branchCase",
+          label: m[1].trim(),
+          branchColor: m[2] ? m[2].trim().toLowerCase() : null,
+          id: top.id,
+          depth: branchControlDepth(),
+        },
+        line,
+      );
       continue;
     }
     if (/^else$/i.test(u)) {
@@ -340,12 +363,15 @@ export function parseDSL(src) {
         errors.push({ line, text, msg: "else without if" });
         continue;
       }
-      rows.push({
-        kind: "branchCase",
-        label: "else",
-        id: top.id,
-        depth: branchControlDepth(),
-      });
+      pushLineRow(
+        {
+          kind: "branchCase",
+          label: "else",
+          id: top.id,
+          depth: branchControlDepth(),
+        },
+        line,
+      );
       continue;
     }
     if (/^endif$/i.test(u)) {
@@ -355,7 +381,7 @@ export function parseDSL(src) {
         continue;
       }
       stack.pop();
-      rows.push({ kind: "branchEnd", id: top.id, depth: top.depth });
+      pushLineRow({ kind: "branchEnd", id: top.id, depth: top.depth }, line);
       continue;
     }
 
@@ -366,15 +392,18 @@ export function parseDSL(src) {
       const id = branchCounter;
       const depth = branchMarkerDepth();
       stack.push({ id, depth, type: "fork" });
-      rows.push({
-        kind: "branchStart",
-        parallel: true,
-        cond: null,
-        firstCase: null,
-        branchColor: m[1] ? m[1].trim().toLowerCase() : null,
-        id,
-        depth,
-      });
+      pushLineRow(
+        {
+          kind: "branchStart",
+          parallel: true,
+          cond: null,
+          firstCase: null,
+          branchColor: m[1] ? m[1].trim().toLowerCase() : null,
+          id,
+          depth,
+        },
+        line,
+      );
       continue;
     }
     m = u.match(/^and(?:\s+#([A-Za-z]+))?$/i);
@@ -384,14 +413,17 @@ export function parseDSL(src) {
         errors.push({ line, text, msg: "and without fork" });
         continue;
       }
-      rows.push({
-        kind: "branchCase",
-        parallel: true,
-        label: "",
-        branchColor: m[1] ? m[1].trim().toLowerCase() : null,
-        id: top.id,
-        depth: branchControlDepth(),
-      });
+      pushLineRow(
+        {
+          kind: "branchCase",
+          parallel: true,
+          label: "",
+          branchColor: m[1] ? m[1].trim().toLowerCase() : null,
+          id: top.id,
+          depth: branchControlDepth(),
+        },
+        line,
+      );
       continue;
     }
     if (/^endfork$/i.test(u)) {
@@ -401,23 +433,30 @@ export function parseDSL(src) {
         continue;
       }
       stack.pop();
-      rows.push({ kind: "branchEnd", parallel: true, id: top.id, depth: top.depth });
+      pushLineRow(
+        { kind: "branchEnd", parallel: true, id: top.id, depth: top.depth },
+        line,
+      );
       continue;
     }
 
     if (/^:\s*;?$/.test(u)) {
-      rows.push({
-        kind: "step",
-        role: null,
-        text: "",
-        depth: branchBodyDepth(),
-        empty: true,
-        stepId: null,
-      });
+      pushLineRow(
+        {
+          kind: "step",
+          role: null,
+          text: "",
+          depth: branchBodyDepth(),
+          empty: true,
+          stepId: null,
+        },
+        line,
+      );
       continue;
     }
 
     if (/^id:\s*/i.test(u)) {
+      if (lastRealStepIndex >= 0) appendLineToRow(lastRealStepIndex, line);
       m = u.match(/^id:\s*(.+);\s*$/i);
       if (!m) {
         errors.push({ line, text, msg: "id: line must end with ';'" });
@@ -447,6 +486,7 @@ export function parseDSL(src) {
       continue;
     }
     if (/^label:\s*/i.test(u)) {
+      if (lastRealStepIndex >= 0) appendLineToRow(lastRealStepIndex, line);
       m = u.match(/^label:\s*(.+);\s*$/i);
       if (!m) {
         errors.push({ line, text, msg: "label: line must end with ';'" });
@@ -468,12 +508,14 @@ export function parseDSL(src) {
       if (fenced) {
         if (fenced.error) errors.push(fenced.error);
         else rows[lastRealStepIndex].description = fenced.value || "";
+        attachSectionLinesToRow(lastRealStepIndex, lineIdx, fenced.nextIndex);
         lineIdx = fenced.nextIndex - 1;
         continue;
       }
       continue;
     }
     if (/^skip/i.test(u)) {
+      if (lastRealStepIndex >= 0) appendLineToRow(lastRealStepIndex, line);
       if (!/^skip;\s*$/i.test(u)) {
         errors.push({ line, text, msg: "skip must be written as skip;" });
         continue;
@@ -486,6 +528,7 @@ export function parseDSL(src) {
       continue;
     }
     if (/^props:\s*/i.test(u)) {
+      if (lastRealStepIndex >= 0) appendLineToRow(lastRealStepIndex, line);
       m = u.match(/^props:\s*(.+);\s*$/i);
       if (!m) {
         errors.push({ line, text, msg: "props: line must end with ';'" });
@@ -512,29 +555,50 @@ export function parseDSL(src) {
         errors.push({ line, text, msg: "[loop] outside if" });
         continue;
       }
-      rows.push({
-        kind: "branchLoop",
-        loopBranchId: top.id,
-        depth: branchBodyDepth(),
-      });
+      pushLineRow(
+        {
+          kind: "branchLoop",
+          loopBranchId: top.id,
+          depth: branchBodyDepth(),
+        },
+        line,
+      );
       continue;
     }
 
-    /** `merge <id>;` — route this case to a downstream step with matching `id:`. */
-    m = u.match(/^merge\s+(.+);\s*$/i);
-    if (m) {
+    /** `merge: <id>;` — route this case to a downstream step with matching `id:`. */
+    if (/^merge:\s*/i.test(u)) {
+      m = u.match(/^merge:\s*(.+);\s*$/i);
+      if (!m) {
+        errors.push({ line, text, msg: "merge: line must end with ';'" });
+        continue;
+      }
       const top = stack[stack.length - 1];
       if (!top || top.type !== "if") {
         errors.push({ line, text, msg: "merge outside if" });
         continue;
       }
-      rows.push({
-        kind: "branchMerge",
-        mergeTarget: m[1].trim(),
-        mergeBranchId: top.id,
-        depth: branchBodyDepth(),
+      const mergeIdVal = m[1].trim();
+      if (!mergeIdVal) {
+        errors.push({ line, text, msg: "merge: value must not be empty" });
+        continue;
+      }
+      pushLineRow(
+        {
+          kind: "branchMerge",
+          mergeTarget: mergeIdVal,
+          mergeBranchId: top.id,
+          depth: branchBodyDepth(),
+        },
+        line,
+      );
+      continue;
+    }
+    if (/^merge\s+/i.test(u)) {
+      errors.push({
         line,
         text,
+        msg: 'use merge: <id>; instead of merge <id>;',
       });
       continue;
     }
@@ -555,14 +619,17 @@ export function parseDSL(src) {
       const txt = m[2].trim();
       if (!roles[role]) roles[role] = { id: role };
       const stepId = blockRef || `step-${++autoIdCounter}`;
-      rows.push({
-        kind: "step",
-        role,
-        text: txt,
-        depth: branchBodyDepth(),
-        blockRef: blockRef || null,
-        stepId,
-      });
+      pushLineRow(
+        {
+          kind: "step",
+          role,
+          text: txt,
+          depth: branchBodyDepth(),
+          blockRef: blockRef || null,
+          stepId,
+        },
+        line,
+      );
       lastRealStepIndex = rows.length - 1;
       continue;
     }
@@ -579,18 +646,18 @@ export function parseDSL(src) {
     errors.push({ line, text, msg: "unrecognized line" });
   }
 
-  /** Resolve each `merge <id>;` to the step whose `id:` matches; error if none. */
+  /** Resolve each `merge: <id>;` to the step whose `id:` matches; error if none. */
   for (const r of rows) {
     if (r.kind !== "branchMerge") continue;
     if (!mergeIdsSeen.has(r.mergeTarget)) {
+      const mergeLine = r.dslLines?.[0];
+      const mergeText = sections.line.find((l) => l.line === mergeLine)?.text;
       errors.push({
-        line: r.line,
-        text: r.text,
+        line: mergeLine,
+        text: mergeText,
         msg: `merge: no step with id "${r.mergeTarget}"`,
       });
     }
-    delete r.line;
-    delete r.text;
   }
 
   const seen = new Set();

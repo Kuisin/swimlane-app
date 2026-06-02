@@ -145,7 +145,7 @@ label: Sales;
 | `if (cond) is (case) than` … `elseif (case) than` … `else` … `endif` | Exclusive branch — exactly one case runs. Renders decision/merge diamonds. |
 | `fork` … `and` … `endfork` | Parallel branch — all paths run concurrently. Renders split/join bars. |
 | `[loop]` | At the end of a case, route back to its own `if` decision (retry). |
-| `merge <label>;` | At the end of a case, route to the step tagged `label: <label>;` downstream instead of the `endif` merge. |
+| `merge: <id>;` | At the end of a case, route to the step tagged `id: <id>;` downstream instead of the `endif` merge. |
 
 See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide.
 
@@ -177,8 +177,8 @@ The flow DSL is **block-structured**: every control block (`if` … `endif`,
   + merge diamonds). `fork/and/endfork` runs every path concurrently (split +
   join bars). Use `fork` when steps in different lanes happen at the same time.
 - **Re-convergence.** A case normally rejoins the flow at its `endif`. `[loop]`
-  instead routes back to the same decision (retry); `merge <label>;` routes
-  forward to a labeled step, so cases can reconverge at different points (e.g. a
+  instead routes back to the same decision (retry); `merge: <id>;` routes
+  forward to a step with matching `id:`, so cases can reconverge at different points (e.g. a
   cancel path that skips straight to the end).
 - **Steps may freely change lanes within a single case** (e.g. `a → c → a → b`);
   connectors route between lanes automatically.
