@@ -62,7 +62,13 @@ export function StepInspectorPopupPage() {
 
   const document = documents.find((doc) => doc.id === documentId);
   const src = document?.src ?? "";
+  // The React Compiler cannot prove buildLockedGuiRowIndices leaves guiModel.rows
+  // unmutated, so it won't preserve these src-derived memos and skips optimizing
+  // this component. The memoization is correct (everything derives from `src`),
+  // so suppress the false positive rather than drop the memos.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const model = useMemo(() => parseDSL(src), [src]);
   const lockedRowIndices = useMemo(
     () => buildLockedGuiRowIndices(guiModel.rows, model.errors),

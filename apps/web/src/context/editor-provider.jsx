@@ -99,14 +99,17 @@ export function EditorProvider({ children }) {
   const model = useMemo(() => parseDSL(src), [src]);
   const activeParseErrorPolicy = activeDocument?.parseErrorPolicy ?? null;
 
-  useEffect(() => {
-    if (model.errors.length > 0) return;
+  // When parse errors clear, drop any stale per-document parse-error policy so a
+  // later error re-prompts. Done during render (React's "adjust state while
+  // rendering" pattern) instead of in an effect, and guarded so it only runs
+  // when something actually needs clearing — which also avoids a render loop.
+  if (model.errors.length === 0 && documents.some((doc) => doc.parseErrorPolicy)) {
     setDocuments((current) =>
       current.map((doc) =>
         doc.parseErrorPolicy ? { ...doc, parseErrorPolicy: null } : doc,
       ),
     );
-  }, [model.errors.length]);
+  }
 
   function setActiveDocumentParseErrorPolicy(policy) {
     if (!activeDocumentId) return;
