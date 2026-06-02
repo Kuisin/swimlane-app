@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { BookOpen, ChevronDown, Files, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, Files } from "lucide-react";
 import { THEMES } from "@kai-swimlane/core";
 
 const navLinkClass = ({ isActive }) =>
@@ -14,7 +14,6 @@ export function Toolbar({
   onThemeChange,
   onShowFileList,
   onShowHelp,
-  onShowOptions,
   guiActions = null,
 }) {
   return (
@@ -73,14 +72,6 @@ export function Toolbar({
             className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200 transition"
           >
             <Files size={14} /> ファイル
-          </button>
-
-          <button
-            type="button"
-            onClick={onShowOptions}
-            className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition"
-          >
-            <Settings size={14} /> オプション
           </button>
         </div>
       </div>

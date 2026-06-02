@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Settings } from "lucide-react";
 import { EditorActionBar } from "../editor/action-bar";
 import { EditorErrorList } from "../editor/error-list";
 import { ParseErrorPrompt } from "../editor/parse-error-prompt";
@@ -23,7 +24,6 @@ export function GuiModePanel({
   hasUnsavedChanges,
   onSave,
   onTitleChange,
-  onPageChange,
   selectedRowIndex,
   onSelectRow,
   onEditRows,
@@ -31,6 +31,7 @@ export function GuiModePanel({
   const {
     activeParseErrorPolicy,
     setActiveDocumentParseErrorPolicy,
+    setShowOptions,
   } = useEditor();
 
   const errors = model.errors;
@@ -71,85 +72,23 @@ export function GuiModePanel({
         <label className="block text-[10px] font-jp text-stone-500 mb-1">
           タイトル
         </label>
-        <input
-          type="text"
-          value={model.title}
-          onChange={(event) => onTitleChange(event.target.value)}
-          disabled={!guiEditingEnabled}
-          className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-        />
-      </div>
-      <div className="px-3 sm:px-4 py-3 border-b border-stone-700/60 shrink-0 space-y-3">
-        <p className="text-[10px] font-jp text-stone-500">ページ設定（/page/）</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="flex items-center gap-2">
           <input
             type="text"
-            value={model.page?.leftTitle || ""}
-            onChange={(event) => onPageChange({ leftTitle: event.target.value })}
-            placeholder="left-title (default: Procedure)"
+            value={model.title}
+            onChange={(event) => onTitleChange(event.target.value)}
             disabled={!guiEditingEnabled}
             className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
           />
-          <input
-            type="text"
-            value={model.page?.leftSubtitle || ""}
-            onChange={(event) => onPageChange({ leftSubtitle: event.target.value })}
-            placeholder="left-subtitle (default: Description)"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
-          <input
-            type="text"
-            value={model.page?.rightTitle || ""}
-            onChange={(event) => onPageChange({ rightTitle: event.target.value })}
-            placeholder="right-title (default: Remark)"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
-          <input
-            type="text"
-            value={model.page?.rightSubtitle || ""}
-            onChange={(event) => onPageChange({ rightSubtitle: event.target.value })}
-            placeholder="right-subtitle"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
-          <input
-            type="text"
-            value={model.page?.headerLeft || ""}
-            onChange={(event) => onPageChange({ headerLeft: event.target.value })}
-            placeholder="header-left"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
-          <input
-            type="text"
-            value={model.page?.headerCenter || ""}
-            onChange={(event) => onPageChange({ headerCenter: event.target.value })}
-            placeholder="header-center"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
-          <input
-            type="text"
-            value={model.page?.headerRight || ""}
-            onChange={(event) => onPageChange({ headerRight: event.target.value })}
-            placeholder="header-right"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
-          <input
-            type="text"
-            value={model.page?.description || ""}
-            onChange={(event) => onPageChange({ description: event.target.value })}
-            placeholder="description"
-            disabled={!guiEditingEnabled}
-            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-          />
+          <button
+            type="button"
+            onClick={() => setShowOptions(true)}
+            title="ページ設定・図オプション"
+            className="shrink-0 flex items-center gap-1 rounded-sm border border-stone-600 px-2 py-1.5 text-xs font-jp text-stone-200 hover:bg-stone-700"
+          >
+            <Settings size={14} /> 設定
+          </button>
         </div>
-        <p className="text-[10px] font-jp text-stone-500 pt-1">
-          図オプションはツールバーの「オプション」から編集します。
-        </p>
       </div>
       <FlowStepList
         rows={guiModel.rows}

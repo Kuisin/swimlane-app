@@ -41,12 +41,6 @@ export function GuiPage() {
     });
   }
 
-  function handlePageChange(nextPage) {
-    onEditRows((draft) => {
-      draft.page = { ...(draft.page || {}), ...nextPage };
-    });
-  }
-
   function handleSelectRow(index) {
     setSelectedRowIndex(index);
     if (isHydrated && index != null) {
@@ -94,7 +88,6 @@ export function GuiPage() {
         hasUnsavedChanges={hasUnsavedChanges}
         onSave={saveDocuments}
         onTitleChange={handleTitleChange}
-        onPageChange={handlePageChange}
         selectedRowIndex={selectedRowIndex}
         onSelectRow={handleSelectRow}
         onEditRows={onEditRows}

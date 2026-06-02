@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
 import { useEditor } from "../../hooks/use-editor";
 import { applyModelEdit } from "../../lib/gui-model";
@@ -35,6 +34,8 @@ export function EditorLayout({
     setShowHelp,
     showFileList,
     setShowFileList,
+    showOptions,
+    setShowOptions,
     addDocumentTab,
     closeDocumentTab,
     deleteDocumentFromStorage,
@@ -45,7 +46,6 @@ export function EditorLayout({
   } = useEditor();
   // Display options now live in the document's /option/ section only.
   const resolvedDiagramOptions = resolveDiagramOptions(diagramModel.options);
-  const [showOptions, setShowOptions] = useState(false);
   const applyOption = (editFn) =>
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
 
@@ -58,7 +58,6 @@ export function EditorLayout({
         onThemeChange={setThemeKey}
         onShowFileList={() => setShowFileList(true)}
         onShowHelp={() => setShowHelp(true)}
-        onShowOptions={() => setShowOptions(true)}
         guiActions={toolbarExtras}
       />
 
@@ -74,6 +73,9 @@ export function EditorLayout({
               showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
               mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
               showLeftGutter={resolvedDiagramOptions.showLeftGutter}
+              showRightGutter={resolvedDiagramOptions.showRightGutter}
+              showHeader={resolvedDiagramOptions.showHeader}
+              showFooter={resolvedDiagramOptions.showFooter}
               {...(diagramExtras || {})}
             />
           </div>

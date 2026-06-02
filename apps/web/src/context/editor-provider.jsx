@@ -37,6 +37,7 @@ export function EditorProvider({ children }) {
   const [showLeftGutter, setShowLeftGutter] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -318,6 +319,8 @@ export function EditorProvider({ children }) {
     setShowHelp,
     showFileList,
     setShowFileList,
+    showOptions,
+    setShowOptions,
     isHydrated,
     src,
     model,

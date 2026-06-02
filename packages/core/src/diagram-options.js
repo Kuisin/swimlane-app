@@ -1,6 +1,9 @@
 /** Default diagram render flags when not set in `/option/` or local editor prefs. */
 export const DEFAULT_DIAGRAM_OPTIONS = {
   showLeftGutter: true,
+  showRightGutter: true,
+  showHeader: true,
+  showFooter: true,
   showStepBlockCaptions: true,
   mergeAtPreviousBlock: true,
 };
@@ -8,6 +11,9 @@ export const DEFAULT_DIAGRAM_OPTIONS = {
 /** DSL kebab keys → model camelCase fields. */
 export const DIAGRAM_OPTION_DSL_MAP = {
   "show-left-gutter": "showLeftGutter",
+  "show-right-gutter": "showRightGutter",
+  "show-header": "showHeader",
+  "show-footer": "showFooter",
   "show-step-block-captions": "showStepBlockCaptions",
   "merge-at-previous-block": "mergeAtPreviousBlock",
 };

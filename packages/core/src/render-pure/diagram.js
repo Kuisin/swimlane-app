@@ -195,6 +195,9 @@ function renderDiagramSvg({
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
   showLeftGutter = true,
+  showRightGutter = true,
+  showHeader = true,
+  showFooter = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect
@@ -202,10 +205,10 @@ function renderDiagramSvg({
   const { title, page = {}, lanes, rows, blocks = {}, props = {} } = model;
   const pageDescription = (page.description || "").trim();
   const hasPageHeader = Boolean(
-    page.headerLeft?.trim() || page.headerCenter?.trim() || page.headerRight?.trim()
+    showHeader && (page.headerLeft?.trim() || page.headerCenter?.trim() || page.headerRight?.trim())
   );
   const hasPageFooter = Boolean(
-    page.footerLeft?.trim() || page.footerCenter?.trim() || page.footerRight?.trim()
+    showFooter && (page.footerLeft?.trim() || page.footerCenter?.trim() || page.footerRight?.trim())
   );
   const nodeW = 188;
   const xPad = 40;
@@ -213,8 +216,8 @@ function renderDiagramSvg({
   const hasRemarks = (rows || []).some(
     (r) => r.kind === "step" && (r.remark || "").trim()
   );
-  const showRightGutter = hasRemarks;
-  const rightGutter = showRightGutter ? 240 : 0;
+  const rightGutterVisible = showRightGutter && hasRemarks;
+  const rightGutter = rightGutterVisible ? 240 : 0;
   const headerH = 72;
   const rowH = 80;
   const docW = 65;
@@ -320,7 +323,7 @@ function renderDiagramSvg({
       rowIndex,
       heightWithProps
     ) : 0;
-    const remarkExtra = showRightGutter ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps) : 0;
+    const remarkExtra = rightGutterVisible ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps) : 0;
     return heightWithProps + Math.max(descExtra, remarkExtra);
   }
   function rowCenterY(rowIndex) {
@@ -1601,7 +1604,7 @@ function renderDiagramSvg({
         );
       })());
     })),
-    showRightGutter && /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
+    rightGutterVisible && /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
       "rect",
       {
         x: rightGutterX,

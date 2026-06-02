@@ -223,6 +223,9 @@ export function Diagram({
   showStepBlockCaptions = true,
   mergeAtPreviousBlock = true,
   showLeftGutter = true,
+  showRightGutter = true,
+  showHeader = true,
+  showFooter = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect,
@@ -230,14 +233,16 @@ export function Diagram({
   const { title, page = {}, lanes, rows, blocks = {}, props = {} } = model;
   const pageDescription = (page.description || "").trim();
   const hasPageHeader = Boolean(
-    page.headerLeft?.trim() ||
-      page.headerCenter?.trim() ||
-      page.headerRight?.trim(),
+    showHeader &&
+      (page.headerLeft?.trim() ||
+        page.headerCenter?.trim() ||
+        page.headerRight?.trim()),
   );
   const hasPageFooter = Boolean(
-    page.footerLeft?.trim() ||
-      page.footerCenter?.trim() ||
-      page.footerRight?.trim(),
+    showFooter &&
+      (page.footerLeft?.trim() ||
+        page.footerCenter?.trim() ||
+        page.footerRight?.trim()),
   );
   const nodeW = 188;
   const xPad = 40;
@@ -245,12 +250,12 @@ export function Diagram({
   // width when hidden, so the lanes reflow against the left padding.
   const leftGutter = showLeftGutter ? 300 : 0;
   // The right gutter shows each step's `remark` text under the right-title
-  // header. It is content-driven: only present when some step has a remark.
+  // header. Content-driven (only when some step has a remark) and toggleable.
   const hasRemarks = (rows || []).some(
     (r) => r.kind === "step" && (r.remark || "").trim(),
   );
-  const showRightGutter = hasRemarks;
-  const rightGutter = showRightGutter ? 240 : 0;
+  const rightGutterVisible = showRightGutter && hasRemarks;
+  const rightGutter = rightGutterVisible ? 240 : 0;
   const headerH = 72;
   const rowH = 80;
 
@@ -402,7 +407,7 @@ export function Diagram({
           heightWithProps,
         )
       : 0;
-    const remarkExtra = showRightGutter
+    const remarkExtra = rightGutterVisible
       ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps)
       : 0;
 
@@ -2053,7 +2058,7 @@ export function Diagram({
 
       {/* Right remark gutter: header (right-title / right-subtitle) + per-step
           remark text. Present only when some step carries a remark. */}
-      {showRightGutter && (
+      {rightGutterVisible && (
         <>
           <rect
             x={rightGutterX}

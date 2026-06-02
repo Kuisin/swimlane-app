@@ -104,6 +104,9 @@ right-subtitle: メモ;
 | キー | 意味 |
 |------|------|
 | `show-left-gutter` | 左カラム（段階番号・`label` / `desc`）を表示 |
+| `show-right-gutter` | 右カラム（各ステップの `remark`）を表示 |
+| `show-header` | ページヘッダーを表示 |
+| `show-footer` | ページフッターを表示 |
 | `show-step-block-captions` | ステップ本文と `<block>` 参照を出力に含める |
 | `merge-at-previous-block` | 分岐の合流位置を直前ブロックに合わせる |
 | `left-title` | 左カラム見出し（既定: `Procedure`） |
@@ -112,8 +115,10 @@ right-subtitle: メモ;
 | `right-subtitle` | 右カラム副見出し（既定: 空） |
 
 - **左カラム**（`show-left-gutter`）: 段階番号・`label`・`desc` を表示。見出しは `left-title` / `left-subtitle`。
-- **右カラム**: 各ステップの `remark` を表示。見出しは `right-title` / `right-subtitle`。いずれかのステップに `remark` があるときだけ表示されます。
+- **右カラム**（`show-right-gutter`）: 各ステップの `remark` を表示。見出しは `right-title` / `right-subtitle`。`show-right-gutter` が真で、かついずれかのステップに `remark` があるときだけ表示されます。
+- **ヘッダー・フッター**（`show-header` / `show-footer`）: `/page/` の `header-*` / `footer-*` を表示。各フラグが偽なら非表示。
 - **prop チップ**（`props:` で付ける `side: left` / `side: right` のドキュメント）は常に表示されます（表示／非表示オプションはありません）。
+- すべての表示フラグの既定は `true`。GUI ではタイトル欄右の「設定」から編集できます。
 
 互換のため、`left-title` など4項目は `/page/` に書いても読み込めます。同じキーが両方にある場合は `/option/` が優先されます。
 
