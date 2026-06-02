@@ -4,35 +4,64 @@ import {
   resolveDiagramOptions,
 } from "@kai-swimlane/core";
 
-// Each value input is gated by a show option (the checkbox in front of it).
-// Inputs sharing an option move together. `title` rows go to providedColumnTitles.
-const FIELD_ROWS = [
-  { opt: "showHeader", field: "headerLeft", label: "ヘッダー左", dslKey: "header-left" },
-  { opt: "showHeader", field: "headerCenter", label: "ヘッダー中央", dslKey: "header-center" },
-  { opt: "showHeader", field: "headerRight", label: "ヘッダー右", dslKey: "header-right" },
-  { opt: "showFooter", field: "footerLeft", label: "フッター左", dslKey: "footer-left" },
-  { opt: "showFooter", field: "footerCenter", label: "フッター中央", dslKey: "footer-center" },
-  { opt: "showFooter", field: "footerRight", label: "フッター右", dslKey: "footer-right" },
-  { opt: "showLeftGutter", field: "leftTitle", label: "左カラム見出し", dslKey: "left-title", title: true },
-  { opt: "showLeftGutter", field: "leftSubtitle", label: "左カラム副見出し", dslKey: "left-subtitle", title: true },
-  { opt: "showRightGutter", field: "rightTitle", label: "右カラム見出し", dslKey: "right-title", title: true },
-  { opt: "showRightGutter", field: "rightSubtitle", label: "右カラム副見出し", dslKey: "right-subtitle", title: true },
+// One checkbox (show option) per group; its value inputs appear when checked.
+// `title` groups write to providedColumnTitles so titles round-trip.
+const GROUPS = [
+  {
+    opt: "showHeader",
+    label: "ヘッダー",
+    dslKey: "show-header",
+    fields: [
+      ["headerLeft", "左", "header-left"],
+      ["headerCenter", "中央", "header-center"],
+      ["headerRight", "右", "header-right"],
+    ],
+  },
+  {
+    opt: "showFooter",
+    label: "フッター",
+    dslKey: "show-footer",
+    fields: [
+      ["footerLeft", "左", "footer-left"],
+      ["footerCenter", "中央", "footer-center"],
+      ["footerRight", "右", "footer-right"],
+    ],
+  },
+  {
+    opt: "showLeftGutter",
+    label: "左カラム（番号・ラベル・説明）",
+    dslKey: "show-left-gutter",
+    title: true,
+    fields: [
+      ["leftTitle", "見出し", "left-title"],
+      ["leftSubtitle", "副見出し", "left-subtitle"],
+    ],
+  },
+  {
+    opt: "showRightGutter",
+    label: "右カラム（備考 remark）",
+    dslKey: "show-right-gutter",
+    title: true,
+    fields: [
+      ["rightTitle", "見出し", "right-title"],
+      ["rightSubtitle", "副見出し", "right-subtitle"],
+    ],
+  },
 ];
 
-// Toggles that have no value input.
+// Toggles with no value input.
 const PLAIN_TOGGLES = [
   ["showStepBlockCaptions", "ステップ本文・ブロック参照を出力に含める", "show-step-block-captions"],
   ["mergeAtPreviousBlock", "クローズ位置を前ブロックに合わせる", "merge-at-previous-block"],
 ];
 
 const inputClass =
-  "mt-1 w-full rounded-sm border border-stone-300 bg-white px-2 py-1 text-stone-800";
+  "w-full rounded-sm border border-stone-300 bg-white px-2 py-1 text-stone-800";
 
 /**
- * Dedicated dialog for the document's /page/ and /option/ sections. Each value
- * input has a checkbox in front of it (its show option); the input appears only
- * when checked. Edits flow through `onApply` so the values are written into the
- * DSL itself.
+ * Dedicated dialog for the document's /page/ and /option/ sections. Each show
+ * option has a single checkbox; its value inputs appear when checked. Edits flow
+ * through `onApply` so the values are written into the DSL itself.
  */
 export function OptionsModal({ open, model, onApply, onClose }) {
   if (!open) return null;
@@ -90,14 +119,18 @@ export function OptionsModal({ open, model, onApply, onClose }) {
               type="text"
               value={page.description || ""}
               onChange={(event) => setPage("description", event.target.value)}
-              className={inputClass}
+              className={`mt-0.5 ${inputClass}`}
             />
           </label>
 
-          {FIELD_ROWS.map(({ opt, field, label, dslKey, title }) => {
+          {GROUPS.map(({ opt, label, dslKey, title, fields }) => {
             const checked = Boolean(options[opt]);
+            const apply = title ? setTitle : setPage;
             return (
-              <div key={field} className="text-xs font-jp text-stone-700">
+              <div
+                key={opt}
+                className="text-xs font-jp text-stone-700 border-t border-stone-200 pt-3"
+              >
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -109,19 +142,29 @@ export function OptionsModal({ open, model, onApply, onClose }) {
                   <span className="text-[10px] text-stone-400 font-mono">{dslKey}</span>
                 </label>
                 {checked && (
-                  <input
-                    type="text"
-                    value={
-                      title
-                        ? (page[field] ?? DEFAULT_COLUMN_TITLES[field] ?? "")
-                        : page[field] || ""
-                    }
-                    placeholder={title ? DEFAULT_COLUMN_TITLES[field] || "" : ""}
-                    onChange={(event) =>
-                      (title ? setTitle : setPage)(field, event.target.value)
-                    }
-                    className={`${inputClass} ml-6 w-[calc(100%-1.5rem)]`}
-                  />
+                  <div className="ml-6 mt-1.5 space-y-1.5">
+                    {fields.map(([field, fieldLabel, fieldKey]) => (
+                      <label
+                        key={field}
+                        className="flex items-center gap-2 text-[11px]"
+                      >
+                        <span className="w-12 shrink-0 text-stone-500">
+                          {fieldLabel}
+                        </span>
+                        <input
+                          type="text"
+                          value={
+                            title
+                              ? (page[field] ?? DEFAULT_COLUMN_TITLES[field] ?? "")
+                              : page[field] || ""
+                          }
+                          placeholder={title ? DEFAULT_COLUMN_TITLES[field] || "" : fieldKey}
+                          onChange={(event) => apply(field, event.target.value)}
+                          className={inputClass}
+                        />
+                      </label>
+                    ))}
+                  </div>
                 )}
               </div>
             );
