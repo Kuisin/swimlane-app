@@ -146,6 +146,11 @@ function renderDiagramSvg({
   const nodeW = 188;
   const xPad = 40;
   const leftGutter = showLeftGutter ? 300 : 0;
+  const hasRemarks = (rows || []).some(
+    (r) => r.kind === "step" && (r.remark || "").trim()
+  );
+  const showRightGutter = hasRemarks;
+  const rightGutter = showRightGutter ? 240 : 0;
   const headerH = 72;
   const rowH = 80;
   const docW = 65;
@@ -224,21 +229,19 @@ function renderDiagramSvg({
     });
     return acc;
   }
-  function stepDescriptionExtraHeight(row, rowIndex, heightWithProps) {
-    const desc = (row?.description || "").trim();
-    if (!desc) return 0;
-    const titleText = (row.name || row.text || "").trim();
-    const visualLines = wrapDescriptionToVisualLines(desc, 28);
+  function gutterTextExtraHeight(text, startOffset, rowIndex, heightWithProps) {
+    const t = (text || "").trim();
+    if (!t) return 0;
+    const visualLines = wrapDescriptionToVisualLines(t, 28);
     if (visualLines.length === 0) return 0;
-    const descStartOffset = titleText ? 40 : 20;
-    const extent = descStartOffset + visualLines.length * descriptionLineHeight + descriptionBottomPad;
-    let descExtra = Math.max(0, extent - heightWithProps);
-    if (descExtra <= 0) return 0;
+    const extent = startOffset + visualLines.length * descriptionLineHeight + descriptionBottomPad;
+    let extra = Math.max(0, extent - heightWithProps);
+    if (extra <= 0) return 0;
     const next = rows[rowIndex + 1];
     if (next?.kind === "branchStart") {
-      descExtra = Math.max(0, descExtra - diamondH);
+      extra = Math.max(0, extra - diamondH);
     }
-    return descExtra;
+    return extra;
   }
   function stepRowHeight(row, rowIndex) {
     if (!row || row.kind !== "step" || row.empty) return rowH;
@@ -246,8 +249,15 @@ function renderDiagramSvg({
     const maxPropsPerSide = Math.max(counts.left, counts.right);
     const propExtra = (maxPropsPerSide > 0 && propRowExtraHBase) + Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
     const heightWithProps = rowH + propExtra;
-    const descExtra = stepDescriptionExtraHeight(row, rowIndex, heightWithProps);
-    return heightWithProps + descExtra;
+    const titleText = (row.name || row.text || "").trim();
+    const descExtra = showLeftGutter ? gutterTextExtraHeight(
+      row.description,
+      titleText ? 40 : 20,
+      rowIndex,
+      heightWithProps
+    ) : 0;
+    const remarkExtra = showRightGutter ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps) : 0;
+    return heightWithProps + Math.max(descExtra, remarkExtra);
   }
   function rowCenterY(rowIndex) {
     const yRow = rowMeta[rowIndex]?.y ?? 0;
@@ -685,7 +695,8 @@ function renderDiagramSvg({
     laneOffsets[idx] = laneCursor;
     laneCursor += w;
   });
-  const width = laneCursor + xPad;
+  const rightGutterX = laneCursor;
+  const width = laneCursor + rightGutter + xPad;
   const baseBottomPadding = 50 + pageFooterPad;
   function stepRowBounds(rowIndex) {
     const row = rows[rowIndex];
@@ -1338,7 +1349,7 @@ function renderDiagramSvg({
     });
   }
   const swimlaneDividerX1 = xPad;
-  const swimlaneDividerX2 = lanes.length > 0 ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1) : 0;
+  const swimlaneDividerX2 = (lanes.length > 0 ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1) : 0) + rightGutter;
   return /* @__PURE__ */ h(
     "svg",
     {
@@ -1442,6 +1453,28 @@ function renderDiagramSvg({
         fill: "white",
         opacity: "0.9"
       }
+    ), page.leftTitle?.trim() && /* @__PURE__ */ h(
+      "text",
+      {
+        x: xPad + 12,
+        y: topPad + 30,
+        fill: theme.title,
+        fontFamily: "'Noto Sans JP',sans-serif",
+        fontSize: "13",
+        fontWeight: "700"
+      },
+      truncate(page.leftTitle.trim(), 22)
+    ), page.leftSubtitle?.trim() && /* @__PURE__ */ h(
+      "text",
+      {
+        x: xPad + 12,
+        y: topPad + 50,
+        fill: theme.laneText || theme.title,
+        opacity: "0.7",
+        fontFamily: "'Noto Sans JP',sans-serif",
+        fontSize: "11"
+      },
+      truncate(page.leftSubtitle.trim(), 26)
     ), /* @__PURE__ */ h(
       "line",
       {
@@ -1525,6 +1558,101 @@ function renderDiagramSvg({
           ))
         );
       })());
+    })),
+    showRightGutter && /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
+      "rect",
+      {
+        x: rightGutterX,
+        y: topPad,
+        width: rightGutter,
+        height: headerH,
+        fill: "white",
+        opacity: "0.9"
+      }
+    ), page.rightTitle?.trim() && /* @__PURE__ */ h(
+      "text",
+      {
+        x: rightGutterX + 12,
+        y: topPad + 30,
+        fill: theme.title,
+        fontFamily: "'Noto Sans JP',sans-serif",
+        fontSize: "13",
+        fontWeight: "700"
+      },
+      truncate(page.rightTitle.trim(), 24)
+    ), page.rightSubtitle?.trim() && /* @__PURE__ */ h(
+      "text",
+      {
+        x: rightGutterX + 12,
+        y: topPad + 50,
+        fill: theme.laneText || theme.title,
+        opacity: "0.7",
+        fontFamily: "'Noto Sans JP',sans-serif",
+        fontSize: "11"
+      },
+      truncate(page.rightSubtitle.trim(), 28)
+    ), /* @__PURE__ */ h(
+      "line",
+      {
+        x1: rightGutterX,
+        x2: rightGutterX + rightGutter,
+        y1: topPad + headerH,
+        y2: topPad + headerH,
+        stroke: theme.stroke,
+        strokeWidth: "1.2",
+        vectorEffect: "non-scaling-stroke"
+      }
+    ), /* @__PURE__ */ h(
+      "rect",
+      {
+        x: rightGutterX,
+        y: topPad,
+        width: rightGutter,
+        height: height - topPad - 20,
+        fill: "none",
+        stroke: theme.stroke,
+        strokeWidth: "1.2",
+        vectorEffect: "non-scaling-stroke"
+      }
+    ), rows.map((r, i) => {
+      if (r.kind !== "step" || r.empty || !r.role) return null;
+      const yRow = rowMeta[i]?.y;
+      if (yRow == null) return null;
+      const remark = (r.remark || "").trim();
+      if (!remark) return null;
+      const visualLines = wrapDescriptionToVisualLines(remark, 28);
+      const rx = rightGutterX + 12;
+      return /* @__PURE__ */ h(
+        "text",
+        {
+          key: `step-remark-${i}`,
+          x: rx,
+          y: yRow + 26,
+          fill: theme.laneText || theme.title,
+          opacity: "0.85",
+          fontFamily: "'Noto Sans JP',sans-serif",
+          fontSize: "10",
+          fontWeight: "400"
+        },
+        visualLines.map((runs, li) => /* @__PURE__ */ h(
+          "tspan",
+          {
+            key: li,
+            x: rx,
+            dy: li === 0 ? 0 : descriptionLineHeight
+          },
+          runs.map((run, ri) => /* @__PURE__ */ h(
+            "tspan",
+            {
+              key: ri,
+              fontWeight: run.bold ? "600" : "400",
+              fontStyle: run.italic ? "italic" : "normal",
+              textDecoration: run.strike ? "line-through" : "none"
+            },
+            run.text
+          ))
+        ))
+      );
     })),
     lanes.map((lane, i) => {
       const x = laneX(i);

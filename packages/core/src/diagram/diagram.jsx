@@ -162,6 +162,13 @@ export function Diagram({
   // The left gutter (step number / label / description column) collapses to zero
   // width when hidden, so the lanes reflow against the left padding.
   const leftGutter = showLeftGutter ? 300 : 0;
+  // The right gutter shows each step's `remark` text under the right-title
+  // header. It is content-driven: only present when some step has a remark.
+  const hasRemarks = (rows || []).some(
+    (r) => r.kind === "step" && (r.remark || "").trim(),
+  );
+  const showRightGutter = hasRemarks;
+  const rightGutter = showRightGutter ? 240 : 0;
   const headerH = 72;
   const rowH = 80;
 
@@ -268,29 +275,30 @@ export function Diagram({
   }
 
   /**
-   * Extra height so the left-gutter description fits; compare after props have extended the row.
-   * Overflow may use vertical space before the next layout row:
+   * Extra height so a wrapped gutter text block (left description or right
+   * remark) fits; compared after props have extended the row. Overflow may use
+   * vertical space before the next layout row:
    * - Next row is `branchStart` (if): subtract `diamondH`, same band the decision uses.
+   * `startOffset` is the y-offset of the first text line within the row (larger
+   * when a per-step title sits above the text, as the left description does).
    */
-  function stepDescriptionExtraHeight(row, rowIndex, heightWithProps) {
-    const desc = (row?.description || "").trim();
-    if (!desc) return 0;
-    const titleText = (row.name || row.text || "").trim();
-    const visualLines = wrapDescriptionToVisualLines(desc, 28);
+  function gutterTextExtraHeight(text, startOffset, rowIndex, heightWithProps) {
+    const t = (text || "").trim();
+    if (!t) return 0;
+    const visualLines = wrapDescriptionToVisualLines(t, 28);
     if (visualLines.length === 0) return 0;
-    const descStartOffset = titleText ? 40 : 20;
     const extent =
-      descStartOffset +
+      startOffset +
       visualLines.length * descriptionLineHeight +
       descriptionBottomPad;
-    let descExtra = Math.max(0, extent - heightWithProps);
-    if (descExtra <= 0) return 0;
+    let extra = Math.max(0, extent - heightWithProps);
+    if (extra <= 0) return 0;
 
     const next = rows[rowIndex + 1];
     if (next?.kind === "branchStart") {
-      descExtra = Math.max(0, descExtra - diamondH);
+      extra = Math.max(0, extra - diamondH);
     }
-    return descExtra;
+    return extra;
   }
 
   function stepRowHeight(row, rowIndex) {
@@ -302,9 +310,22 @@ export function Diagram({
       (maxPropsPerSide > 0 && propRowExtraHBase) +
       Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
     const heightWithProps = rowH + propExtra;
-    const descExtra = stepDescriptionExtraHeight(row, rowIndex, heightWithProps);
+    // Left description sits below the per-step title; the right remark starts at
+    // the row top. The row must fit whichever gutter text is taller.
+    const titleText = (row.name || row.text || "").trim();
+    const descExtra = showLeftGutter
+      ? gutterTextExtraHeight(
+          row.description,
+          titleText ? 40 : 20,
+          rowIndex,
+          heightWithProps,
+        )
+      : 0;
+    const remarkExtra = showRightGutter
+      ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps)
+      : 0;
 
-    return heightWithProps + descExtra;
+    return heightWithProps + Math.max(descExtra, remarkExtra);
   }
 
   function rowCenterY(rowIndex) {
@@ -866,7 +887,9 @@ export function Diagram({
     laneCursor += w;
   });
 
-  const width = laneCursor + xPad;
+  // The right remark gutter sits just past the last lane.
+  const rightGutterX = laneCursor;
+  const width = laneCursor + rightGutter + xPad;
   const baseBottomPadding = 50 + pageFooterPad;
 
   function stepRowBounds(rowIndex) {
@@ -1722,7 +1745,9 @@ export function Diagram({
   }
   const swimlaneDividerX1 = xPad;
   const swimlaneDividerX2 =
-    lanes.length > 0 ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1) : 0;
+    (lanes.length > 0
+      ? laneX(lanes.length - 1) + laneWidth(lanes.length - 1)
+      : 0) + rightGutter;
 
   return (
     <svg
@@ -1832,6 +1857,30 @@ export function Diagram({
         fill="white"
         opacity="0.9"
       />
+      {page.leftTitle?.trim() && (
+        <text
+          x={xPad + 12}
+          y={topPad + 30}
+          fill={theme.title}
+          fontFamily="'Noto Sans JP',sans-serif"
+          fontSize="13"
+          fontWeight="700"
+        >
+          {truncate(page.leftTitle.trim(), 22)}
+        </text>
+      )}
+      {page.leftSubtitle?.trim() && (
+        <text
+          x={xPad + 12}
+          y={topPad + 50}
+          fill={theme.laneText || theme.title}
+          opacity="0.7"
+          fontFamily="'Noto Sans JP',sans-serif"
+          fontSize="11"
+        >
+          {truncate(page.leftSubtitle.trim(), 26)}
+        </text>
+      )}
       <line
         x1={xPad}
         x2={xPad + leftGutter}
@@ -1919,6 +1968,104 @@ export function Diagram({
           </g>
         );
       })}
+        </>
+      )}
+
+      {/* Right remark gutter: header (right-title / right-subtitle) + per-step
+          remark text. Present only when some step carries a remark. */}
+      {showRightGutter && (
+        <>
+          <rect
+            x={rightGutterX}
+            y={topPad}
+            width={rightGutter}
+            height={headerH}
+            fill="white"
+            opacity="0.9"
+          />
+          {page.rightTitle?.trim() && (
+            <text
+              x={rightGutterX + 12}
+              y={topPad + 30}
+              fill={theme.title}
+              fontFamily="'Noto Sans JP',sans-serif"
+              fontSize="13"
+              fontWeight="700"
+            >
+              {truncate(page.rightTitle.trim(), 24)}
+            </text>
+          )}
+          {page.rightSubtitle?.trim() && (
+            <text
+              x={rightGutterX + 12}
+              y={topPad + 50}
+              fill={theme.laneText || theme.title}
+              opacity="0.7"
+              fontFamily="'Noto Sans JP',sans-serif"
+              fontSize="11"
+            >
+              {truncate(page.rightSubtitle.trim(), 28)}
+            </text>
+          )}
+          <line
+            x1={rightGutterX}
+            x2={rightGutterX + rightGutter}
+            y1={topPad + headerH}
+            y2={topPad + headerH}
+            stroke={theme.stroke}
+            strokeWidth="1.2"
+            vectorEffect="non-scaling-stroke"
+          />
+          <rect
+            x={rightGutterX}
+            y={topPad}
+            width={rightGutter}
+            height={height - topPad - 20}
+            fill="none"
+            stroke={theme.stroke}
+            strokeWidth="1.2"
+            vectorEffect="non-scaling-stroke"
+          />
+          {rows.map((r, i) => {
+            if (r.kind !== "step" || r.empty || !r.role) return null;
+            const yRow = rowMeta[i]?.y;
+            if (yRow == null) return null;
+            const remark = (r.remark || "").trim();
+            if (!remark) return null;
+            const visualLines = wrapDescriptionToVisualLines(remark, 28);
+            const rx = rightGutterX + 12;
+            return (
+              <text
+                key={`step-remark-${i}`}
+                x={rx}
+                y={yRow + 26}
+                fill={theme.laneText || theme.title}
+                opacity="0.85"
+                fontFamily="'Noto Sans JP',sans-serif"
+                fontSize="10"
+                fontWeight="400"
+              >
+                {visualLines.map((runs, li) => (
+                  <tspan
+                    key={li}
+                    x={rx}
+                    dy={li === 0 ? 0 : descriptionLineHeight}
+                  >
+                    {runs.map((run, ri) => (
+                      <tspan
+                        key={ri}
+                        fontWeight={run.bold ? "600" : "400"}
+                        fontStyle={run.italic ? "italic" : "normal"}
+                        textDecoration={run.strike ? "line-through" : "none"}
+                      >
+                        {run.text}
+                      </tspan>
+                    ))}
+                  </tspan>
+                ))}
+              </text>
+            );
+          })}
         </>
       )}
 

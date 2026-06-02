@@ -57,6 +57,10 @@ Sample text
 ```
 /page/
 description: タイトル下に表示する説明;
+left-title: 手続き;
+left-subtitle: 説明;
+right-title: 備考;
+right-subtitle: メモ;
 header-left: 左ヘッダー;
 header-center: 中央ヘッダー;
 header-right: 右ヘッダー;
@@ -66,6 +70,8 @@ footer-right: 右フッター;
 ```
 
 図全体のヘッダー・フッター（左・中央・右）と、タイトル直下の説明文を設定します。各行は `;` で終えます。複数行は `` ``` `` フェンスでも書けます。
+
+`left-title` / `left-subtitle` は左カラム（番号・ラベル・説明）の見出しになります。`right-title` / `right-subtitle` は右カラム（各ステップの `remark`）の見出しです。右カラムは、いずれかのステップに `remark` がある場合だけ表示されます。
 
 ```
 description: ```
@@ -152,6 +158,7 @@ icon: 🔥;
 - `id: 名前;` — ステップの一意 ID（`merge: <id>;` の合流先。ファイル全体で重複不可）
 - `label: 名前;` — 左カラム用の表示名（図上の見出し。`merge` の合流先には使えない）
 - `desc: 説明;` — 左カラム用の小さめ説明（複数行は `` ``` `` フェンス）
+- `remark: 備考;` — 右カラム（`right-title`）に表示する備考（複数行は `` ``` `` フェンス）。どのステップにも `remark` が無ければ右カラムは表示されません
 - `skip;` — 段階番号を付けない（見出し用）
 - `arrow: solid|dashed|dotted;` — **このステップの直後**に描く矢印の線種（既定は実線。`solid` は省略可）
 - `props: A,B,C;` — `/prop/` のドキュメントをステップ下部の左右に表示
