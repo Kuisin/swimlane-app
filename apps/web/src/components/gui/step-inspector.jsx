@@ -54,6 +54,17 @@ export function StepInspector({
         />
       </div>
       <div>
+        <label className="block text-[10px] text-stone-500 mb-1">
+          id（merge 合流先・ファイル内で一意）
+        </label>
+        <input
+          type="text"
+          value={row.mergeId || ""}
+          onChange={(e) => onPatch({ mergeId: e.target.value || undefined })}
+          className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
+        />
+      </div>
+      <div>
         <label className="block text-[10px] text-stone-500 mb-1">ラベル</label>
         <input
           type="text"

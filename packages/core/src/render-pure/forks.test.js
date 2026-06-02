@@ -9,9 +9,13 @@ function render(dsl) {
   return renderDiagramSvg({ model: parseDSL(dsl), theme, showStepBlockCaptions: false });
 }
 
-/** Fork/endfork gateways are purple circles (r=5, fill #7e22ce). */
+/** Fork/endfork gateways match endif styling: purple fill + stroke circles. */
 function forkGatewayCircles(svg) {
-  return [...svg.matchAll(/<circle[^>]*r="5"[^>]*fill="#7e22ce"/g)];
+  return [
+    ...svg.matchAll(
+      /<circle[^>]*r="14"[^>]*fill="#f3e8ff"[^>]*stroke="#7e22ce"/g,
+    ),
+  ];
 }
 
 describe("parallel fork/join", () => {

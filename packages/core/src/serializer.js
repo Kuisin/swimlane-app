@@ -145,6 +145,7 @@ function serializeStepLines(out, row, depth) {
   }
   const blockSuffix = row.blockRef ? ` <${row.blockRef}>` : "";
   out.push(indent(depth, `[${row.role}: ${row.text}]${blockSuffix}`));
+  if (row.mergeId) out.push(indent(depth, `id: ${row.mergeId};`));
   if (row.name) out.push(indent(depth, `label: ${row.name};`));
   if (row.description) {
     const descLines = emitMultilineProperty("desc", row.description);

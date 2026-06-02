@@ -113,15 +113,15 @@ export function BranchInspector({ row, rows, onPatch }) {
   }
 
   if (row.kind === "branchMerge") {
-    const labels = (rows || [])
-      .filter((r) => r.kind === "step" && !r.empty && r.role && (r.name || "").trim())
-      .map((r) => r.name.trim());
-    const valid = labels.includes((row.mergeTarget || "").trim());
+    const ids = (rows || [])
+      .filter((r) => r.kind === "step" && !r.empty && r.role && (r.mergeId || "").trim())
+      .map((r) => r.mergeId.trim());
+    const valid = ids.includes((row.mergeTarget || "").trim());
     return (
       <div className="px-3 py-3 space-y-2 text-xs font-jp">
         <div>
           <label className="block text-[10px] text-stone-500 mb-1">
-            合流先（ステップのラベル名）
+            合流先（ステップの id）
           </label>
           <input
             type="text"
@@ -131,14 +131,14 @@ export function BranchInspector({ row, rows, onPatch }) {
             className="w-full rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-stone-100"
           />
           <datalist id="merge-target-options">
-            {labels.map((label) => (
-              <option key={label} value={label} />
+            {ids.map((id) => (
+              <option key={id} value={id} />
             ))}
           </datalist>
         </div>
         {!valid && (
           <p className="text-[10px] text-amber-400">
-            一致する「ラベル名」のステップがありません。ステップに label を設定してください。
+            一致する id のステップがありません。合流先ステップに id: を設定してください。
           </p>
         )}
       </div>

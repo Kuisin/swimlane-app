@@ -17,9 +17,11 @@ export const BRANCH_COLOR_STYLES = {
   black: { stroke: "#111827", bg: "#e5e7eb" },
 };
 
-/** Fork (`fork`) and join (`endfork`) gateway markers in parallel branches. */
-const FORK_GATEWAY_RADIUS = 5;
-const FORK_GATEWAY_FILL = BRANCH_COLOR_STYLES.purple.stroke;
+/**
+ * Fork (`fork`) / `endfork` circles — same visual weight as the endif merge
+ * diamond (mH = 28), with branch fill + stroke like `if`/`endif`.
+ */
+const FORK_GATEWAY_RADIUS = 14;
 
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
   const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
@@ -225,6 +227,15 @@ export function Diagram({
     const custom = colorKey ? BRANCH_COLOR_STYLES[colorKey] : null;
     if (!custom) return { stroke: theme.branch, bg: theme.branchBg };
     return custom;
+  }
+
+  /** Vertical center of a branch decision / fork gateway in its layout row. */
+  function branchDecisionCy(f) {
+    return (
+      f.yDecision +
+      diamondH / 2 +
+      (f.parallel ? 0 : decisionYOffset)
+    );
   }
 
   function stepPropCounts(row) {
@@ -961,7 +972,7 @@ export function Diagram({
 
   function buildCaseFanOutEdgeD(f, c) {
     const dCx = frameAnchorX(f);
-    const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+    const dCy = branchDecisionCy(f);
     // Fork gateways are circles; fan-out/fan-in meet at bottom/top of the circle.
     const dH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 50;
     const mCy = f.yMerge + mergeH / 2;
@@ -997,7 +1008,7 @@ export function Diagram({
 
     if (targetsNestedDecision) {
       targetX = frameAnchorX(child);
-      targetY = child.yDecision + diamondH / 2 + decisionYOffset - 22;
+      targetY = branchDecisionCy(child) - 22;
       const li = laneIndexForX(targetX);
       if (li >= 0) caseLaneWidth = laneWidth(li);
     } else if (firstStepIdx != null) {
@@ -1072,14 +1083,20 @@ export function Diagram({
       );
     return { loopIdx, prevStepIdx: prevStepIdx ?? null };
   }
-  function findStepIndexByName(name) {
+  function findStepIndexByMergeId(mergeId) {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      if (r.kind === "step" && !r.empty && r.role && r.name === name) return i;
+      if (
+        r.kind === "step" &&
+        !r.empty &&
+        r.role &&
+        r.mergeId === mergeId
+      )
+        return i;
     }
     return -1;
   }
-  /** A `merge <label>;` in this case: its source step and resolved target step. */
+  /** A `merge <id>;` in this case: its source step and resolved target step. */
   function mergeAnchorInCase(rowIndices, branchId) {
     const mergeIdx = [...rowIndices]
       .reverse()
@@ -1099,12 +1116,12 @@ export function Diagram({
       )
         prevStepIdx = idx;
     }
-    const targetIdx = findStepIndexByName(rows[mergeIdx].mergeTarget);
+    const targetIdx = findStepIndexByMergeId(rows[mergeIdx].mergeTarget);
     if (targetIdx < 0) return null;
     return { mergeIdx, prevStepIdx, targetIdx };
   }
   /**
-   * Route a `merge` connector from a case's last step down to a labeled
+   * Route a `merge` connector from a case's last step down to the step `id:`
    * downstream step, along a side rail so it clears the endif merge diamond
    * and any blocks in between. Mirrors buildLoopBackPath but travels forward.
    */
@@ -1437,7 +1454,9 @@ export function Diagram({
         if (!frame) continue;
         return {
           x: frameAnchorX(frame),
-          targetY: frame.yDecision + diamondH / 2 + decisionYOffset - 25,
+          targetY:
+            branchDecisionCy(frame) -
+            (frame.parallel ? FORK_GATEWAY_RADIUS : 25),
         };
       }
     }
@@ -1866,10 +1885,13 @@ export function Diagram({
 
         const isParallel = f.parallel;
         const dCx = frameAnchorX(f);
-        const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+        const dCy = branchDecisionCy(f);
         const dW = isParallel ? 0 : Math.max(140, (f.cond.length + 4) * 9);
         const dH = 50;
         const decisionStyle = resolveBranchStyle(f.decisionColor);
+        const parallelGatewayStyle = resolveBranchStyle(
+          f.decisionColor || "purple",
+        );
 
         const mCx = mergeAnchorX(f);
         const mCy = f.yMerge + mergeH / 2;
@@ -1886,7 +1908,9 @@ export function Diagram({
                 cx={dCx}
                 cy={dCy}
                 r={FORK_GATEWAY_RADIUS}
-                fill={FORK_GATEWAY_FILL}
+                fill={parallelGatewayStyle.bg}
+                stroke={parallelGatewayStyle.stroke}
+                strokeWidth="1.6"
               />
             ) : (
               <>
@@ -2089,7 +2113,9 @@ export function Diagram({
                 cx={mCx}
                 cy={mCy}
                 r={FORK_GATEWAY_RADIUS}
-                fill={FORK_GATEWAY_FILL}
+                fill={parallelGatewayStyle.bg}
+                stroke={parallelGatewayStyle.stroke}
+                strokeWidth="1.6"
               />
             ) : (
               <path
@@ -2297,7 +2323,7 @@ export function Diagram({
       {frames.map((f) => {
         if (f.yMerge == null) return null;
 
-        const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+        const dCy = branchDecisionCy(f);
         const dH = 50;
 
         return f.cases.map((c, ci) => {
@@ -2399,13 +2425,9 @@ export function Diagram({
         );
 
         const dCx = frameAnchorX(f);
-        // Fork/join circles sit at the gateway center, so the outer flow meets them
-        // just above/below the circle instead of at a diamond's vertex.
-        const dTopY =
-          f.yDecision +
-          diamondH / 2 +
-          decisionYOffset -
-          (f.parallel ? FORK_GATEWAY_RADIUS : 25);
+        const dCy = branchDecisionCy(f);
+        // Outer flow meets the gateway at its top (fork circle or if diamond tip).
+        const dTopY = dCy - (f.parallel ? FORK_GATEWAY_RADIUS : 25);
         const mCx = mergeAnchorX(f);
         const mBotY =
           f.yMerge + mergeH / 2 + (f.parallel ? FORK_GATEWAY_RADIUS : 14);
@@ -2458,7 +2480,8 @@ export function Diagram({
           if (nextFrame && nextRowY != null) {
             const nextCx = frameAnchorX(nextFrame);
             const nextTopY =
-              nextRowY + diamondH / 2 + decisionYOffset - 25;
+              branchDecisionCy(nextFrame) -
+              (nextFrame.parallel ? FORK_GATEWAY_RADIUS : 25);
             const bend = (mBotY + nextTopY) / 2;
             const d =
               Math.abs(nextCx - mCx) < 0.5
@@ -2521,7 +2544,7 @@ export function Diagram({
             const f = frames.find((fr) => fr.id === r.id);
             if (!f) return null;
             const dCx = frameAnchorX(f);
-            const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+            const dCy = branchDecisionCy(f);
             if (f.parallel) {
               const pad = 12;
               const r0 = FORK_GATEWAY_RADIUS;
@@ -2561,7 +2584,7 @@ export function Diagram({
             const c = f?.cases.find((ca) => ca.startRow === i);
             if (!f || !c) return null;
             const labelW = ((c.label || "").length + 2) * 8.5;
-            const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+            const dCy = branchDecisionCy(f);
             const dH = 50;
             const startY = dCy + dH / 2;
             const bendY = startY + branchCaseBendYOffset;

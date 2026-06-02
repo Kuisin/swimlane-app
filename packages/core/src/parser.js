@@ -271,7 +271,7 @@ export function parseDSL(src) {
    *                                   an `if`/`fork` block; `parallel: true`
    *                                   marks the `fork`/`and`/`endfork` variant
    *   - branchLoop                    `[loop]` back-edge to the enclosing `if`
-   *   - branchMerge                   `merge <label>;` jump to a labeled step
+   *   - branchMerge                   `merge <id>;` jump to a step with matching `id:`
    * `stack` tracks open branch frames so nested blocks get the right depth and
    * so each closer (`endif`/`endfork`) matches the frame type it closes.
    */
@@ -293,6 +293,8 @@ export function parseDSL(src) {
   let branchCounter = 0;
   let lastRealStepIndex = -1;
   let autoIdCounter = 0;
+  /** @type {Map<string, { line: number, text: string }>} */
+  const mergeIdsSeen = new Map();
 
   for (let lineIdx = 0; lineIdx < sections.line.length; lineIdx++) {
     const { text, line } = sections.line[lineIdx];
@@ -415,6 +417,35 @@ export function parseDSL(src) {
       continue;
     }
 
+    if (/^id:\s*/i.test(u)) {
+      m = u.match(/^id:\s*(.+);\s*$/i);
+      if (!m) {
+        errors.push({ line, text, msg: "id: line must end with ';'" });
+        continue;
+      }
+      if (lastRealStepIndex < 0) {
+        errors.push({ line, text, msg: "id: has no preceding step" });
+        continue;
+      }
+      const idVal = m[1].trim();
+      if (!idVal) {
+        errors.push({ line, text, msg: "id: value must not be empty" });
+        continue;
+      }
+      const prevId = mergeIdsSeen.get(idVal);
+      if (prevId) {
+        errors.push({
+          line: prevId.line,
+          text: prevId.text,
+          msg: `duplicate step id "${idVal}"`,
+        });
+        errors.push({ line, text, msg: `duplicate step id "${idVal}"` });
+      } else {
+        mergeIdsSeen.set(idVal, { line, text });
+      }
+      rows[lastRealStepIndex].mergeId = idVal;
+      continue;
+    }
     if (/^label:\s*/i.test(u)) {
       m = u.match(/^label:\s*(.+);\s*$/i);
       if (!m) {
@@ -489,7 +520,7 @@ export function parseDSL(src) {
       continue;
     }
 
-    /** `merge <label>;` — route this case to a labeled downstream step instead of endif. */
+    /** `merge <id>;` — route this case to a downstream step with matching `id:`. */
     m = u.match(/^merge\s+(.+);\s*$/i);
     if (m) {
       const top = stack[stack.length - 1];
@@ -548,19 +579,14 @@ export function parseDSL(src) {
     errors.push({ line, text, msg: "unrecognized line" });
   }
 
-  /** Resolve each `merge <label>;` to the step whose `label:` matches; error if none. */
-  const stepNames = new Set(
-    rows
-      .filter((r) => r.kind === "step" && !r.empty && r.role && r.name)
-      .map((r) => r.name),
-  );
+  /** Resolve each `merge <id>;` to the step whose `id:` matches; error if none. */
   for (const r of rows) {
     if (r.kind !== "branchMerge") continue;
-    if (!stepNames.has(r.mergeTarget)) {
+    if (!mergeIdsSeen.has(r.mergeTarget)) {
       errors.push({
         line: r.line,
         text: r.text,
-        msg: `merge: no step with label "${r.mergeTarget}"`,
+        msg: `merge: no step with id "${r.mergeTarget}"`,
       });
     }
     delete r.line;

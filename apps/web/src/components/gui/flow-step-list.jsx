@@ -161,14 +161,13 @@ export function FlowStepList({
     const idx = selectedRowIndex + 1;
     const start = findEnclosingStart(rows, selectedRowIndex);
     const branchId = rows[start]?.id;
-    // Default the target to the first labeled step downstream of the if, so the
-    // row is valid out of the box; the user can change it in the inspector.
+    // Default the target to the first id'd step downstream of the if.
     const endIdx = findBranchEndIndex(rows, start);
     let target = "";
     for (let i = endIdx + 1; i < rows.length; i++) {
       const r = rows[i];
-      if (r.kind === "step" && !r.empty && r.role && (r.name || "").trim()) {
-        target = r.name.trim();
+      if (r.kind === "step" && !r.empty && r.role && (r.mergeId || "").trim()) {
+        target = r.mergeId.trim();
         break;
       }
     }

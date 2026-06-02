@@ -24,11 +24,12 @@ else
 [b: 通常処理]
 endif
 [a: 取引完了]
-label: done;
+id: done;
+label: 完了;
 @end`;
 
 describe("mid-flow merge", () => {
-  it("parses merge into a branchMerge row pointing at the labeled step", () => {
+  it("parses merge into a branchMerge row pointing at the step id", () => {
     const model = parseDSL(MERGE);
     expect(model.errors).toEqual([]);
     const merge = model.rows.find((r) => r.kind === "branchMerge");
@@ -42,7 +43,7 @@ describe("mid-flow merge", () => {
     expect((svg.match(/strokeDasharray=/g) || []).length).toBe(1);
   });
 
-  it("errors when the merge target label does not exist", () => {
+  it("errors when the merge target id does not exist", () => {
     const model = parseDSL(`@kai-swimlane
 /role/
 <a>
@@ -54,8 +55,22 @@ merge nowhere;
 endif
 @end`);
     expect(model.errors.map((e) => e.msg)).toContain(
-      'merge: no step with label "nowhere"',
+      'merge: no step with id "nowhere"',
     );
+  });
+
+  it("errors when step id is duplicated in the file", () => {
+    const model = parseDSL(`@kai-swimlane
+/role/
+<a>
+label: A;
+/line/
+[a: one]
+id: dup;
+[a: two]
+id: dup;
+@end`);
+    expect(model.errors.filter((e) => e.msg.includes('duplicate step id "dup"')).length).toBe(2);
   });
 
   it("errors when merge is used outside an if", () => {
@@ -65,7 +80,7 @@ endif
 label: A;
 /line/
 [a: step]
-label: home;
+id: home;
 merge home;
 @end`);
     expect(model.errors.map((e) => e.msg)).toContain("merge outside if");

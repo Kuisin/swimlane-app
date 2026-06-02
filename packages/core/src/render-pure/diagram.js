@@ -19,8 +19,7 @@ const BRANCH_COLOR_STYLES = {
   gray: { stroke: "#374151", bg: "#f3f4f6" },
   black: { stroke: "#111827", bg: "#e5e7eb" }
 };
-const FORK_GATEWAY_RADIUS = 5;
-const FORK_GATEWAY_FILL = BRANCH_COLOR_STYLES.purple.stroke;
+const FORK_GATEWAY_RADIUS = 14;
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
   const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
   return /* @__PURE__ */ h(Fragment, null, left?.trim() && /* @__PURE__ */ h(
@@ -197,6 +196,9 @@ function renderDiagramSvg({
     const custom = colorKey ? BRANCH_COLOR_STYLES[colorKey] : null;
     if (!custom) return { stroke: theme.branch, bg: theme.branchBg };
     return custom;
+  }
+  function branchDecisionCy(f) {
+    return f.yDecision + diamondH / 2 + (f.parallel ? 0 : decisionYOffset);
   }
   function stepPropCounts(row) {
     const acc = { left: 0, right: 0 };
@@ -766,7 +768,7 @@ function renderDiagramSvg({
   });
   function buildCaseFanOutEdgeD(f, c) {
     const dCx = frameAnchorX(f);
-    const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+    const dCy = branchDecisionCy(f);
     const dH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 50;
     const mCy = f.yMerge + mergeH / 2;
     const mH = f.parallel ? FORK_GATEWAY_RADIUS * 2 : 28;
@@ -784,7 +786,7 @@ function renderDiagramSvg({
     let showArrow = false;
     if (targetsNestedDecision) {
       targetX = frameAnchorX(child);
-      targetY = child.yDecision + diamondH / 2 + decisionYOffset - 22;
+      targetY = branchDecisionCy(child) - 22;
       const li = laneIndexForX(targetX);
       if (li >= 0) caseLaneWidth = laneWidth(li);
     } else if (firstStepIdx != null) {
@@ -839,10 +841,11 @@ function renderDiagramSvg({
     );
     return { loopIdx, prevStepIdx: prevStepIdx ?? null };
   }
-  function findStepIndexByName(name) {
+  function findStepIndexByMergeId(mergeId) {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      if (r.kind === "step" && !r.empty && r.role && r.name === name) return i;
+      if (r.kind === "step" && !r.empty && r.role && r.mergeId === mergeId)
+        return i;
     }
     return -1;
   }
@@ -856,7 +859,7 @@ function renderDiagramSvg({
       if (idx < mergeIdx && rows[idx]?.kind === "step" && !rows[idx].empty && rows[idx].role)
         prevStepIdx = idx;
     }
-    const targetIdx = findStepIndexByName(rows[mergeIdx].mergeTarget);
+    const targetIdx = findStepIndexByMergeId(rows[mergeIdx].mergeTarget);
     if (targetIdx < 0) return null;
     return { mergeIdx, prevStepIdx, targetIdx };
   }
@@ -1115,7 +1118,7 @@ function renderDiagramSvg({
         if (!frame) continue;
         return {
           x: frameAnchorX(frame),
-          targetY: frame.yDecision + diamondH / 2 + decisionYOffset - 25
+          targetY: branchDecisionCy(frame) - (frame.parallel ? FORK_GATEWAY_RADIUS : 25)
         };
       }
     }
@@ -1519,10 +1522,13 @@ function renderDiagramSvg({
       if (f.yMerge == null) return null;
       const isParallel = f.parallel;
       const dCx = frameAnchorX(f);
-      const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+      const dCy = branchDecisionCy(f);
       const dW = isParallel ? 0 : Math.max(140, (f.cond.length + 4) * 9);
       const dH = 50;
       const decisionStyle = resolveBranchStyle(f.decisionColor);
+      const parallelGatewayStyle = resolveBranchStyle(
+        f.decisionColor || "purple"
+      );
       const mCx = mergeAnchorX(f);
       const mCy = f.yMerge + mergeH / 2;
       const mW = 40;
@@ -1534,7 +1540,9 @@ function renderDiagramSvg({
           cx: dCx,
           cy: dCy,
           r: FORK_GATEWAY_RADIUS,
-          fill: FORK_GATEWAY_FILL
+          fill: parallelGatewayStyle.bg,
+          stroke: parallelGatewayStyle.stroke,
+          strokeWidth: "1.6"
         }
       ) : /* @__PURE__ */ h(Fragment, null, /* @__PURE__ */ h(
         "path",
@@ -1709,7 +1717,9 @@ function renderDiagramSvg({
           cx: mCx,
           cy: mCy,
           r: FORK_GATEWAY_RADIUS,
-          fill: FORK_GATEWAY_FILL
+          fill: parallelGatewayStyle.bg,
+          stroke: parallelGatewayStyle.stroke,
+          strokeWidth: "1.6"
         }
       ) : /* @__PURE__ */ h(
         "path",
@@ -1896,7 +1906,7 @@ function renderDiagramSvg({
     }),
     frames.map((f) => {
       if (f.yMerge == null) return null;
-      const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+      const dCy = branchDecisionCy(f);
       const dH = 50;
       return f.cases.map((c, ci) => {
         if (!(c.label || "").trim()) return null;
@@ -1983,7 +1993,8 @@ function renderDiagramSvg({
         endIdx
       );
       const dCx = frameAnchorX(f);
-      const dTopY = f.yDecision + diamondH / 2 + decisionYOffset - (f.parallel ? FORK_GATEWAY_RADIUS : 25);
+      const dCy = branchDecisionCy(f);
+      const dTopY = dCy - (f.parallel ? FORK_GATEWAY_RADIUS : 25);
       const mCx = mergeAnchorX(f);
       const mBotY = f.yMerge + mergeH / 2 + (f.parallel ? FORK_GATEWAY_RADIUS : 14);
       const edges = [];
@@ -2033,7 +2044,7 @@ function renderDiagramSvg({
         const nextRowY = rowMeta[nextBranchStartIdx]?.y;
         if (nextFrame && nextRowY != null) {
           const nextCx = frameAnchorX(nextFrame);
-          const nextTopY = nextRowY + diamondH / 2 + decisionYOffset - 25;
+          const nextTopY = branchDecisionCy(nextFrame) - (nextFrame.parallel ? FORK_GATEWAY_RADIUS : 25);
           const bend = (mBotY + nextTopY) / 2;
           const d = Math.abs(nextCx - mCx) < 0.5 ? `M ${mCx} ${mBotY} L ${nextCx} ${nextTopY}` : `M ${mCx} ${mBotY} L ${mCx} ${bend} L ${nextCx} ${bend} L ${nextCx} ${nextTopY}`;
           edges.push(
@@ -2091,7 +2102,7 @@ function renderDiagramSvg({
         const f = frames.find((fr) => fr.id === r.id);
         if (!f) return null;
         const dCx = frameAnchorX(f);
-        const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+        const dCy = branchDecisionCy(f);
         if (f.parallel) {
           const pad = 12;
           const r0 = FORK_GATEWAY_RADIUS;
@@ -2132,7 +2143,7 @@ function renderDiagramSvg({
         const c = f?.cases.find((ca) => ca.startRow === i);
         if (!f || !c) return null;
         const labelW = ((c.label || "").length + 2) * 8.5;
-        const dCy = f.yDecision + diamondH / 2 + decisionYOffset;
+        const dCy = branchDecisionCy(f);
         const dH = 50;
         const startY = dCy + dH / 2;
         const bendY = startY + branchCaseBendYOffset;

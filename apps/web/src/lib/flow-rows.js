@@ -731,7 +731,7 @@ export function rowSummaryText(row, lanes) {
     case "branchLoop":
       return "分岐内の繰り返し";
     case "branchMerge":
-      return `合流先：${(row.mergeTarget || "").trim() || "（未設定）"}`;
+      return `合流先 id：${(row.mergeTarget || "").trim() || "（未設定）"}`;
     default:
       return "";
   }

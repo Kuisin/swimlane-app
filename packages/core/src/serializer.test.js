@@ -30,6 +30,7 @@ function normalizeModel(model) {
       delete copy.loopBranchId;
       delete copy.mergeBranchId;
       delete copy.stepId;
+      delete copy.mergeId;
       return copy;
     }),
     errors: model.errors,
@@ -133,6 +134,7 @@ describe("serializeDSL round-trip", () => {
       "endif",
       "",
       "[a: finish]",
+      "id: done;",
       "label: done;",
       "",
       "@end",
