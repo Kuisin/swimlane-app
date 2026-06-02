@@ -6,16 +6,13 @@ import { resolveDiagramOptions } from "@kai-swimlane/core";
 export function EditorPage() {
   const {
     theme,
-    showStepBlockCaptions,
     src,
     model,
     hasUnsavedChanges,
     updateActiveDocumentSrc,
     saveDocuments,
   } = useEditor();
-  const resolvedDiagramOptions = resolveDiagramOptions(model.options, {
-    showStepBlockCaptions,
-  });
+  const resolvedDiagramOptions = resolveDiagramOptions(model.options);
 
   return (
     <EditorLayout diagramModel={model}>

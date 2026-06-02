@@ -24,8 +24,6 @@ export function GuiModePanel({
   onSave,
   onTitleChange,
   onPageChange,
-  onDiagramOptionChange,
-  resolvedDiagramOptions,
   selectedRowIndex,
   onSelectRow,
   onEditRows,
@@ -149,25 +147,9 @@ export function GuiModePanel({
             className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
           />
         </div>
-        <p className="text-[10px] font-jp text-stone-500 pt-1">図オプション（/option/）</p>
-        <div className="space-y-1">
-          {[
-            ["showLeftGutter", "左カラム（番号・補足）を表示"],
-            ["showStepBlockCaptions", "ステップ本文・ブロック参照を出力に含める"],
-            ["mergeAtPreviousBlock", "クローズ位置を前ブロックに合わせる"],
-          ].map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 text-xs font-jp text-stone-300">
-              <input
-                type="checkbox"
-                className="rounded border-stone-500"
-                checked={Boolean(resolvedDiagramOptions?.[key])}
-                disabled={!guiEditingEnabled}
-                onChange={(event) => onDiagramOptionChange(key, event.target.checked)}
-              />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
+        <p className="text-[10px] font-jp text-stone-500 pt-1">
+          図オプションはツールバーの「オプション」から編集します。
+        </p>
       </div>
       <FlowStepList
         rows={guiModel.rows}

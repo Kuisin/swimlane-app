@@ -14,12 +14,7 @@ export function Toolbar({
   onThemeChange,
   onShowFileList,
   onShowHelp,
-  showStepBlockCaptions,
-  onShowStepBlockCaptionsChange,
-  mergeAtPreviousBlock,
-  onMergeAtPreviousBlockChange,
-  showLeftGutter,
-  onShowLeftGutterChange,
+  onShowOptions,
   guiActions = null,
 }) {
   return (
@@ -80,61 +75,13 @@ export function Toolbar({
             <Files size={14} /> ファイル
           </button>
 
-          <details className="relative">
-            <summary className="list-none cursor-pointer flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition">
-              <Settings size={14} /> 設定 <ChevronDown size={13} />
-            </summary>
-            <div className="absolute right-0 mt-1 min-w-56 rounded-sm border border-stone-300 bg-stone-50 shadow-lg overflow-hidden z-50 p-2">
-              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 rounded border-stone-400"
-                  checked={showStepBlockCaptions}
-                  onChange={(event) =>
-                    onShowStepBlockCaptionsChange(event.target.checked)
-                  }
-                />
-                <span>
-                  出力にステップの本文とブロック参照を含める
-                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
-                    Include in SVG/PNG export (preview always shows)
-                  </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 rounded border-stone-400"
-                  checked={mergeAtPreviousBlock}
-                  onChange={(event) =>
-                    onMergeAtPreviousBlockChange(event.target.checked)
-                  }
-                />
-                <span>
-                  クローズ位置を前ブロックに合わせる
-                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
-                    Close diamond follows previous block (off = if-start)
-                  </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 px-2 py-1.5 text-xs font-jp text-stone-700 cursor-pointer rounded-sm hover:bg-stone-200/80">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 rounded border-stone-400"
-                  checked={showLeftGutter}
-                  onChange={(event) =>
-                    onShowLeftGutterChange(event.target.checked)
-                  }
-                />
-                <span>
-                  左カラム（番号・補足）を表示
-                  <span className="block text-[10px] text-stone-500 font-mono mt-0.5">
-                    Left gutter with step notes
-                  </span>
-                </span>
-              </label>
-            </div>
-          </details>
+          <button
+            type="button"
+            onClick={onShowOptions}
+            className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm text-stone-700 hover:bg-stone-200 transition"
+          >
+            <Settings size={14} /> オプション
+          </button>
         </div>
       </div>
     </header>

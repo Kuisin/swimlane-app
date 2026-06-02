@@ -14,7 +14,6 @@ export function GuiPage() {
   const {
     activeDocumentId,
     theme,
-    showStepBlockCaptions,
     src,
     model,
     hasUnsavedChanges,
@@ -28,11 +27,8 @@ export function GuiPage() {
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
   const resolvedDiagramOptions = useMemo(
-    () =>
-      resolveDiagramOptions(guiModel.options, {
-        showStepBlockCaptions,
-      }),
-    [guiModel.options, showStepBlockCaptions],
+    () => resolveDiagramOptions(guiModel.options),
+    [guiModel.options],
   );
 
   function onEditRows(editFn) {
@@ -48,12 +44,6 @@ export function GuiPage() {
   function handlePageChange(nextPage) {
     onEditRows((draft) => {
       draft.page = { ...(draft.page || {}), ...nextPage };
-    });
-  }
-
-  function handleDiagramOptionChange(key, value) {
-    onEditRows((draft) => {
-      draft.options = { ...(draft.options || {}), [key]: value };
     });
   }
 
@@ -100,13 +90,11 @@ export function GuiPage() {
         model={model}
         guiModel={guiModel}
         themeBg={theme.bg}
-        showStepBlockCaptions={showStepBlockCaptions}
+        showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
         hasUnsavedChanges={hasUnsavedChanges}
         onSave={saveDocuments}
         onTitleChange={handleTitleChange}
         onPageChange={handlePageChange}
-        onDiagramOptionChange={handleDiagramOptionChange}
-        resolvedDiagramOptions={resolvedDiagramOptions}
         selectedRowIndex={selectedRowIndex}
         onSelectRow={handleSelectRow}
         onEditRows={onEditRows}

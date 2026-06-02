@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
 import { useEditor } from "../../hooks/use-editor";
+import { applyModelEdit } from "../../lib/gui-model";
 import { Toolbar } from "./shell/toolbar";
 import { HelpModal } from "./shell/help-modal";
 import { FileListModal } from "./shell/file-list-modal";
+import { OptionsModal } from "./shell/options-modal";
 import { DocumentTabs } from "./document-tabs";
 
 const FONT_STYLE = `
@@ -26,12 +29,8 @@ export function EditorLayout({
     themeKey,
     setThemeKey,
     theme,
-    showStepBlockCaptions,
-    setShowStepBlockCaptions,
-    mergeAtPreviousBlock,
-    setMergeAtPreviousBlock,
-    showLeftGutter,
-    setShowLeftGutter,
+    src,
+    updateActiveDocumentSrc,
     showHelp,
     setShowHelp,
     showFileList,
@@ -44,11 +43,11 @@ export function EditorLayout({
     helpMd,
     templateMd,
   } = useEditor();
-  const resolvedDiagramOptions = resolveDiagramOptions(diagramModel.options, {
-    showStepBlockCaptions,
-    mergeAtPreviousBlock,
-    showLeftGutter,
-  });
+  // Display options now live in the document's /option/ section only.
+  const resolvedDiagramOptions = resolveDiagramOptions(diagramModel.options);
+  const [showOptions, setShowOptions] = useState(false);
+  const applyOption = (editFn) =>
+    updateActiveDocumentSrc(applyModelEdit(src, editFn));
 
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 lg:flex lg:flex-col">
@@ -59,12 +58,7 @@ export function EditorLayout({
         onThemeChange={setThemeKey}
         onShowFileList={() => setShowFileList(true)}
         onShowHelp={() => setShowHelp(true)}
-        showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
-        onShowStepBlockCaptionsChange={setShowStepBlockCaptions}
-        mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
-        onMergeAtPreviousBlockChange={setMergeAtPreviousBlock}
-        showLeftGutter={resolvedDiagramOptions.showLeftGutter}
-        onShowLeftGutterChange={setShowLeftGutter}
+        onShowOptions={() => setShowOptions(true)}
         guiActions={toolbarExtras}
       />
 
@@ -102,6 +96,12 @@ export function EditorLayout({
         </div>
       </div>
 
+      <OptionsModal
+        open={showOptions}
+        model={diagramModel}
+        onApply={applyOption}
+        onClose={() => setShowOptions(false)}
+      />
       {showHelp && (
         <HelpModal
           helpMd={helpMd}
