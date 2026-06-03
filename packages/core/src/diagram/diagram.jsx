@@ -2696,9 +2696,9 @@ export function Diagram({
             />
             <text
               x={boxX + 8}
-              y={yTop + 11}
+              y={yTop + 20}
               fontFamily="'JetBrains Mono',monospace"
-              fontSize="9"
+              fontSize="12"
               fill={style.stroke}
               opacity="0.9"
             >
