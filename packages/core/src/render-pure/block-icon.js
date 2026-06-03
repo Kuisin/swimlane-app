@@ -71,6 +71,7 @@ export function renderBlockIcon({ icon, x, y, size, color, shape }) {
     x: iconX,
     y: iconY,
     textAnchor: "middle",
+    dominantBaseline: "central",
     fontSize,
     fill: color,
     fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",

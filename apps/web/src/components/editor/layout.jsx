@@ -93,6 +93,7 @@ export function EditorLayout({
                 showHeader={resolvedDiagramOptions.showHeader}
                 showFooter={resolvedDiagramOptions.showFooter}
                 showDescription={resolvedDiagramOptions.showDescription}
+                branchColorArrows={resolvedDiagramOptions.branchColorArrows}
                 {...(diagramExtras || {})}
               />
             )}

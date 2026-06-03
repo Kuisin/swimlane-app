@@ -59,6 +59,7 @@ const GROUPS = [
 const PLAIN_TOGGLES = [
   ["showStepBlockCaptions", "ステップ本文・ブロック参照を出力に含める", "show-step-block-captions"],
   ["mergeAtPreviousBlock", "クローズ位置を前ブロックに合わせる", "merge-at-previous-block"],
+  ["branchColorArrows", "分岐矢印にケースカラーを適用", "branch-color-arrows"],
 ];
 
 const inputClass =
@@ -121,7 +122,7 @@ export function OptionsModal({ open, model, onApply, onClose }) {
             return (
               <div
                 key={opt}
-                className="text-xs font-jp text-stone-700 border-t border-stone-200 pt-3"
+                className="text-xs font-jp text-stone-700 border-t border-stone-200 pt-3 first:border-t-0 first:pt-0"
               >
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input

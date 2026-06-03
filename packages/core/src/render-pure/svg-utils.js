@@ -36,6 +36,7 @@ export function styleObjectToString(style) {
 // are kept as-is because they are camelCase in the SVG spec itself.
 const SVG_ATTR_MAP = {
   className: "class",
+  dominantBaseline: "dominant-baseline",
   fillOpacity: "fill-opacity",
   fillRule: "fill-rule",
   fontFamily: "font-family",

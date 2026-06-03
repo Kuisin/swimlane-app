@@ -199,6 +199,7 @@ function renderDiagramSvg({
   showHeader = true,
   showFooter = true,
   showDescription = true,
+  branchColorArrows = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect
@@ -1241,7 +1242,8 @@ function renderDiagramSvg({
       y2,
       key,
       lineType: stepOutgoingArrowLine(prev.r),
-      bendY
+      bendY,
+      caseColor: curCase ? (curCase.frame.cases[curCase.caseIdx]?.color ?? null) : null,
     });
   }
   const mainFlowSteps = stepRows.filter((x) => !isInsideBranchGroup(rows, x.i));
@@ -1467,7 +1469,20 @@ function renderDiagramSvg({
         orient: "auto-start-reverse"
       },
       /* @__PURE__ */ h("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: theme.stroke })
-    ), /* @__PURE__ */ h(
+    ), branchColorArrows && Object.entries(BRANCH_COLOR_STYLES).map(([key, style]) => /* @__PURE__ */ h(
+      "marker",
+      {
+        key,
+        id: `arrowhead-${key}`,
+        viewBox: "0 0 10 10",
+        refX: "9",
+        refY: "5",
+        markerWidth: "7",
+        markerHeight: "7",
+        orient: "auto-start-reverse"
+      },
+      /* @__PURE__ */ h("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: style.stroke })
+    )), /* @__PURE__ */ h(
       "pattern",
       {
         id: "gridp",
@@ -1867,20 +1882,24 @@ function renderDiagramSvg({
         const edgeD = buildCaseFanOutEdgeD(f, c);
         const firstStepIdx = firstMainFlowStepIdx(c) ?? firstStepIdxInCase(c);
         const showArrow = firstStepIdx != null && caseStepLineTarget(firstStepIdx, c)?.showArrow;
+        const cStroke = branchColorArrows && c.color ? resolveBranchStyle(c.color).stroke : theme.stroke;
+        const cMarker = branchColorArrows && c.color ? `url(#arrowhead-${c.color})` : "url(#arrowhead)";
         return /* @__PURE__ */ h("g", { key: `case-${f.id}-${ci}` }, /* @__PURE__ */ h(
           "path",
           {
             d: edgeD,
             fill: "none",
-            stroke: theme.stroke,
+            stroke: cStroke,
             strokeWidth: "1.6",
-            markerEnd: showArrow ? "url(#arrowhead)" : void 0
+            markerEnd: showArrow ? cMarker : void 0
           }
         ));
       }), f.cases.map((c, ci) => {
         const stubCase = isStubCase(c, f.id);
         const startY = dCy + dH / 2;
         const caseRailY = startY + branchCaseBendYOffset;
+        const cStroke = branchColorArrows && c.color ? resolveBranchStyle(c.color).stroke : theme.stroke;
+        const cMarker = branchColorArrows && c.color ? `url(#arrowhead-${c.color})` : "url(#arrowhead)";
         const mergeJump = mergeAnchorInCase(c.rowIndices, f.id);
         if (mergeJump) {
           let fromX2;
@@ -1907,9 +1926,9 @@ function renderDiagramSvg({
               key: `merge-${f.id}-${ci}`,
               d: d2,
               fill: "none",
-              stroke: theme.stroke,
+              stroke: cStroke,
               strokeWidth: "1.6",
-              markerEnd: "url(#arrowhead)",
+              markerEnd: cMarker,
               ...arrowLineStrokeProps(mergeLineType)
             }
           );
@@ -1947,9 +1966,9 @@ function renderDiagramSvg({
               key: `loop-${f.id}-${ci}`,
               d: d2,
               fill: "none",
-              stroke: theme.stroke,
+              stroke: cStroke,
               strokeWidth: "1.6",
-              markerEnd: "url(#arrowhead)",
+              markerEnd: cMarker,
               ...arrowLineStrokeProps(loopLineType)
             }
           );
@@ -1988,7 +2007,7 @@ function renderDiagramSvg({
             key: `mrg-${f.id}-${ci}`,
             d,
             fill: "none",
-            stroke: theme.stroke,
+            stroke: cStroke,
             strokeWidth: "1.6",
             ...arrowLineStrokeProps(mrgLineType)
           }
@@ -2005,15 +2024,17 @@ function renderDiagramSvg({
         const toY = stepTarget.y;
         const mid = (fromY + toY) / 2;
         const d = Math.abs(fromX - toX) < 0.5 ? `M ${fromX} ${fromY} L ${toX} ${toY}` : `M ${fromX} ${fromY} L ${fromX} ${mid} L ${toX} ${mid} L ${toX} ${toY}`;
+        const cStroke2 = branchColorArrows && c.color ? resolveBranchStyle(c.color).stroke : theme.stroke;
+        const cMarker2 = branchColorArrows && c.color ? `url(#arrowhead-${c.color})` : "url(#arrowhead)";
         return /* @__PURE__ */ h(
           "path",
           {
             key: `nested-out-${f.id}-${ci}`,
             d,
             fill: "none",
-            stroke: theme.stroke,
+            stroke: cStroke2,
             strokeWidth: "1.6",
-            markerEnd: "url(#arrowhead)"
+            markerEnd: cMarker2
           }
         );
       }), isParallel ? /* @__PURE__ */ h(
@@ -2077,6 +2098,8 @@ function renderDiagramSvg({
     }),
     connectors.map((c) => {
       const dash = arrowLineStrokeProps(c.lineType || "solid");
+      const cStroke = branchColorArrows && c.caseColor ? resolveBranchStyle(c.caseColor).stroke : theme.stroke;
+      const cMarker = branchColorArrows && c.caseColor ? `url(#arrowhead-${c.caseColor})` : "url(#arrowhead)";
       if (Math.abs(c.fromX - c.toX) < 0.5) {
         const x = c.fromX;
         return /* @__PURE__ */ h(
@@ -2087,9 +2110,9 @@ function renderDiagramSvg({
             y1: c.y1,
             x2: x,
             y2: c.y2,
-            stroke: theme.stroke,
+            stroke: cStroke,
             strokeWidth: "1.6",
-            markerEnd: "url(#arrowhead)",
+            markerEnd: cMarker,
             ...dash
           }
         );
@@ -2104,9 +2127,9 @@ function renderDiagramSvg({
           key: c.key,
           d,
           fill: "none",
-          stroke: theme.stroke,
+          stroke: cStroke,
           strokeWidth: "1.6",
-          markerEnd: "url(#arrowhead)",
+          markerEnd: cMarker,
           ...dash
         }
       );

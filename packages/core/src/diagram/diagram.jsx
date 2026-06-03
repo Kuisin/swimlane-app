@@ -227,6 +227,7 @@ export function Diagram({
   showHeader = true,
   showFooter = true,
   showDescription = true,
+  branchColorArrows = true,
   interactive = false,
   selectedRowIndex = null,
   onRowSelect,
@@ -1633,6 +1634,7 @@ export function Diagram({
       key,
       lineType: stepOutgoingArrowLine(prev.r),
       bendY,
+      caseColor: curCase ? (curCase.frame.cases[curCase.caseIdx]?.color ?? null) : null,
     });
   }
 
@@ -1908,6 +1910,20 @@ export function Diagram({
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill={theme.stroke} />
         </marker>
+        {branchColorArrows && Object.entries(BRANCH_COLOR_STYLES).map(([key, style]) => (
+          <marker
+            key={key}
+            id={`arrowhead-${key}`}
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill={style.stroke} />
+          </marker>
+        ))}
         <pattern
           id="gridp"
           width="24"
@@ -2339,15 +2355,17 @@ export function Diagram({
               const showArrow =
                 firstStepIdx != null &&
                 caseStepLineTarget(firstStepIdx, c)?.showArrow;
+              const cStroke = branchColorArrows && c.color ? resolveBranchStyle(c.color).stroke : theme.stroke;
+              const cMarker = branchColorArrows && c.color ? `url(#arrowhead-${c.color})` : "url(#arrowhead)";
 
               return (
                 <g key={`case-${f.id}-${ci}`}>
                   <path
                     d={edgeD}
                     fill="none"
-                    stroke={theme.stroke}
+                    stroke={cStroke}
                     strokeWidth="1.6"
-                    markerEnd={showArrow ? "url(#arrowhead)" : undefined}
+                    markerEnd={showArrow ? cMarker : undefined}
                   />
                 </g>
               );
@@ -2358,6 +2376,8 @@ export function Diagram({
               const stubCase = isStubCase(c, f.id);
               const startY = dCy + dH / 2;
               const caseRailY = startY + branchCaseBendYOffset;
+              const cStroke = branchColorArrows && c.color ? resolveBranchStyle(c.color).stroke : theme.stroke;
+              const cMarker = branchColorArrows && c.color ? `url(#arrowhead-${c.color})` : "url(#arrowhead)";
 
               // `merge <label>;` routes the case to a labeled downstream step
               // instead of the endif gateway.
@@ -2390,9 +2410,9 @@ export function Diagram({
                     key={`merge-${f.id}-${ci}`}
                     d={d}
                     fill="none"
-                    stroke={theme.stroke}
+                    stroke={cStroke}
                     strokeWidth="1.6"
-                    markerEnd="url(#arrowhead)"
+                    markerEnd={cMarker}
                     {...arrowLineStrokeProps(mergeLineType)}
                   />
                 );
@@ -2436,9 +2456,9 @@ export function Diagram({
                     key={`loop-${f.id}-${ci}`}
                     d={d}
                     fill="none"
-                    stroke={theme.stroke}
+                    stroke={cStroke}
                     strokeWidth="1.6"
-                    markerEnd="url(#arrowhead)"
+                    markerEnd={cMarker}
                     {...arrowLineStrokeProps(loopLineType)}
                   />
                 );
@@ -2486,7 +2506,7 @@ export function Diagram({
                   key={`mrg-${f.id}-${ci}`}
                   d={d}
                   fill="none"
-                  stroke={theme.stroke}
+                  stroke={cStroke}
                   strokeWidth="1.6"
                   {...arrowLineStrokeProps(mrgLineType)}
                 />
@@ -2509,14 +2529,16 @@ export function Diagram({
                 Math.abs(fromX - toX) < 0.5
                   ? `M ${fromX} ${fromY} L ${toX} ${toY}`
                   : `M ${fromX} ${fromY} L ${fromX} ${mid} L ${toX} ${mid} L ${toX} ${toY}`;
+              const cStroke2 = branchColorArrows && c.color ? resolveBranchStyle(c.color).stroke : theme.stroke;
+              const cMarker2 = branchColorArrows && c.color ? `url(#arrowhead-${c.color})` : "url(#arrowhead)";
               return (
                 <path
                   key={`nested-out-${f.id}-${ci}`}
                   d={d}
                   fill="none"
-                  stroke={theme.stroke}
+                  stroke={cStroke2}
                   strokeWidth="1.6"
-                  markerEnd="url(#arrowhead)"
+                  markerEnd={cMarker2}
                 />
               );
             })}
@@ -2594,6 +2616,8 @@ export function Diagram({
       {/* Sequential flow connectors between normal step nodes */}
       {connectors.map((c) => {
         const dash = arrowLineStrokeProps(c.lineType || "solid");
+        const cStroke = branchColorArrows && c.caseColor ? resolveBranchStyle(c.caseColor).stroke : theme.stroke;
+        const cMarker = branchColorArrows && c.caseColor ? `url(#arrowhead-${c.caseColor})` : "url(#arrowhead)";
         if (Math.abs(c.fromX - c.toX) < 0.5) {
           const x = c.fromX;
           return (
@@ -2603,9 +2627,9 @@ export function Diagram({
               y1={c.y1}
               x2={x}
               y2={c.y2}
-              stroke={theme.stroke}
+              stroke={cStroke}
               strokeWidth="1.6"
-              markerEnd="url(#arrowhead)"
+              markerEnd={cMarker}
               {...dash}
             />
           );
@@ -2619,9 +2643,9 @@ export function Diagram({
             key={c.key}
             d={d}
             fill="none"
-            stroke={theme.stroke}
+            stroke={cStroke}
             strokeWidth="1.6"
-            markerEnd="url(#arrowhead)"
+            markerEnd={cMarker}
             {...dash}
           />
         );

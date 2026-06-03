@@ -68,6 +68,7 @@ export function BlockIcon({ icon, x, y, size, color, shape }) {
       x={iconX}
       y={iconY}
       textAnchor="middle"
+      dominantBaseline="central"
       fontSize={fontSize}
       fill={color}
       fontFamily="'Noto Sans JP',sans-serif"

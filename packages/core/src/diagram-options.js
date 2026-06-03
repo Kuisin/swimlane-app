@@ -7,6 +7,7 @@ export const DEFAULT_DIAGRAM_OPTIONS = {
   showDescription: true,
   showStepBlockCaptions: true,
   mergeAtPreviousBlock: true,
+  branchColorArrows: false,
 };
 
 /** DSL kebab keys → model camelCase fields. */
@@ -18,6 +19,7 @@ export const DIAGRAM_OPTION_DSL_MAP = {
   "show-description": "showDescription",
   "show-step-block-captions": "showStepBlockCaptions",
   "merge-at-previous-block": "mergeAtPreviousBlock",
+  "branch-color-arrows": "branchColorArrows",
 };
 
 /** Gutter column headings in `/option/` (stored on `page` in the model). */
