@@ -154,8 +154,55 @@ body {
   padding: 4px 0;
 }
 
+/* ── Tree: folder rows ── */
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px 5px 10px; /* left overridden inline per depth */
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  border-left: 2px solid transparent;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+.folder-item:hover { background: var(--surface2); }
+
+/* Chevron: a small CSS triangle, rotates when expanded */
+.folder-chevron {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.folder-chevron::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--text-muted);
+  transition: transform 0.15s;
+}
+.folder-chevron.open::before {
+  transform: rotate(90deg);
+}
+
+.folder-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Tree: file rows ── */
 .file-item {
-  padding: 7px 14px;
+  padding: 6px 14px 6px 28px; /* left overridden inline per depth */
   font-size: 13px;
   color: var(--text-muted);
   cursor: pointer;

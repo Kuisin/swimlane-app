@@ -53,18 +53,33 @@ ipcMain.handle('select-folder', async () => {
   return result.filePaths[0]
 })
 
+// Recursively walk the folder and return all .txt files with relative paths.
 ipcMain.handle('read-txt-files', async (_, folderPath) => {
-  const entries = fs.readdirSync(folderPath)
-  const files = entries
-    .filter((f) => f.toLowerCase().endsWith('.txt'))
-    .sort()
-    .map((f) => {
-      const fullPath = path.join(folderPath, f)
-      const content = fs.readFileSync(fullPath, 'utf-8')
-      const stat = fs.statSync(fullPath)
-      return { name: f, content, mtime: stat.mtimeMs }
-    })
-  return files
+  const results = []
+
+  function walk(dir) {
+    let entries
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue          // skip hidden
+      const fullPath = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(fullPath)
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.txt')) {
+        const relPath = path.relative(folderPath, fullPath).split(path.sep).join('/')
+        let content = ''
+        let mtime = 0
+        try {
+          content = fs.readFileSync(fullPath, 'utf-8')
+          mtime = fs.statSync(fullPath).mtimeMs
+        } catch {}
+        results.push({ name: relPath, content, mtime })
+      }
+    }
+  }
+
+  walk(folderPath)
+  return results
 })
 
 ipcMain.handle('render-svg', async (_, content, themeKey) => {
@@ -78,29 +93,29 @@ ipcMain.handle('render-svg', async (_, content, themeKey) => {
   }
 })
 
+// Watch the entire folder tree for .txt changes; emit relative paths.
 ipcMain.on('watch-folder', (_, folderPath) => {
-  if (watcher) {
-    watcher.close()
-    watcher = null
-  }
+  if (watcher) { watcher.close(); watcher = null }
 
-  watcher = chokidar.watch(path.join(folderPath, '*.txt'), {
+  watcher = chokidar.watch(folderPath, {
+    ignored: /(^|[/\\])\../,   // ignore dotfiles / dotfolders
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
   })
 
   const notify = (filePath, eventType) => {
     if (!mainWindow) return
-    const name = path.basename(filePath)
+    if (!filePath.toLowerCase().endsWith('.txt')) return
+    const relPath = path.relative(folderPath, filePath).split(path.sep).join('/')
     let content = null
     if (eventType !== 'unlink') {
       try { content = fs.readFileSync(filePath, 'utf-8') } catch {}
     }
-    mainWindow.webContents.send('file-changed', { name, content, eventType })
+    mainWindow.webContents.send('file-changed', { name: relPath, content, eventType })
   }
 
   watcher
-    .on('add', (fp) => notify(fp, 'add'))
+    .on('add',    (fp) => notify(fp, 'add'))
     .on('change', (fp) => notify(fp, 'change'))
     .on('unlink', (fp) => notify(fp, 'unlink'))
 })
