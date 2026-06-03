@@ -1,5 +1,5 @@
 import { arrowLineStrokeProps, stepOutgoingArrowLine } from "../arrow-line.js";
-import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
+import { truncate, truncateToColumns, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
 import {
   findNextFlowStepAfterBranchEnd,
@@ -32,6 +32,30 @@ export const BRANCH_COLOR_STYLES = {
  * diamond (mH = 28), with branch fill + stroke like `if`/`endif`.
  */
 const FORK_GATEWAY_RADIUS = 14;
+
+// Text capacity of a step block, in display columns (1 col ≈ one full-width CJK
+// cell at the block font size). Tuned so the default rounded block matches the
+// previous fixed limits for ASCII (≈22 chars without icon / 18 with). Shapes
+// with chamfers, insets, or curved sides expose less usable interior width, and
+// a leading icon consumes a couple of columns on the left.
+const BLOCK_ICON_COLS = 1.6;
+const BLOCK_SHAPE_WIDTH_FACTOR = {
+  rounded: 13,
+  rect: 13,
+  note: 13,
+  hex: 13,
+  if: 6,
+  subroutine: 11,
+  ellipse: 9,
+  cloud: 11,
+};
+function blockMaxTextCols(shape, hasIcon) {
+  const factor = BLOCK_SHAPE_WIDTH_FACTOR[shape] ?? 1;
+  return Math.max(
+    3,
+    Math.round(factor) - (hasIcon ? BLOCK_ICON_COLS : 0),
+  );
+}
 
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
   const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
@@ -2403,7 +2427,10 @@ export function Diagram({
                   fontWeight="600"
                   fill={theme.branch}
                 >
-                  {truncate(f.cond, 16)}
+                  {truncateToColumns(
+                    f.cond,
+                    blockMaxTextCols("if", false),
+                  )}
                 </text>
               </>
             )}
@@ -2823,7 +2850,7 @@ export function Diagram({
               fontSize="13"
               fontWeight="500"
             >
-              {truncate(r.text, blockIcon ? 18 : 22)}
+              {truncateToColumns(r.text, blockMaxTextCols(shape, Boolean(blockIcon)))}
             </text>
             {showStepBlockCaptions && r.blockRef && (
               <text

@@ -30,8 +30,8 @@ let source = fs.readFileSync(srcPath, "utf8");
 
 source = source
   .replace(
-    /import \{ truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns \} from "\.\.\/utils\.js";/,
-    'import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";',
+    /import \{ truncate, truncateToColumns, wrapDescriptionToVisualLines, wrapTextToDisplayColumns \} from "\.\.\/utils\.js";/,
+    'import { truncate, truncateToColumns, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";',
   )
   .replace(
     /import \{ buildStepRowDisplayInfo \} from "\.\.\/parser\.js";/,
@@ -56,7 +56,7 @@ import { h, Fragment } from "./svg-utils.js";`,
 const header = `// Auto-generated from diagram/diagram.jsx by scripts/generate-diagram-pure.mjs
 // Do not edit manually — re-run the script after changing diagram.jsx.
 
-import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
+import { truncate, truncateToColumns, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
 `;
 

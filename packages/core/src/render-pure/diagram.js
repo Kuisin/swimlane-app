@@ -1,7 +1,7 @@
 // Auto-generated from diagram/diagram.jsx by scripts/generate-diagram-pure.mjs
 // Do not edit manually — re-run the script after changing diagram.jsx.
 
-import { truncate, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
+import { truncate, truncateToColumns, wrapDescriptionToVisualLines, wrapTextToDisplayColumns } from "../utils.js";
 import { buildStepRowDisplayInfo } from "../parser.js";
 import {
   findNextFlowStepAfterBranchEnd,
@@ -30,6 +30,24 @@ const BRANCH_COLOR_STYLES = {
   black: { stroke: "#111827", bg: "#e5e7eb" }
 };
 const FORK_GATEWAY_RADIUS = 14;
+const BLOCK_ICON_COLS = 1.6;
+const BLOCK_SHAPE_WIDTH_FACTOR = {
+  rounded: 13,
+  rect: 13,
+  note: 13,
+  hex: 13,
+  if: 10,
+  subroutine: 9,
+  ellipse: 9,
+  cloud: 8
+};
+function blockMaxTextCols(shape, hasIcon) {
+  const factor = BLOCK_SHAPE_WIDTH_FACTOR[shape] ?? 1;
+  return Math.max(
+    3,
+    Math.round(factor) - (hasIcon ? BLOCK_ICON_COLS : 0)
+  );
+}
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
   const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
   return /* @__PURE__ */ h(Fragment, null, left?.trim() && /* @__PURE__ */ h(
@@ -1907,7 +1925,10 @@ function renderDiagramSvg({
           fontWeight: "600",
           fill: theme.branch
         },
-        truncate(f.cond, 16)
+        truncateToColumns(
+          f.cond,
+          blockMaxTextCols("if", false)
+        )
       )), f.cases.map((c, ci) => {
         const edgeD = buildCaseFanOutEdgeD(f, c);
         const firstStepIdx = firstMainFlowStepIdx(c) ?? firstStepIdxInCase(c);
@@ -2271,7 +2292,7 @@ function renderDiagramSvg({
           fontSize: "13",
           fontWeight: "500"
         },
-        truncate(r.text, blockIcon ? 18 : 22)
+        truncateToColumns(r.text, blockMaxTextCols(shape, Boolean(blockIcon)))
       ), showStepBlockCaptions && r.blockRef && /* @__PURE__ */ h(
         "text",
         {

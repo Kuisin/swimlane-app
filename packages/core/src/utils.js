@@ -3,9 +3,67 @@ export function truncate(s, n) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
-/** Halfwidth ASCII space–tilde counts as 0.5 column; other code points count as 1 (full-width column). */
+/**
+ * Truncate `text` so its rendered width stays within `maxCols` display columns
+ * (see charDisplayColumnWidth, where 1 column ≈ one full-width CJK cell),
+ * appending an ellipsis when cut. Unlike truncate(), which counts raw character
+ * count, this respects actual mixed-script widths so CJK/wide text doesn't
+ * overflow its container.
+ */
+export function truncateToColumns(text, maxCols) {
+  const s = text || "";
+  if (maxCols <= 0) return "";
+  let total = 0;
+  for (const ch of s) total += charDisplayColumnWidth(ch);
+  if (total <= maxCols) return s;
+  const budget = Math.max(0, maxCols - 1); // reserve ~1 column for the ellipsis
+  let acc = 0;
+  let out = "";
+  for (const ch of s) {
+    const w = charDisplayColumnWidth(ch);
+    if (acc + w > budget) break;
+    acc += w;
+    out += ch;
+  }
+  return out + "…";
+}
+
+function isFullWidthCodePoint(cp) {
+  return (
+    (cp >= 0x1100 && cp <= 0x115f) || // Hangul Jamo
+    (cp >= 0x2e80 && cp <= 0x303e) || // CJK radicals · Kangxi · CJK symbols
+    (cp >= 0x3041 && cp <= 0x33ff) || // Hiragana · Katakana · CJK symbols/punct
+    (cp >= 0x3400 && cp <= 0x4dbf) || // CJK Ext A
+    (cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified Ideographs
+    (cp >= 0xa000 && cp <= 0xa4cf) || // Yi
+    (cp >= 0xac00 && cp <= 0xd7a3) || // Hangul syllables
+    (cp >= 0xf900 && cp <= 0xfaff) || // CJK compatibility ideographs
+    (cp >= 0xfe30 && cp <= 0xfe4f) || // CJK compatibility forms
+    (cp >= 0xff00 && cp <= 0xff60) || // Full-width ASCII variants
+    (cp >= 0xffe0 && cp <= 0xffe6) || // Full-width signs
+    (cp >= 0x1f300 && cp <= 0x1faff) || // Emoji / pictographs (full-width)
+    (cp >= 0x20000 && cp <= 0x3fffd) // CJK Ext B and beyond
+  );
+}
+
+// Proportional ASCII glyphs whose width is far from the 0.5em average.
+const NARROW_CHARS = new Set([..."iIljftr.,:;'`!|()[]{}/\\ -"]);
+const WIDE_CHARS = new Set([..."mwMW@%"]);
+
+/**
+ * Approximate the rendered width of a single character in "columns", where one
+ * column is one full-width CJK cell (1em). Lets wrapping respect the actual
+ * mixed-script width of a line rather than a flat ASCII-vs-CJK split: ASCII,
+ * Latin-1, Greek, Cyrillic, etc. are proportional half-width, and only true
+ * East-Asian / emoji glyphs occupy a full column.
+ */
 export function charDisplayColumnWidth(ch) {
-  return /[\u0020-\u007e]/.test(ch) ? 0.5 : 1;
+  const cp = ch.codePointAt(0);
+  if (cp == null) return 0;
+  if (isFullWidthCodePoint(cp)) return 1;
+  if (NARROW_CHARS.has(ch)) return 0.3;
+  if (WIDE_CHARS.has(ch)) return 0.78;
+  return 0.5; // ASCII default and other proportional half-width scripts
 }
 
 export function stringDisplayColumnWidth(s) {
