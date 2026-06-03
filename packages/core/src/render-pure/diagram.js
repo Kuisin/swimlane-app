@@ -256,6 +256,9 @@ function renderDiagramSvg({
   const propRowExtraHPerProps = docGapY;
   const descriptionLineHeight = 14;
   const descriptionBottomPad = 10;
+  const gutterTextBaselineY = 30;
+  const gutterTitleLineH = 20;
+  const gutterTextBandTopY = 20;
   const caseSpread = 100;
   const caseClearance = 10;
   const diamondH = 90;
@@ -346,11 +349,11 @@ function renderDiagramSvg({
     const titleText = (row.name || row.text || "").trim();
     const descExtra = showLeftGutter ? gutterTextExtraHeight(
       row.description,
-      titleText ? 40 : 20,
+      gutterTextBandTopY + (titleText ? gutterTitleLineH : 0),
       rowIndex,
       heightWithProps
     ) : 0;
-    const remarkExtra = rightGutterVisible ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps, remarkWrapCols) : 0;
+    const remarkExtra = rightGutterVisible ? gutterTextExtraHeight(row.remark, gutterTextBandTopY, rowIndex, heightWithProps, remarkWrapCols) : 0;
     return heightWithProps + Math.max(descExtra, remarkExtra);
   }
   function rowCenterY(rowIndex) {
@@ -1628,7 +1631,7 @@ function renderDiagramSvg({
         "text",
         {
           x: 12 + xPad,
-          y: yRow + 30,
+          y: yRow + gutterTextBaselineY,
           fill: theme.title,
           fontFamily: "'Noto Sans JP',sans-serif",
           fontSize: "12",
@@ -1641,7 +1644,7 @@ function renderDiagramSvg({
           r.description.trim(),
           28
         );
-        const descY = titleText ? yRow + 50 : yRow + 30;
+        const descY = yRow + gutterTextBaselineY + (titleText ? gutterTitleLineH : 0);
         const descX = 12 + xPad;
         return /* @__PURE__ */ h(
           "text",
@@ -1743,7 +1746,7 @@ function renderDiagramSvg({
         {
           key: `step-remark-${i}`,
           x: rx,
-          y: yRow + 26,
+          y: yRow + gutterTextBaselineY,
           fill: theme.laneText || theme.title,
           opacity: "0.85",
           fontFamily: "'Noto Sans JP',sans-serif",
@@ -2139,9 +2142,9 @@ function renderDiagramSvg({
         "text",
         {
           x: boxX + 8,
-          y: yTop + 11,
+          y: yTop + 20,
           fontFamily: "'JetBrains Mono',monospace",
-          fontSize: "9",
+          fontSize: "12",
           fill: style.stroke,
           opacity: "0.9"
         },
