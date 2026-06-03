@@ -222,6 +222,11 @@ function renderDiagramSvg({
   );
   const rightGutterVisible = showRightGutter && hasRemarks;
   const rightGutter = rightGutterVisible ? 240 : 0;
+  const DESC_WRAP_COLS = 28;
+  const remarkWrapCols = Math.max(
+    8,
+    Math.round(DESC_WRAP_COLS * rightGutter / 300)
+  );
   const headerH = 72;
   const rowH = 80;
   const docW = 65;
@@ -300,10 +305,10 @@ function renderDiagramSvg({
     });
     return acc;
   }
-  function gutterTextExtraHeight(text, startOffset, rowIndex, heightWithProps) {
+  function gutterTextExtraHeight(text, startOffset, rowIndex, heightWithProps, maxCols = DESC_WRAP_COLS) {
     const t = (text || "").trim();
     if (!t) return 0;
-    const visualLines = wrapDescriptionToVisualLines(t, 28);
+    const visualLines = wrapDescriptionToVisualLines(t, maxCols);
     if (visualLines.length === 0) return 0;
     const extent = startOffset + visualLines.length * descriptionLineHeight + descriptionBottomPad;
     let extra = Math.max(0, extent - heightWithProps);
@@ -327,7 +332,7 @@ function renderDiagramSvg({
       rowIndex,
       heightWithProps
     ) : 0;
-    const remarkExtra = rightGutterVisible ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps) : 0;
+    const remarkExtra = rightGutterVisible ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps, remarkWrapCols) : 0;
     return heightWithProps + Math.max(descExtra, remarkExtra);
   }
   function rowCenterY(rowIndex) {
@@ -1424,64 +1429,47 @@ function renderDiagramSvg({
       break;
     }
   }
+  const dividerLandsOnGroupEnd = (i) => {
+    let k = i + 1;
+    while (rows[k]?.kind === "branchCase") k++;
+    return rows[k]?.kind === "groupEnd";
+  };
+  const dividerYBelowNext = (i, fallbackY) => {
+    const next = rows[i + 1];
+    const nextMeta = rowMeta[i + 1];
+    if (nextMeta == null) return fallbackY;
+    if (next.kind === "branchStart") return nextMeta.y + diamondH;
+    if (next.kind === "branchLoop") return nextMeta.y + branchLoopH;
+    return fallbackY;
+  };
   const stepRowDividerYs = [];
   if (lanes.length > 0 && lastStepRowIndex >= 0) {
     rows.forEach((row, i) => {
+      const next = rows[i + 1];
+      const meta = rowMeta[i];
       if (row.kind === "branchEnd") {
-        const meta2 = rowMeta[i];
-        if (meta2 != null) {
-          const next2 = rows[i + 1];
-          let nk = i + 1;
-          while (rows[nk]?.kind === "branchCase") nk++;
-          if (!(next2?.kind === "step" && next2.skipIndex) && rows[nk]?.kind !== "groupEnd")
-            stepRowDividerYs.push(meta2.y + mergeH);
-        }
+        if (meta == null) return;
+        if (next?.kind === "step" && next.skipIndex) return;
+        if (dividerLandsOnGroupEnd(i)) return;
+        stepRowDividerYs.push(meta.y + mergeH);
         return;
       }
       if (row.kind === "step" && row.empty) {
-        const meta2 = rowMeta[i];
-        if (meta2 == null) return;
-        const next2 = rows[i + 1];
-        let yLine2 = meta2.y + (stepRowHeightByIndex.get(i) ?? rowH);
-        if (next2?.kind === "branchStart") {
-          const branchMeta = rowMeta[i + 1];
-          if (branchMeta != null) yLine2 = branchMeta.y + diamondH;
-        }
-        if (next2?.kind === "branchLoop") {
-          const loopMeta = rowMeta[i + 1];
-          if (loopMeta != null) yLine2 = loopMeta.y + branchLoopH;
-        }
-        if (next2?.kind === "step" && next2.skipIndex) return;
-        {
-          let nk = i + 1;
-          while (rows[nk]?.kind === "branchCase") nk++;
-          if (rows[nk]?.kind === "groupEnd") return;
-        }
-        stepRowDividerYs.push(yLine2);
+        if (meta == null) return;
+        if (next?.kind === "step" && next.skipIndex) return;
+        if (dividerLandsOnGroupEnd(i)) return;
+        const base2 = meta.y + (stepRowHeightByIndex.get(i) ?? rowH);
+        stepRowDividerYs.push(dividerYBelowNext(i, base2));
         return;
       }
       if (row.kind !== "step" || !row.role) return;
       if (row.skipIndex) return;
-      if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
-      const meta = rowMeta[i];
+      if (i === lastStepRowIndex && next?.kind !== "branchLoop") return;
       if (meta == null) return;
-      const next = rows[i + 1];
-      let yLine = meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row, i));
       if (next?.kind === "step" && next.skipIndex) return;
-      {
-        let nk = i + 1;
-        while (rows[nk]?.kind === "branchCase") nk++;
-        if (rows[nk]?.kind === "groupEnd") return;
-      }
-      if (next?.kind === "branchStart") {
-        const branchMeta = rowMeta[i + 1];
-        if (branchMeta != null) yLine = branchMeta.y + diamondH;
-      }
-      if (next?.kind === "branchLoop") {
-        const loopMeta = rowMeta[i + 1];
-        if (loopMeta != null) yLine = loopMeta.y + branchLoopH;
-      }
-      stepRowDividerYs.push(yLine);
+      if (dividerLandsOnGroupEnd(i)) return;
+      const base = meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row, i));
+      stepRowDividerYs.push(dividerYBelowNext(i, base));
     });
   }
   const swimlaneDividerX1 = xPad;
@@ -1730,7 +1718,7 @@ function renderDiagramSvg({
       if (yRow == null) return null;
       const remark = (r.remark || "").trim();
       if (!remark) return null;
-      const visualLines = wrapDescriptionToVisualLines(remark, 28);
+      const visualLines = wrapDescriptionToVisualLines(remark, remarkWrapCols);
       const rx = rightGutterX + 12;
       return /* @__PURE__ */ h(
         "text",
@@ -2105,6 +2093,7 @@ function renderDiagramSvg({
       }
       const endIdx = findGroupEndIndex(rows, i);
       if (endIdx < 0 || lanes.length === 0) return null;
+      const sectionInset = 5;
       const yTop = rowMeta[i]?.y ?? 0;
       const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
       const boxX = laneX(0) + 8;
@@ -2115,9 +2104,9 @@ function renderDiagramSvg({
         "rect",
         {
           x: boxX,
-          y: yTop - 4,
+          y: yTop - sectionInset,
           width: boxW,
-          height: yBottom - yTop + 8,
+          height: yBottom - yTop + sectionInset * 2,
           rx: "8",
           fill: style.bg,
           fillOpacity: "0.2",
