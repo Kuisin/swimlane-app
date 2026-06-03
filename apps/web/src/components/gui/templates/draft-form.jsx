@@ -10,7 +10,7 @@ export function DraftTemplateForm({
   onDirtyChange,
   children,
 }) {
-  const { draft, patch, isDirty, reset } = useTemplateDraft(item);
+  const { draft, patch, isDirty, reset, commitSaved } = useTemplateDraft(item);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -21,6 +21,7 @@ export function DraftTemplateForm({
 
   function handleSave() {
     onSave(draft);
+    commitSaved();
   }
 
   return (

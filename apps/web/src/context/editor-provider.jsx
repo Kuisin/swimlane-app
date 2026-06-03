@@ -9,12 +9,13 @@ import {
   STORAGE_KEY,
   parseStoredEditorState,
   applyStoredEditorState,
+  mergeStoredDocuments,
   serializeEditorStateForStorage,
 } from "../lib/editor-storage";
 import { extractDocumentTitle } from "../lib/document-title";
 
 function createDocument(id, name, src) {
-  return { id, name, src, savedSrc: src, parseErrorPolicy: null };
+  return { id, name, src, savedSrc: src, parseErrorPolicy: null, revision: 0 };
 }
 
 function createNextDocumentName(documents) {
@@ -65,17 +66,31 @@ export function EditorProvider({ children }) {
 
     function handleStorage(event) {
       if (event.key !== STORAGE_KEY || !event.newValue) return;
-      const parsed = parseStoredEditorState(event.newValue);
+      const parsed = parseStoredEditorState(event.newValue, { useLiveSrc: true });
       if (!parsed) return;
-      applyStoredEditorState(parsed, {
-        setDocuments,
-        setOpenDocumentIds,
-        setActiveDocumentId,
-        setThemeKey,
-        setShowStepBlockCaptions,
-        setMergeAtPreviousBlock,
-        setShowLeftGutter,
-      });
+
+      if (parsed.documents) {
+        setDocuments((current) => mergeStoredDocuments(current, parsed.documents));
+      }
+
+      applyStoredEditorState(
+        {
+          openDocumentIds: parsed.openDocumentIds,
+          activeDocumentId: parsed.activeDocumentId,
+          themeKey: parsed.themeKey,
+          showStepBlockCaptions: parsed.showStepBlockCaptions,
+          mergeAtPreviousBlock: parsed.mergeAtPreviousBlock,
+          showLeftGutter: parsed.showLeftGutter,
+        },
+        {
+          setOpenDocumentIds,
+          setActiveDocumentId,
+          setThemeKey,
+          setShowStepBlockCaptions,
+          setMergeAtPreviousBlock,
+          setShowLeftGutter,
+        },
+      );
     }
 
     window.addEventListener("storage", handleStorage);
@@ -206,7 +221,11 @@ export function EditorProvider({ children }) {
     setDocuments((currentDocuments) =>
       currentDocuments.map((document) =>
         document.id === documentId
-          ? { ...document, src: nextSrc }
+          ? {
+              ...document,
+              src: nextSrc,
+              revision: (document.revision ?? 0) + 1,
+            }
           : document
       )
     );
@@ -216,7 +235,12 @@ export function EditorProvider({ children }) {
     setDocuments((currentDocuments) =>
       currentDocuments.map((document) =>
         document.id === activeDocumentId
-          ? { ...document, src: nextSrc, savedSrc: nextSrc }
+          ? {
+              ...document,
+              src: nextSrc,
+              savedSrc: nextSrc,
+              revision: (document.revision ?? 0) + 1,
+            }
           : document
       )
     );

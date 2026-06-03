@@ -1908,15 +1908,17 @@ export function Diagram({
     }
   }
   /**
-   * A step-row divider is suppressed when it would land on the top edge of a
-   * group-end marker: the section box's own bottom border (or a branch's merge)
-   * already closes that region, so an extra divider would double up on the
-   * group-end row. Zero-height branchCase markers are transparent to this check.
+   * A step-row divider is suppressed only when it would land on the top edge of
+   * a *branch* group-end marker: the branch's merge already closes that region,
+   * so an extra divider would double up on it. Section groups are purely visual
+   * overlays — a step that is last in a section keeps its normal row border
+   * (the dashed box bottom sits separately, below the group-end marker).
+   * Zero-height branchCase markers are transparent to this check.
    */
   const dividerLandsOnGroupEnd = (i) => {
     let k = i + 1;
     while (rows[k]?.kind === "branchCase") k++;
-    return rows[k]?.kind === "groupEnd";
+    return rows[k]?.kind === "groupEnd" && groupModeOf(rows[k]) === "branch";
   };
   /** When the next row is an if/fork gateway or a [loop], the divider drops to
    *  below that construct rather than sitting above it. */

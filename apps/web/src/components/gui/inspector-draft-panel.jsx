@@ -44,7 +44,9 @@ export function InspectorDraftPanel({
 
 
 
-  const { draft, patch, isDirty, reset } = useTemplateDraft(target.inspectorRow);
+  const { draft, patch, isDirty, reset, commitSaved } = useTemplateDraft(
+    target.inspectorRow,
+  );
 
 
 
@@ -85,6 +87,7 @@ export function InspectorDraftPanel({
   function handleSave() {
 
     onSave(draft, target.saveRowIndex);
+    commitSaved();
 
   }
 

@@ -2,7 +2,7 @@ import { THEMES } from "@kai-swimlane/core";
 
 export const STORAGE_KEY = "swimlane-editor-state-v1";
 
-/** Persist only last-saved DSL so reload after leaving discards unsaved edits. */
+/** Persist live `src` for cross-window sync; `savedSrc` is used on full page reload. */
 export function serializeEditorStateForStorage(state) {
   const {
     documents,
@@ -15,11 +15,12 @@ export function serializeEditorStateForStorage(state) {
   } = state;
 
   return JSON.stringify({
-    documents: documents.map(({ id, name, savedSrc }) => ({
+    documents: documents.map(({ id, name, src, savedSrc, revision }) => ({
       id,
       name,
-      src: savedSrc,
+      src,
       savedSrc,
+      revision: revision ?? 0,
     })),
     openDocumentIds,
     activeDocumentId,
@@ -30,7 +31,7 @@ export function serializeEditorStateForStorage(state) {
   });
 }
 
-export function parseStoredEditorState(raw) {
+export function parseStoredEditorState(raw, { useLiveSrc = false } = {}) {
   if (!raw) return null;
 
   try {
@@ -45,11 +46,14 @@ export function parseStoredEditorState(raw) {
             : typeof doc.src === "string"
               ? doc.src
               : "";
+        const liveSrc =
+          typeof doc.src === "string" ? doc.src : savedSrc;
         return {
           id: doc.id || `doc-${index + 1}`,
           name: doc.name || `Document ${index + 1}`,
-          src: savedSrc,
+          src: useLiveSrc ? liveSrc : savedSrc,
           savedSrc,
+          revision: typeof doc.revision === "number" ? doc.revision : 0,
           parseErrorPolicy: null,
         };
       });
@@ -85,6 +89,33 @@ export function parseStoredEditorState(raw) {
   } catch {
     return null;
   }
+}
+
+/** Merge remote editor state without clobbering newer in-memory edits. */
+export function mergeStoredDocuments(current, incoming) {
+  return incoming.map((doc) => {
+    const existing = current.find((entry) => entry.id === doc.id);
+    if (!existing) {
+      return { ...doc, parseErrorPolicy: null };
+    }
+
+    if (
+      existing.src === doc.src &&
+      existing.savedSrc === doc.savedSrc &&
+      existing.name === doc.name &&
+      (existing.revision ?? 0) === (doc.revision ?? 0)
+    ) {
+      return existing;
+    }
+
+    const incomingRevision = doc.revision ?? 0;
+    const localRevision = existing.revision ?? 0;
+    if (localRevision > incomingRevision) {
+      return existing;
+    }
+
+    return { ...doc, parseErrorPolicy: existing.parseErrorPolicy };
+  });
 }
 
 export function applyStoredEditorState(parsed, setters) {

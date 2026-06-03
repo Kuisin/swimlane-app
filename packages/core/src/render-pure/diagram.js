@@ -36,10 +36,10 @@ const BLOCK_SHAPE_WIDTH_FACTOR = {
   rect: 13,
   note: 13,
   hex: 13,
-  if: 10,
-  subroutine: 9,
+  if: 6,
+  subroutine: 11,
   ellipse: 9,
-  cloud: 8
+  cloud: 11
 };
 function blockMaxTextCols(shape, hasIcon) {
   const factor = BLOCK_SHAPE_WIDTH_FACTOR[shape] ?? 1;
@@ -1450,7 +1450,7 @@ function renderDiagramSvg({
   const dividerLandsOnGroupEnd = (i) => {
     let k = i + 1;
     while (rows[k]?.kind === "branchCase") k++;
-    return rows[k]?.kind === "groupEnd";
+    return rows[k]?.kind === "groupEnd" && groupModeOf(rows[k]) === "branch";
   };
   const dividerYBelowNext = (i, fallbackY) => {
     const next = rows[i + 1];
