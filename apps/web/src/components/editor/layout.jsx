@@ -14,9 +14,9 @@ import { DocumentTabs } from "./document-tabs";
 const JS_MODE = new URLSearchParams(window.location.search).has("js-mode");
 
 const FONT_STYLE = `
-  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
-  .font-display { font-family: 'Shippori Mincho', serif; }
-  .font-jp { font-family: 'Noto Sans JP', sans-serif; }
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  .font-display { font-family: 'Noto Sans JP', 'Noto Sans', sans-serif; }
+  .font-jp { font-family: 'Noto Sans JP', 'Noto Sans', sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 `;
 

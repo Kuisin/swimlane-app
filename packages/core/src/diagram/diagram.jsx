@@ -1310,8 +1310,8 @@ export function Diagram({
    * and any blocks in between. Mirrors buildLoopBackPath but travels forward.
    */
   function buildMergeForwardPath({ fromX, fromBottomY, targetIdx }) {
-    const toX = nodeCenterX(targetIdx, rows[targetIdx].role);
-    const toTopY = stepBlockCenterY(targetIdx) - 22;
+    const targetCenterX = nodeCenterX(targetIdx, rows[targetIdx].role);
+    const targetCenterY = stepBlockCenterY(targetIdx);
     const dropY = fromBottomY + loopDropPad;
 
     const obstacles = [];
@@ -1319,7 +1319,7 @@ export function Diagram({
       if (idx === targetIdx) return;
       if (row?.kind !== "step" || row.empty || !row.role) return;
       const b = stepObstacleBounds(idx);
-      if (b.bottom >= dropY && b.top <= toTopY) obstacles.push(b);
+      if (b.bottom >= dropY && b.top <= targetCenterY) obstacles.push(b);
     });
 
     let sideSign;
@@ -1330,16 +1330,16 @@ export function Diagram({
       const spaceRight = maxRight - fromX;
       sideSign = spaceRight >= spaceLeft ? 1 : -1;
     } else {
-      sideSign = toX >= fromX ? 1 : -1;
+      sideSign = targetCenterX >= fromX ? 1 : -1;
     }
 
     let routeX;
     if (sideSign < 0) {
       routeX =
-        Math.min(fromX, toX, ...obstacles.map((o) => o.left)) - loopRouteMargin;
+        Math.min(fromX, targetCenterX, ...obstacles.map((o) => o.left)) - loopRouteMargin;
     } else {
       routeX =
-        Math.max(fromX, toX, ...obstacles.map((o) => o.right)) + loopRouteMargin;
+        Math.max(fromX, targetCenterX, ...obstacles.map((o) => o.right)) + loopRouteMargin;
     }
     const lastLaneIdx = lanes.length - 1;
     const laneGridLeft = laneX(0);
@@ -1349,11 +1349,15 @@ export function Diagram({
         : width - xPad;
     routeX = Math.max(laneGridLeft, Math.min(laneGridRight, routeX));
 
-    const approachY = toTopY - 14;
-    if (Math.abs(fromX - routeX) < 0.5 && Math.abs(toX - routeX) < 0.5) {
-      return `M ${fromX} ${fromBottomY} L ${toX} ${toTopY}`;
+    const toSideX = sideSign < 0
+      ? targetCenterX - nodeW / 2
+      : targetCenterX + nodeW / 2;
+    const toY = targetCenterY;
+
+    if (Math.abs(fromX - routeX) < 0.5) {
+      return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${toY} L ${toSideX} ${toY}`;
     }
-    return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${approachY} L ${toX} ${approachY} L ${toX} ${toTopY}`;
+    return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${toY} L ${toSideX} ${toY}`;
   }
   function applyCaseOffsetsForFrame(frame, inheritedByLane = null) {
     const inherited =
@@ -1826,7 +1830,11 @@ export function Diagram({
     rows.forEach((row, i) => {
       if (row.kind === "branchEnd") {
         const meta = rowMeta[i];
-        if (meta != null) stepRowDividerYs.push(meta.y + mergeH);
+        if (meta != null) {
+          const next = rows[i + 1];
+          if (!(next?.kind === "step" && next.skipIndex))
+            stepRowDividerYs.push(meta.y + mergeH);
+        }
         return;
       }
       if (row.kind === "step" && row.empty) {
@@ -1842,6 +1850,7 @@ export function Diagram({
           const loopMeta = rowMeta[i + 1];
           if (loopMeta != null) yLine = loopMeta.y + branchLoopH;
         }
+        if (next?.kind === "step" && next.skipIndex) return;
         stepRowDividerYs.push(yLine);
         return;
       }

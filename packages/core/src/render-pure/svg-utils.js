@@ -31,6 +31,34 @@ export function styleObjectToString(style) {
     .join(";");
 }
 
+// React uses camelCase for SVG presentation attributes; SVG/HTML serialization
+// requires their kebab-case equivalents. viewBox/patternUnits/markerWidth etc.
+// are kept as-is because they are camelCase in the SVG spec itself.
+const SVG_ATTR_MAP = {
+  className: "class",
+  fillOpacity: "fill-opacity",
+  fillRule: "fill-rule",
+  fontFamily: "font-family",
+  fontSize: "font-size",
+  fontStyle: "font-style",
+  fontWeight: "font-weight",
+  letterSpacing: "letter-spacing",
+  markerEnd: "marker-end",
+  markerMid: "marker-mid",
+  markerStart: "marker-start",
+  pointerEvents: "pointer-events",
+  stopColor: "stop-color",
+  stopOpacity: "stop-opacity",
+  strokeDasharray: "stroke-dasharray",
+  strokeLinecap: "stroke-linecap",
+  strokeLinejoin: "stroke-linejoin",
+  strokeOpacity: "stroke-opacity",
+  strokeWidth: "stroke-width",
+  textAnchor: "text-anchor",
+  textDecoration: "text-decoration",
+  vectorEffect: "vector-effect",
+};
+
 /**
  * @param {string} tag
  * @param {Record<string, unknown>} [attrs]
@@ -47,11 +75,12 @@ export function el(tag, attrs = {}, children = "") {
       parts.push(` style="${escapeAttr(styleObjectToString(/** @type {Record<string, unknown>} */ (rawValue)))}"`);
       continue;
     }
+    const attrName = SVG_ATTR_MAP[key] ?? key;
     if (rawValue === true) {
-      parts.push(` ${key}`);
+      parts.push(` ${attrName}`);
       continue;
     }
-    parts.push(` ${key}="${escapeAttr(rawValue)}"`);
+    parts.push(` ${attrName}="${escapeAttr(rawValue)}"`);
   }
   const childStr = join(Array.isArray(children) ? children : [children]);
   if (!childStr && /^(?:path|rect|circle|ellipse|line|polygon|polyline|use|image|text|tspan|title)$/.test(tag)) {

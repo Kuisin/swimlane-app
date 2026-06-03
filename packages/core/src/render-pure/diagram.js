@@ -29,7 +29,7 @@ const BRANCH_COLOR_STYLES = {
 };
 const FORK_GATEWAY_RADIUS = 14;
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
-  const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
+  const fontFamily = "'Noto Sans JP','Noto Sans',sans-serif";
   return /* @__PURE__ */ h(Fragment, null, left?.trim() && /* @__PURE__ */ h(
     "text",
     {
@@ -138,7 +138,7 @@ function PrintLayer({
   hasPageFooter,
   height
 }) {
-  const serif = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
+  const serif = "'Noto Sans JP','Noto Sans',sans-serif";
   return /* @__PURE__ */ h(Fragment, null, hasPageHeader && pageHeaderY != null && /* @__PURE__ */ h(
     PageTriColumnText,
     {
@@ -995,15 +995,15 @@ function renderDiagramSvg({
     return { mergeIdx, prevStepIdx, targetIdx };
   }
   function buildMergeForwardPath({ fromX, fromBottomY, targetIdx }) {
-    const toX = nodeCenterX(targetIdx, rows[targetIdx].role);
-    const toTopY = stepBlockCenterY(targetIdx) - 22;
+    const targetCenterX = nodeCenterX(targetIdx, rows[targetIdx].role);
+    const targetCenterY = stepBlockCenterY(targetIdx);
     const dropY = fromBottomY + loopDropPad;
     const obstacles = [];
     rows.forEach((row, idx) => {
       if (idx === targetIdx) return;
       if (row?.kind !== "step" || row.empty || !row.role) return;
       const b = stepObstacleBounds(idx);
-      if (b.bottom >= dropY && b.top <= toTopY) obstacles.push(b);
+      if (b.bottom >= dropY && b.top <= targetCenterY) obstacles.push(b);
     });
     let sideSign;
     if (obstacles.length > 0) {
@@ -1013,23 +1013,24 @@ function renderDiagramSvg({
       const spaceRight = maxRight - fromX;
       sideSign = spaceRight >= spaceLeft ? 1 : -1;
     } else {
-      sideSign = toX >= fromX ? 1 : -1;
+      sideSign = targetCenterX >= fromX ? 1 : -1;
     }
     let routeX;
     if (sideSign < 0) {
-      routeX = Math.min(fromX, toX, ...obstacles.map((o) => o.left)) - loopRouteMargin;
+      routeX = Math.min(fromX, targetCenterX, ...obstacles.map((o) => o.left)) - loopRouteMargin;
     } else {
-      routeX = Math.max(fromX, toX, ...obstacles.map((o) => o.right)) + loopRouteMargin;
+      routeX = Math.max(fromX, targetCenterX, ...obstacles.map((o) => o.right)) + loopRouteMargin;
     }
     const lastLaneIdx = lanes.length - 1;
     const laneGridLeft = laneX(0);
     const laneGridRight = lastLaneIdx >= 0 ? laneX(lastLaneIdx) + laneWidth(lastLaneIdx) : width - xPad;
     routeX = Math.max(laneGridLeft, Math.min(laneGridRight, routeX));
-    const approachY = toTopY - 14;
-    if (Math.abs(fromX - routeX) < 0.5 && Math.abs(toX - routeX) < 0.5) {
-      return `M ${fromX} ${fromBottomY} L ${toX} ${toTopY}`;
+    const toSideX = sideSign < 0 ? targetCenterX - nodeW / 2 : targetCenterX + nodeW / 2;
+    const toY = targetCenterY;
+    if (Math.abs(fromX - routeX) < 0.5) {
+      return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${toY} L ${toSideX} ${toY}`;
     }
-    return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${approachY} L ${toX} ${approachY} L ${toX} ${toTopY}`;
+    return `M ${fromX} ${fromBottomY} L ${fromX} ${dropY} L ${routeX} ${dropY} L ${routeX} ${toY} L ${toSideX} ${toY}`;
   }
   function applyCaseOffsetsForFrame(frame, inheritedByLane = null) {
     const inherited = inheritedByLane || Object.fromEntries(lanes.map((lane) => [lane.id, 0]));
@@ -1396,7 +1397,11 @@ function renderDiagramSvg({
     rows.forEach((row, i) => {
       if (row.kind === "branchEnd") {
         const meta2 = rowMeta[i];
-        if (meta2 != null) stepRowDividerYs.push(meta2.y + mergeH);
+        if (meta2 != null) {
+          const next2 = rows[i + 1];
+          if (!(next2?.kind === "step" && next2.skipIndex))
+            stepRowDividerYs.push(meta2.y + mergeH);
+        }
         return;
       }
       if (row.kind === "step" && row.empty) {
@@ -1412,6 +1417,7 @@ function renderDiagramSvg({
           const loopMeta = rowMeta[i + 1];
           if (loopMeta != null) yLine2 = loopMeta.y + branchLoopH;
         }
+        if (next2?.kind === "step" && next2.skipIndex) return;
         stepRowDividerYs.push(yLine2);
         return;
       }
@@ -1505,7 +1511,7 @@ function renderDiagramSvg({
         x: xPad + 12,
         y: topPad + 30,
         fill: theme.title,
-        fontFamily: "'Noto Sans JP',sans-serif",
+        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
         fontSize: "13",
         fontWeight: "700"
       },
@@ -1517,7 +1523,7 @@ function renderDiagramSvg({
         y: topPad + 50,
         fill: theme.laneText || theme.title,
         opacity: "0.7",
-        fontFamily: "'Noto Sans JP',sans-serif",
+        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
         fontSize: "11"
       },
       truncate(page.leftSubtitle.trim(), 26)
@@ -1560,7 +1566,7 @@ function renderDiagramSvg({
           x: 12 + xPad,
           y: yRow + 30,
           fill: theme.title,
-          fontFamily: "'Noto Sans JP',sans-serif",
+          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
           fontSize: "12",
           fontWeight: "600"
         },
@@ -1580,7 +1586,7 @@ function renderDiagramSvg({
             y: descY,
             fill: theme.laneText || theme.title,
             opacity: "0.78",
-            fontFamily: "'Noto Sans JP',sans-serif",
+            fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
             fontSize: "10",
             fontWeight: "400"
           },
@@ -1621,7 +1627,7 @@ function renderDiagramSvg({
         x: rightGutterX + 12,
         y: topPad + 30,
         fill: theme.title,
-        fontFamily: "'Noto Sans JP',sans-serif",
+        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
         fontSize: "13",
         fontWeight: "700"
       },
@@ -1633,7 +1639,7 @@ function renderDiagramSvg({
         y: topPad + 50,
         fill: theme.laneText || theme.title,
         opacity: "0.7",
-        fontFamily: "'Noto Sans JP',sans-serif",
+        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
         fontSize: "11"
       },
       truncate(page.rightSubtitle.trim(), 28)
@@ -1676,7 +1682,7 @@ function renderDiagramSvg({
           y: yRow + 26,
           fill: theme.laneText || theme.title,
           opacity: "0.85",
-          fontFamily: "'Noto Sans JP',sans-serif",
+          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
           fontSize: "10",
           fontWeight: "400"
         },
@@ -1752,7 +1758,7 @@ function renderDiagramSvg({
           y: topPad + headerH / 2 + 6,
           textAnchor: lane.icon ? "start" : "middle",
           fill: txt,
-          fontFamily: "'Noto Sans JP',sans-serif",
+          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
           fontSize: "15",
           fontWeight: "700",
           letterSpacing: "0.06em"
@@ -1850,7 +1856,7 @@ function renderDiagramSvg({
           x: dCx,
           y: dCy + 4,
           textAnchor: "middle",
-          fontFamily: "'Noto Sans JP',sans-serif",
+          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
           fontSize: "13",
           fontWeight: "600",
           fill: theme.branch
@@ -2206,7 +2212,7 @@ function renderDiagramSvg({
           y: cy + 5,
           textAnchor: "middle",
           fill: txtColor,
-          fontFamily: "'Noto Sans JP',sans-serif",
+          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
           fontSize: "13",
           fontWeight: "500"
         },
@@ -2295,7 +2301,7 @@ function renderDiagramSvg({
             textAnchor: "middle",
             fontSize: "11",
             fontWeight: "600",
-            fontFamily: "'Noto Sans JP',sans-serif",
+            fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
             fill: caseStyle.stroke
           },
           c.label

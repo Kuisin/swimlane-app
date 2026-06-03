@@ -73,7 +73,7 @@ export function renderBlockIcon({ icon, x, y, size, color, shape }) {
     textAnchor: "middle",
     fontSize,
     fill: color,
-    fontFamily: "'Noto Sans JP',sans-serif",
+    fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
   }, escapeText(display));
 }
 
