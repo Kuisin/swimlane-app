@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Download } from "lucide-react";
 import { downloadDslTxt } from "../../lib/dsl-file";
 import { downloadPNG, downloadSVG } from "../../lib/export";
+import { downloadPPTX } from "../../lib/export-pptx";
 
 export function ExportMenu({
   src,
@@ -41,6 +42,14 @@ export function ExportMenu({
     setOpen(false);
   }
 
+  async function handleDownloadPptx() {
+    setOpen(false);
+    await downloadPPTX(modelTitle, src, {
+      includeStepBlockCaptions: showStepBlockCaptions,
+      themeBg,
+    });
+  }
+
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       <button
@@ -72,6 +81,14 @@ export function ExportMenu({
             className="w-full text-left px-3 py-2 text-xs font-jp text-stone-200 hover:bg-stone-800"
           >
             PNG
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleDownloadPptx}
+            className="w-full text-left px-3 py-2 text-xs font-jp text-stone-200 hover:bg-stone-800"
+          >
+            PPTX
           </button>
           <button
             type="button"

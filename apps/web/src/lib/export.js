@@ -53,36 +53,65 @@ function inlineArrowheads(svgEl) {
  *   • Adds an explicit background <rect> (CSS `background` is ignored outside browsers)
  *   • Removes the tile-grid pattern; leaves a clean solid-color background
  *   • Replaces `marker-end` arrow refs with inline filled <polygon> elements
+ *   • Keeps font-size as unitless user units (intentional — see note below)
  *   • Strips now-unused <marker> and <pattern> defs
+ *
+ * Font-size note: the exported SVG declares width/height in cm so that
+ * 1 user unit = 0.02646 cm = 0.75 pt.  Tools that infer font sizes from the
+ * coordinate scale (PowerPoint, Illustrator) therefore read `font-size="13"`
+ * as 9.75 pt — exactly correct.  Converting to explicit `pt` or `px` units
+ * causes a mismatch: shapes are scaled to fit the slide but absolute-unit
+ * fonts are not, making small text appear too large relative to its box.
  */
-function prepareForExport(svgEl) {
+function prepareForExport(liveSvg, cloneSvg) {
   // Explicit background rect so PowerPoint/Illustrator shows the right fill.
-  // Extract just the hex or rgb color from the background style — the browser
-  // may expand the shorthand with extra keywords ("none repeat scroll 0% 0%")
-  // which are invalid as an SVG fill value.
-  const style = svgEl.getAttribute("style") || "";
+  const style = liveSvg.getAttribute("style") || "";
   const colorMatch = style.match(/background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]+\))/i);
-  const bg = colorMatch ? colorMatch[1] : "#ffffff";
-  const [, , w, h] = (svgEl.getAttribute("viewBox") || "0 0 800 600").split(" ").map(Number);
+  const bg = colorMatch ? colorMatch[1] : (liveSvg.style.backgroundColor || "#ffffff");
+  const [, , w, h] = (liveSvg.getAttribute("viewBox") || "0 0 800 600").split(" ").map(Number);
   const bgRect = document.createElementNS(SVG_NS, "rect");
   bgRect.setAttribute("width", w);
   bgRect.setAttribute("height", h);
   bgRect.setAttribute("fill", bg);
-  svgEl.insertBefore(bgRect, svgEl.firstChild);
+  cloneSvg.insertBefore(bgRect, cloneSvg.firstChild);
 
   // Remove the decorative grid overlay. Must use fill="none" — removing the
   // attribute entirely would leave SVG's default fill (black) on the large rect.
-  svgEl.querySelectorAll('[fill="url(#gridp)"]').forEach((el) => {
+  cloneSvg.querySelectorAll('[fill="url(#gridp)"]').forEach((el) => {
     el.setAttribute("fill", "none");
     el.removeAttribute("opacity");
   });
 
   // Inline arrowheads as <polygon> elements.
-  inlineArrowheads(svgEl);
+  inlineArrowheads(cloneSvg);
+
+  // Convert every unitless font-size to an explicit whole-number pt value.
+  // 1 SVG user unit = 0.75pt at 96dpi with our cm coordinate scale.
+  // PowerPoint rounds fractional pt values (e.g. 9.75pt → 10pt), which makes
+  // text appear slightly larger. Writing pre-rounded integers removes that step.
+  cloneSvg.querySelectorAll("[font-size]").forEach((el) => {
+    const fs = el.getAttribute("font-size");
+    if (fs && /^\d+(\.\d+)?$/.test(fs)) {
+      const pt = Math.max(1, Math.round(parseFloat(fs) * 0.75));
+      el.setAttribute("font-size", `${pt}pt`);
+    }
+  });
+
+  // Strip width/height from the inline style — CSS `width:100%` overrides the
+  // explicit `width="Ncm"` attribute we set below, causing every tool to scale
+  // the SVG relative to its own container rather than at the declared physical size.
+  const inlineStyle = cloneSvg.getAttribute("style") || "";
+  const strippedStyle = inlineStyle
+    .replace(/\b(width|height)\s*:[^;]*(;|$)/gi, "")
+    .replace(/^\s*;+|;\s*$/g, "")
+    .replace(/;{2,}/g, ";")
+    .trim();
+  if (strippedStyle) cloneSvg.setAttribute("style", strippedStyle);
+  else cloneSvg.removeAttribute("style");
 
   // Remove <marker> and <pattern> defs — now unused.
-  svgEl.querySelectorAll("marker, pattern").forEach((n) => n.remove());
-  svgEl.querySelectorAll("defs").forEach((d) => { if (!d.hasChildNodes()) d.remove(); });
+  cloneSvg.querySelectorAll("marker, pattern").forEach((n) => n.remove());
+  cloneSvg.querySelectorAll("defs").forEach((d) => { if (!d.hasChildNodes()) d.remove(); });
 }
 
 export function getSerializedSVG({ includeStepBlockCaptions = true } = {}) {
@@ -93,7 +122,7 @@ export function getSerializedSVG({ includeStepBlockCaptions = true } = {}) {
   if (!includeStepBlockCaptions) {
     clone.querySelectorAll("[data-export-caption]").forEach((node) => node.remove());
   }
-  prepareForExport(clone);
+  prepareForExport(svg, clone);
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
   const vb = (svg.getAttribute("viewBox") || "0 0 800 600")
@@ -101,8 +130,13 @@ export function getSerializedSVG({ includeStepBlockCaptions = true } = {}) {
     .map(Number);
   const w = vb[2],
     h = vb[3];
-  clone.setAttribute("width", String(w));
-  clone.setAttribute("height", String(h));
+  // Declare explicit dimensions in cm so PowerPoint knows the coordinate scale.
+  // 1 user unit = 0.02646 cm (at 96 dpi). This locks the scale so that unitless
+  // font-size values scale proportionally with shapes when "Convert to Shape" is used.
+  const wcm = (w * 0.02646).toFixed(2);
+  const hcm = (h * 0.02646).toFixed(2);
+  clone.setAttribute("width", `${wcm}cm`);
+  clone.setAttribute("height", `${hcm}cm`);
   const str =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     new XMLSerializer().serializeToString(clone);
