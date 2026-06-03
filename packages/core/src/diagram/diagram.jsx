@@ -1834,7 +1834,9 @@ export function Diagram({
         const meta = rowMeta[i];
         if (meta != null) {
           const next = rows[i + 1];
-          if (!(next?.kind === "step" && next.skipIndex))
+          let nk = i + 1;
+          while (rows[nk]?.kind === "branchCase") nk++;
+          if (!(next?.kind === "step" && next.skipIndex) && rows[nk]?.kind !== "groupEnd")
             stepRowDividerYs.push(meta.y + mergeH);
         }
         return;
@@ -1853,6 +1855,7 @@ export function Diagram({
           if (loopMeta != null) yLine = loopMeta.y + branchLoopH;
         }
         if (next?.kind === "step" && next.skipIndex) return;
+        { let nk = i + 1; while (rows[nk]?.kind === "branchCase") nk++; if (rows[nk]?.kind === "groupEnd") return; }
         stepRowDividerYs.push(yLine);
         return;
       }
@@ -1866,6 +1869,7 @@ export function Diagram({
       let yLine =
         meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row, i));
       if (next?.kind === "step" && next.skipIndex) return;
+      { let nk = i + 1; while (rows[nk]?.kind === "branchCase") nk++; if (rows[nk]?.kind === "groupEnd") return; }
 
       /** If the next row is the if (decision), draw the swimlane line under the diamond, not above it. */
       if (next?.kind === "branchStart") {
@@ -2585,6 +2589,19 @@ export function Diagram({
             : { stroke: theme.stroke, bg: theme.branchBg };
         const label = (row.sectionName || "Section").trim() || "Section";
 
+        // Open-bottom bracket: fill rect keeps the background tint over the full
+        // section height; the dashed stroke path draws only the top and two sides
+        // (no bottom edge) so no horizontal line appears at the group-end row.
+        const bRx = 8;
+        const bracketD = [
+          `M ${boxX} ${yBottom + 4}`,
+          `L ${boxX} ${yTop - 4 + bRx}`,
+          `Q ${boxX} ${yTop - 4} ${boxX + bRx} ${yTop - 4}`,
+          `L ${boxX + boxW - bRx} ${yTop - 4}`,
+          `Q ${boxX + boxW} ${yTop - 4} ${boxX + boxW} ${yTop - 4 + bRx}`,
+          `L ${boxX + boxW} ${yBottom + 4}`,
+        ].join(" ");
+
         return (
           <g key={`section-${row.id}`}>
             <rect
@@ -2595,6 +2612,11 @@ export function Diagram({
               rx="8"
               fill={style.bg}
               fillOpacity="0.2"
+              stroke="none"
+            />
+            <path
+              d={bracketD}
+              fill="none"
               stroke={style.stroke}
               strokeWidth="1.1"
               strokeDasharray="6 4"

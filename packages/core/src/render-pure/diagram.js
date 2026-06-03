@@ -29,7 +29,7 @@ const BRANCH_COLOR_STYLES = {
 };
 const FORK_GATEWAY_RADIUS = 14;
 function PageTriColumnText({ y, width, xPad, left, center, right, fill, fontSize = 11 }) {
-  const fontFamily = "'Noto Sans JP','Noto Sans',sans-serif";
+  const fontFamily = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
   return /* @__PURE__ */ h(Fragment, null, left?.trim() && /* @__PURE__ */ h(
     "text",
     {
@@ -138,7 +138,7 @@ function PrintLayer({
   hasPageFooter,
   height
 }) {
-  const serif = "'Noto Sans JP','Noto Sans',sans-serif";
+  const serif = "'Shippori Mincho','Noto Serif JP',Georgia,serif";
   return /* @__PURE__ */ h(Fragment, null, hasPageHeader && pageHeaderY != null && /* @__PURE__ */ h(
     PageTriColumnText,
     {
@@ -1243,7 +1243,7 @@ function renderDiagramSvg({
       key,
       lineType: stepOutgoingArrowLine(prev.r),
       bendY,
-      caseColor: curCase ? (curCase.frame.cases[curCase.caseIdx]?.color ?? null) : null,
+      caseColor: curCase ? curCase.frame.cases[curCase.caseIdx]?.color ?? null : null
     });
   }
   const mainFlowSteps = stepRows.filter((x) => !isInsideBranchGroup(rows, x.i));
@@ -1401,7 +1401,9 @@ function renderDiagramSvg({
         const meta2 = rowMeta[i];
         if (meta2 != null) {
           const next2 = rows[i + 1];
-          if (!(next2?.kind === "step" && next2.skipIndex))
+          let nk = i + 1;
+          while (rows[nk]?.kind === "branchCase") nk++;
+          if (!(next2?.kind === "step" && next2.skipIndex) && rows[nk]?.kind !== "groupEnd")
             stepRowDividerYs.push(meta2.y + mergeH);
         }
         return;
@@ -1420,6 +1422,11 @@ function renderDiagramSvg({
           if (loopMeta != null) yLine2 = loopMeta.y + branchLoopH;
         }
         if (next2?.kind === "step" && next2.skipIndex) return;
+        {
+          let nk = i + 1;
+          while (rows[nk]?.kind === "branchCase") nk++;
+          if (rows[nk]?.kind === "groupEnd") return;
+        }
         stepRowDividerYs.push(yLine2);
         return;
       }
@@ -1431,6 +1438,11 @@ function renderDiagramSvg({
       const next = rows[i + 1];
       let yLine = meta.y + (stepRowHeightByIndex.get(i) ?? stepRowHeight(row, i));
       if (next?.kind === "step" && next.skipIndex) return;
+      {
+        let nk = i + 1;
+        while (rows[nk]?.kind === "branchCase") nk++;
+        if (rows[nk]?.kind === "groupEnd") return;
+      }
       if (next?.kind === "branchStart") {
         const branchMeta = rowMeta[i + 1];
         if (branchMeta != null) yLine = branchMeta.y + diamondH;
@@ -1527,7 +1539,7 @@ function renderDiagramSvg({
         x: xPad + 12,
         y: topPad + 30,
         fill: theme.title,
-        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+        fontFamily: "'Noto Sans JP',sans-serif",
         fontSize: "13",
         fontWeight: "700"
       },
@@ -1539,7 +1551,7 @@ function renderDiagramSvg({
         y: topPad + 50,
         fill: theme.laneText || theme.title,
         opacity: "0.7",
-        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+        fontFamily: "'Noto Sans JP',sans-serif",
         fontSize: "11"
       },
       truncate(page.leftSubtitle.trim(), 26)
@@ -1582,7 +1594,7 @@ function renderDiagramSvg({
           x: 12 + xPad,
           y: yRow + 30,
           fill: theme.title,
-          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+          fontFamily: "'Noto Sans JP',sans-serif",
           fontSize: "12",
           fontWeight: "600"
         },
@@ -1602,7 +1614,7 @@ function renderDiagramSvg({
             y: descY,
             fill: theme.laneText || theme.title,
             opacity: "0.78",
-            fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+            fontFamily: "'Noto Sans JP',sans-serif",
             fontSize: "10",
             fontWeight: "400"
           },
@@ -1643,7 +1655,7 @@ function renderDiagramSvg({
         x: rightGutterX + 12,
         y: topPad + 30,
         fill: theme.title,
-        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+        fontFamily: "'Noto Sans JP',sans-serif",
         fontSize: "13",
         fontWeight: "700"
       },
@@ -1655,7 +1667,7 @@ function renderDiagramSvg({
         y: topPad + 50,
         fill: theme.laneText || theme.title,
         opacity: "0.7",
-        fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+        fontFamily: "'Noto Sans JP',sans-serif",
         fontSize: "11"
       },
       truncate(page.rightSubtitle.trim(), 28)
@@ -1698,7 +1710,7 @@ function renderDiagramSvg({
           y: yRow + 26,
           fill: theme.laneText || theme.title,
           opacity: "0.85",
-          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+          fontFamily: "'Noto Sans JP',sans-serif",
           fontSize: "10",
           fontWeight: "400"
         },
@@ -1774,7 +1786,7 @@ function renderDiagramSvg({
           y: topPad + headerH / 2 + 6,
           textAnchor: lane.icon ? "start" : "middle",
           fill: txt,
-          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+          fontFamily: "'Noto Sans JP',sans-serif",
           fontSize: "15",
           fontWeight: "700",
           letterSpacing: "0.06em"
@@ -1872,7 +1884,7 @@ function renderDiagramSvg({
           x: dCx,
           y: dCy + 4,
           textAnchor: "middle",
-          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+          fontFamily: "'Noto Sans JP',sans-serif",
           fontSize: "13",
           fontWeight: "600",
           fill: theme.branch
@@ -2069,6 +2081,15 @@ function renderDiagramSvg({
       const boxW = laneWidths.reduce((sum, w) => sum + w, 0) - 16;
       const style = row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor] ? BRANCH_COLOR_STYLES[row.sectionColor] : { stroke: theme.stroke, bg: theme.branchBg };
       const label = (row.sectionName || "Section").trim() || "Section";
+      const bRx = 8;
+      const bracketD = [
+        `M ${boxX} ${yBottom + 4}`,
+        `L ${boxX} ${yTop - 4 + bRx}`,
+        `Q ${boxX} ${yTop - 4} ${boxX + bRx} ${yTop - 4}`,
+        `L ${boxX + boxW - bRx} ${yTop - 4}`,
+        `Q ${boxX + boxW} ${yTop - 4} ${boxX + boxW} ${yTop - 4 + bRx}`,
+        `L ${boxX + boxW} ${yBottom + 4}`
+      ].join(" ");
       return /* @__PURE__ */ h("g", { key: `section-${row.id}` }, /* @__PURE__ */ h(
         "rect",
         {
@@ -2079,6 +2100,13 @@ function renderDiagramSvg({
           rx: "8",
           fill: style.bg,
           fillOpacity: "0.2",
+          stroke: "none"
+        }
+      ), /* @__PURE__ */ h(
+        "path",
+        {
+          d: bracketD,
+          fill: "none",
           stroke: style.stroke,
           strokeWidth: "1.1",
           strokeDasharray: "6 4"
@@ -2236,7 +2264,7 @@ function renderDiagramSvg({
           y: cy + 5,
           textAnchor: "middle",
           fill: txtColor,
-          fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+          fontFamily: "'Noto Sans JP',sans-serif",
           fontSize: "13",
           fontWeight: "500"
         },
@@ -2325,7 +2353,7 @@ function renderDiagramSvg({
             textAnchor: "middle",
             fontSize: "11",
             fontWeight: "600",
-            fontFamily: "'Noto Sans JP','Noto Sans',sans-serif",
+            fontFamily: "'Noto Sans JP',sans-serif",
             fill: caseStyle.stroke
           },
           c.label

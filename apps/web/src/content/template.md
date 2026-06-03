@@ -428,11 +428,6 @@ right-title: 備考;
 
 /role/
 
-<role_category>
-label: 区分;
-text-color: #444444;
-background-color: #f5f5f4;
-
 <role_system>
 label: システム;
 text-color: #3730a3;
@@ -503,9 +498,6 @@ hint: 金額・日付が読める画像またはPDF;
 
 /line/
 
-[role_category: 申請開始]
-skip;
-
 [role_applicant: 領収書を添付して申請] <block_apply>
 label: 申請入力;
 props: REQ_DOC,RECEIPT;
@@ -535,11 +527,6 @@ props: NOTIFY;
 稟議・承認フロー
 
 /role/
-
-<role_category>
-label: 区分;
-text-color: #444444;
-background-color: #f5f5f4;
 
 <role_applicant>
 label: 申請者;
@@ -600,9 +587,6 @@ border-color: #64748b;
 text-color: #334155;
 
 /line/
-
-[role_category: 稟議]
-skip;
 
 [role_applicant: 稟議書を起票] <block_apply>
 props: REQ_DOC;
@@ -815,11 +799,6 @@ label: 完了;
 
 /role/
 
-<role_category>
-label: 区分;
-text-color: #444444;
-background-color: #f5f5f4;
-
 <role_hr>
 label: 人事;
 text-color: #6b21a8;
@@ -867,9 +846,6 @@ text-color: #166534;
 title: 内定通知・条件提示書;
 
 /line/
-
-[role_category: 採用]
-skip;
 
 [role_hr: 応募受付]
 props: RESUME;
