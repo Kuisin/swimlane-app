@@ -9,6 +9,8 @@ import {
   findEnclosingBranchGroupStart,
   findFlowContinuityAfterGroupEnd,
   findGroupEndIndex,
+  findLastMainFlowStepBeforeGroupStart,
+  findNextMainFlowStepAfterGroupEnd,
   groupModeOf,
   isInsideBranchGroup,
 } from "../group-rows.js";
@@ -903,6 +905,52 @@ export function Diagram({
     return Math.min(-nodeW / 2, -nodeW / 2 + 55 - docW);
   }
 
+  /**
+   * Branch groups (branch … end-branch) don't fan their interior steps out the
+   * way if/fork cases do. So a branch step in the SAME lane as the bypassing
+   * main flow ends up directly beneath that flow's vertical arrow — the arrow
+   * runs straight through the block. Shift such steps sideways (like an if
+   * case) so the main-flow arrow clears the block. The shift is lane-relative
+   * and added on top of any frame offset, so a branch nested inside an if still
+   * spreads correctly. Must run before stepEdgesByLane so lane widths grow to
+   * fit the shifted column.
+   */
+  const branchShiftGap = caseClearance;
+  rows.forEach((row, startIdx) => {
+    if (row.kind !== "groupStart" || groupModeOf(row) !== "branch") return;
+    const endIdx = findGroupEndIndex(rows, startIdx);
+    if (endIdx < 0) return;
+    // The bypass arrow runs in the lane of the main-flow step feeding the group
+    // (or, when the group opens the flow, the step it continues into).
+    const prevMain = findLastMainFlowStepBeforeGroupStart(rows, startIdx);
+    const refIdx =
+      prevMain >= 0 ? prevMain : findNextMainFlowStepAfterGroupEnd(rows, endIdx);
+    if (refIdx < 0) return;
+    const bypassLane = rows[refIdx].role;
+    if (laneIndexById.get(bypassLane) == null) return;
+
+    // Interior steps of THIS group sharing the bypass lane.
+    const conflicting = [];
+    for (let j = startIdx + 1; j < endIdx; j++) {
+      const r = rows[j];
+      if (r?.kind !== "step" || r.empty || r.role !== bypassLane) continue;
+      if (findEnclosingBranchGroupStart(rows, j) !== startIdx) continue;
+      conflicting.push(j);
+    }
+    if (conflicting.length === 0) return;
+
+    // Move the column right far enough that its left edge clears the arrow,
+    // honoring the reference step's own offset (e.g. when it sits in an if case).
+    let minLeft = stepLeftExtent();
+    for (const j of conflicting) {
+      minLeft = Math.min(minLeft, stepLeftVisualExtent(rows[j]));
+    }
+    const refOffset = stepOffsetByIndex.get(refIdx) || 0;
+    const shift = refOffset + branchShiftGap - minLeft;
+    for (const j of conflicting) {
+      stepOffsetByIndex.set(j, (stepOffsetByIndex.get(j) || 0) + shift);
+    }
+  });
 
   /**
    * Lane-relative leftmost/rightmost edges (branch offset + block/props on right).
@@ -2589,19 +2637,6 @@ export function Diagram({
             : { stroke: theme.stroke, bg: theme.branchBg };
         const label = (row.sectionName || "Section").trim() || "Section";
 
-        // Open-bottom bracket: fill rect keeps the background tint over the full
-        // section height; the dashed stroke path draws only the top and two sides
-        // (no bottom edge) so no horizontal line appears at the group-end row.
-        const bRx = 8;
-        const bracketD = [
-          `M ${boxX} ${yBottom + 4}`,
-          `L ${boxX} ${yTop - 4 + bRx}`,
-          `Q ${boxX} ${yTop - 4} ${boxX + bRx} ${yTop - 4}`,
-          `L ${boxX + boxW - bRx} ${yTop - 4}`,
-          `Q ${boxX + boxW} ${yTop - 4} ${boxX + boxW} ${yTop - 4 + bRx}`,
-          `L ${boxX + boxW} ${yBottom + 4}`,
-        ].join(" ");
-
         return (
           <g key={`section-${row.id}`}>
             <rect
@@ -2612,11 +2647,6 @@ export function Diagram({
               rx="8"
               fill={style.bg}
               fillOpacity="0.2"
-              stroke="none"
-            />
-            <path
-              d={bracketD}
-              fill="none"
               stroke={style.stroke}
               strokeWidth="1.1"
               strokeDasharray="6 4"

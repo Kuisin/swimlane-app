@@ -15,6 +15,8 @@ import {
   findEnclosingBranchGroupStart,
   findFlowContinuityAfterGroupEnd,
   findGroupEndIndex,
+  findLastMainFlowStepBeforeGroupStart,
+  findNextMainFlowStepAfterGroupEnd,
   groupModeOf,
   isInsideBranchGroup
 } from "../group-rows.js";
@@ -711,6 +713,34 @@ function renderDiagramSvg({
     if (n === 0) return -nodeW / 2;
     return Math.min(-nodeW / 2, -nodeW / 2 + 55 - docW);
   }
+  const branchShiftGap = caseClearance;
+  rows.forEach((row, startIdx) => {
+    if (row.kind !== "groupStart" || groupModeOf(row) !== "branch") return;
+    const endIdx = findGroupEndIndex(rows, startIdx);
+    if (endIdx < 0) return;
+    const prevMain = findLastMainFlowStepBeforeGroupStart(rows, startIdx);
+    const refIdx = prevMain >= 0 ? prevMain : findNextMainFlowStepAfterGroupEnd(rows, endIdx);
+    if (refIdx < 0) return;
+    const bypassLane = rows[refIdx].role;
+    if (laneIndexById.get(bypassLane) == null) return;
+    const conflicting = [];
+    for (let j = startIdx + 1; j < endIdx; j++) {
+      const r = rows[j];
+      if (r?.kind !== "step" || r.empty || r.role !== bypassLane) continue;
+      if (findEnclosingBranchGroupStart(rows, j) !== startIdx) continue;
+      conflicting.push(j);
+    }
+    if (conflicting.length === 0) return;
+    let minLeft = stepLeftExtent();
+    for (const j of conflicting) {
+      minLeft = Math.min(minLeft, stepLeftVisualExtent(rows[j]));
+    }
+    const refOffset = stepOffsetByIndex.get(refIdx) || 0;
+    const shift = refOffset + branchShiftGap - minLeft;
+    for (const j of conflicting) {
+      stepOffsetByIndex.set(j, (stepOffsetByIndex.get(j) || 0) + shift);
+    }
+  });
   const stepEdgesByLane = /* @__PURE__ */ new Map();
   rows.forEach((row, i) => {
     if (row.kind !== "step" || row.empty || !row.role) return;
@@ -2081,15 +2111,6 @@ function renderDiagramSvg({
       const boxW = laneWidths.reduce((sum, w) => sum + w, 0) - 16;
       const style = row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor] ? BRANCH_COLOR_STYLES[row.sectionColor] : { stroke: theme.stroke, bg: theme.branchBg };
       const label = (row.sectionName || "Section").trim() || "Section";
-      const bRx = 8;
-      const bracketD = [
-        `M ${boxX} ${yBottom + 4}`,
-        `L ${boxX} ${yTop - 4 + bRx}`,
-        `Q ${boxX} ${yTop - 4} ${boxX + bRx} ${yTop - 4}`,
-        `L ${boxX + boxW - bRx} ${yTop - 4}`,
-        `Q ${boxX + boxW} ${yTop - 4} ${boxX + boxW} ${yTop - 4 + bRx}`,
-        `L ${boxX + boxW} ${yBottom + 4}`
-      ].join(" ");
       return /* @__PURE__ */ h("g", { key: `section-${row.id}` }, /* @__PURE__ */ h(
         "rect",
         {
@@ -2100,13 +2121,6 @@ function renderDiagramSvg({
           rx: "8",
           fill: style.bg,
           fillOpacity: "0.2",
-          stroke: "none"
-        }
-      ), /* @__PURE__ */ h(
-        "path",
-        {
-          d: bracketD,
-          fill: "none",
           stroke: style.stroke,
           strokeWidth: "1.1",
           strokeDasharray: "6 4"
