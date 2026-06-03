@@ -2662,11 +2662,13 @@ export function Diagram({
         }
         const endIdx = findGroupEndIndex(rows, i);
         if (endIdx < 0 || lanes.length === 0) return null;
-        // rowMeta[i].y is the step-row divider above the section (the preceding
-        // step's bottom edge). Inset the box 5px beyond that border on each side.
+        // The section is bounded by two step-row borders: rowMeta[i].y is the
+        // top border (the preceding step's bottom edge) and rowMeta[endIdx].y is
+        // the bottom border (the last interior step's bottom edge). Tuck the box
+        // 5px inside each of those borders.
         const sectionInset = 5;
         const yTop = rowMeta[i]?.y ?? 0;
-        const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
+        const yEnd = rowMeta[endIdx]?.y ?? yTop;
         // Keep the dashed container inside the lane grid outer frame (which
         // spans laneX(0) → laneX(0) + total lane width) so the border never
         // overflows the table.
@@ -2682,9 +2684,9 @@ export function Diagram({
           <g key={`section-${row.id}`}>
             <rect
               x={boxX}
-              y={yTop - sectionInset}
+              y={yTop + sectionInset}
               width={boxW}
-              height={yBottom - yTop + sectionInset * 2}
+              height={Math.max(0, yEnd - yTop - sectionInset * 2)}
               rx="8"
               fill={style.bg}
               fillOpacity="0.2"

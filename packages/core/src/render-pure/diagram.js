@@ -2116,7 +2116,7 @@ function renderDiagramSvg({
       if (endIdx < 0 || lanes.length === 0) return null;
       const sectionInset = 5;
       const yTop = rowMeta[i]?.y ?? 0;
-      const yBottom = (rowMeta[endIdx]?.y ?? yTop) + groupMarkerH;
+      const yEnd = rowMeta[endIdx]?.y ?? yTop;
       const boxX = laneX(0) + 8;
       const boxW = laneWidths.reduce((sum, w) => sum + w, 0) - 16;
       const style = row.sectionColor && BRANCH_COLOR_STYLES[row.sectionColor] ? BRANCH_COLOR_STYLES[row.sectionColor] : { stroke: theme.stroke, bg: theme.branchBg };
@@ -2125,9 +2125,9 @@ function renderDiagramSvg({
         "rect",
         {
           x: boxX,
-          y: yTop - sectionInset,
+          y: yTop + sectionInset,
           width: boxW,
-          height: yBottom - yTop + sectionInset * 2,
+          height: Math.max(0, yEnd - yTop - sectionInset * 2),
           rx: "8",
           fill: style.bg,
           fillOpacity: "0.2",
