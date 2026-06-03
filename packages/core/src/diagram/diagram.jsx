@@ -1855,8 +1855,7 @@ export function Diagram({
         return;
       }
       if (row.kind !== "step" || !row.role) return;
-      // For skip rows, hide only the top divider (handled by previous-row check),
-      // but keep normal flow and lower divider behavior.
+      if (row.skipIndex) return;
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;

@@ -1422,6 +1422,7 @@ function renderDiagramSvg({
         return;
       }
       if (row.kind !== "step" || !row.role) return;
+      if (row.skipIndex) return;
       if (i === lastStepRowIndex && rows[i + 1]?.kind !== "branchLoop") return;
       const meta = rowMeta[i];
       if (meta == null) return;
