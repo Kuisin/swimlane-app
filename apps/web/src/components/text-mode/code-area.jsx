@@ -58,11 +58,25 @@ export function CodeArea({ src, onChange, errorLines = new Set() }) {
     }
   }
 
+  function handleLineNumbersWheel(event) {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.scrollTop += event.deltaY;
+    textarea.scrollLeft += event.deltaX;
+    syncScroll();
+    event.preventDefault();
+  }
+
+  useLayoutEffect(() => {
+    syncScroll();
+  }, [src, lineNumbers.length]);
+
   return (
     <div className="flex flex-1 min-h-0">
       <div
         ref={lineNumbersRef}
-        className="shrink-0 overflow-y-auto overflow-x-hidden py-4 pl-2 pr-4 select-none border-r border-stone-700/40"
+        onWheel={handleLineNumbersWheel}
+        className="shrink-0 overflow-hidden py-4 pl-2 pr-4 select-none border-r border-stone-700/40"
         aria-hidden
       >
         <div
@@ -87,7 +101,7 @@ export function CodeArea({ src, onChange, errorLines = new Set() }) {
       <div className="relative flex-1 min-w-0 min-h-0">
         <div
           ref={highlightsRef}
-          className="absolute inset-0 overflow-auto pointer-events-none"
+          className="absolute inset-0 overflow-hidden pointer-events-none"
           aria-hidden
         >
           <div

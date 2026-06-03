@@ -4,24 +4,52 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TxtViewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="titlebar">
     <span class="titlebar-title">TxtViewer</span>
     <div class="titlebar-actions">
-      <button id="btn-open" class="btn-primary">Open Folder</button>
       <span id="folder-path" class="folder-path"></span>
+      <select id="theme-select" class="theme-select">
+        <option value="basic">Basic</option>
+        <option value="washi">Washi</option>
+        <option value="ink">Ink</option>
+        <option value="mono">Mono</option>
+      </select>
+      <button id="btn-toggle-txt" class="btn-secondary hidden">Show TXT</button>
+      <button id="btn-open" class="btn-primary">Open Folder</button>
     </div>
   </div>
 
-  <div id="empty-state" class="empty-state">
-    <div class="empty-icon">📂</div>
-    <p>Select a folder containing <strong>.txt</strong> files to get started.</p>
-    <button id="btn-open-empty" class="btn-primary">Open Folder</button>
-  </div>
+  <div id="app-body" class="app-body">
+    <aside id="sidebar" class="sidebar hidden">
+      <div class="sidebar-header">Files</div>
+      <ul id="file-list" class="file-list"></ul>
+    </aside>
 
-  <div id="grid" class="grid hidden"></div>
+    <main id="main" class="main">
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">📂</div>
+        <p>Select a folder containing <strong>.txt</strong> files to get started.</p>
+        <button id="btn-open-empty" class="btn-primary">Open Folder</button>
+      </div>
+
+      <div id="svg-view" class="svg-view hidden">
+        <div id="svg-container" class="svg-container"></div>
+        <div id="txt-panel" class="txt-panel hidden">
+          <div class="txt-panel-header">
+            <span id="txt-panel-filename" class="txt-panel-filename"></span>
+            <span class="txt-panel-badge">raw</span>
+          </div>
+          <pre id="txt-content" class="txt-content"></pre>
+        </div>
+      </div>
+    </main>
+  </div>
 
   <script src="renderer.js"></script>
 </body>

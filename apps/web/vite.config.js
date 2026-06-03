@@ -43,6 +43,7 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {
+      "@kai-swimlane/core/render-pure": path.join(repoRoot, "packages/core/src/render-pure/index.js"),
       "@kai-swimlane/core": path.join(repoRoot, "packages/core/src/index.js"),
       "kai-swimlane": path.join(repoRoot, "packages/kai-swimlane/src/index.js"),
       "kai-swimlane-parts": path.join(

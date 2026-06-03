@@ -2,15 +2,26 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const chokidar = require('chokidar')
+const { pathToFileURL } = require('url')
 
 let mainWindow
 let watcher = null
+let coreModules = null
+
+async function getCoreModules() {
+  if (coreModules) return coreModules
+  const renderPureMod = await import(
+    pathToFileURL(path.join(__dirname, '../../packages/core/src/render-pure/index.js')).href
+  )
+  coreModules = { textToSvg: renderPureMod.textToSvg }
+  return coreModules
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 700,
+    width: 1400,
+    height: 900,
+    minWidth: 800,
     minHeight: 500,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
@@ -46,6 +57,7 @@ ipcMain.handle('read-txt-files', async (_, folderPath) => {
   const entries = fs.readdirSync(folderPath)
   const files = entries
     .filter((f) => f.toLowerCase().endsWith('.txt'))
+    .sort()
     .map((f) => {
       const fullPath = path.join(folderPath, f)
       const content = fs.readFileSync(fullPath, 'utf-8')
@@ -53,6 +65,17 @@ ipcMain.handle('read-txt-files', async (_, folderPath) => {
       return { name: f, content, mtime: stat.mtimeMs }
     })
   return files
+})
+
+ipcMain.handle('render-svg', async (_, content, themeKey) => {
+  try {
+    const { textToSvg } = await getCoreModules()
+    const { svg, errors } = textToSvg(content, { themeKey: themeKey || 'basic' })
+    if (!svg) return { svg: null, error: errors[0]?.msg ?? 'Render error' }
+    return { svg, error: null }
+  } catch (err) {
+    return { svg: null, error: err.message }
+  }
 })
 
 ipcMain.on('watch-folder', (_, folderPath) => {

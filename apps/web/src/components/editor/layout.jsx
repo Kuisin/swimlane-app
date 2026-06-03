@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
+import { textToSvg } from "@kai-swimlane/core/render-pure";
 import { useEditor } from "../../hooks/use-editor";
 import { applyModelEdit } from "../../lib/gui-model";
 import { Toolbar } from "./shell/toolbar";
@@ -49,6 +51,16 @@ export function EditorLayout({
   const applyOption = (editFn) =>
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
 
+  const isInteractive = Boolean(diagramExtras?.interactive);
+
+  // Text mode: platform-free textToSvg (same pipeline as the txt-viewer).
+  // GUI mode: keep the React Diagram component so onClick row-selection still works.
+  const svgString = useMemo(() => {
+    if (isInteractive) return null;
+    const { svg } = textToSvg(src, { theme });
+    return svg;
+  }, [isInteractive, src, theme]);
+
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 lg:flex lg:flex-col">
       <style>{FONT_STYLE}</style>
@@ -67,18 +79,23 @@ export function EditorLayout({
             className="rounded-sm shadow-lg border border-stone-300 overflow-hidden"
             style={{ background: theme.bg }}
           >
-            <Diagram
-              model={diagramModel}
-              theme={theme}
-              showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
-              mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
-              showLeftGutter={resolvedDiagramOptions.showLeftGutter}
-              showRightGutter={resolvedDiagramOptions.showRightGutter}
-              showHeader={resolvedDiagramOptions.showHeader}
-              showFooter={resolvedDiagramOptions.showFooter}
-              showDescription={resolvedDiagramOptions.showDescription}
-              {...(diagramExtras || {})}
-            />
+            {isInteractive ? (
+              <Diagram
+                model={diagramModel}
+                theme={theme}
+                showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
+                mergeAtPreviousBlock={resolvedDiagramOptions.mergeAtPreviousBlock}
+                showLeftGutter={resolvedDiagramOptions.showLeftGutter}
+                showRightGutter={resolvedDiagramOptions.showRightGutter}
+                showHeader={resolvedDiagramOptions.showHeader}
+                showFooter={resolvedDiagramOptions.showFooter}
+                showDescription={resolvedDiagramOptions.showDescription}
+                {...(diagramExtras || {})}
+              />
+            ) : (
+              // eslint-disable-next-line react/no-danger
+              <div dangerouslySetInnerHTML={{ __html: svgString }} />
+            )}
           </div>
           <div className="mt-3 font-jp text-[11px] text-stone-500 flex justify-between gap-2">
             <span>プレビュー · Preview</span>
