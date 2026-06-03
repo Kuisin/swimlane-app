@@ -9,6 +9,10 @@ import { FileListModal } from "./shell/file-list-modal";
 import { OptionsModal } from "./shell/options-modal";
 import { DocumentTabs } from "./document-tabs";
 
+// ?js-mode — switch from the React <Diagram> renderer to the platform-free
+// textToSvg function (same pipeline as the Electron txt-viewer).
+const JS_MODE = new URLSearchParams(window.location.search).has("js-mode");
+
 const FONT_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
   .font-display { font-family: 'Shippori Mincho', serif; }
@@ -51,15 +55,11 @@ export function EditorLayout({
   const applyOption = (editFn) =>
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
 
-  const isInteractive = Boolean(diagramExtras?.interactive);
-
-  // Text mode: platform-free textToSvg (same pipeline as the txt-viewer).
-  // GUI mode: keep the React Diagram component so onClick row-selection still works.
   const svgString = useMemo(() => {
-    if (isInteractive) return null;
+    if (!JS_MODE) return null;
     const { svg } = textToSvg(src, { theme });
     return svg;
-  }, [isInteractive, src, theme]);
+  }, [src, theme]);
 
   return (
     <div className="h-dvh w-dvw bg-stone-100 text-stone-900 lg:flex lg:flex-col">
@@ -79,7 +79,10 @@ export function EditorLayout({
             className="rounded-sm shadow-lg border border-stone-300 overflow-hidden"
             style={{ background: theme.bg }}
           >
-            {isInteractive ? (
+            {JS_MODE ? (
+              // eslint-disable-next-line react/no-danger
+              <div dangerouslySetInnerHTML={{ __html: svgString }} />
+            ) : (
               <Diagram
                 model={diagramModel}
                 theme={theme}
@@ -92,9 +95,6 @@ export function EditorLayout({
                 showDescription={resolvedDiagramOptions.showDescription}
                 {...(diagramExtras || {})}
               />
-            ) : (
-              // eslint-disable-next-line react/no-danger
-              <div dangerouslySetInnerHTML={{ __html: svgString }} />
             )}
           </div>
           <div className="mt-3 font-jp text-[11px] text-stone-500 flex justify-between gap-2">
