@@ -309,6 +309,13 @@ export function Diagram({
   const descriptionLineHeight = 14;
   const descriptionBottomPad = 10;
 
+  // Gutter text (left title/description, right remark) is anchored to the top of
+  // each step row (yRow). The first line's baseline sits gutterTextBaselineY
+  // below the row top; a title pushes the description down by one title line.
+  const gutterTextBaselineY = 30; // first gutter line: baseline offset from row top
+  const gutterTitleLineH = 20; // title → description baseline advance
+  const gutterTextBandTopY = 20; // first line's band top (≈ baseline − ascent), for row-height fit
+
   const caseSpread = 100;
   /** Minimal gap between a sibling case's flow arrow and the neighbor block/doc side. */
   const caseClearance = 10;
@@ -432,19 +439,20 @@ export function Diagram({
       (maxPropsPerSide > 0 && propRowExtraHBase) +
       Math.max(0, maxPropsPerSide - 1) * propRowExtraHPerProps;
     const heightWithProps = rowH + propExtra;
-    // Left description sits below the per-step title; the right remark starts at
-    // the row top. The row must fit whichever gutter text is taller.
+    // Both gutters anchor to the step-row top (gutterTextBandTopY); the left
+    // description additionally sits one title line lower when a title is shown.
+    // The row must fit whichever gutter text is taller.
     const titleText = (row.name || row.text || "").trim();
     const descExtra = showLeftGutter
       ? gutterTextExtraHeight(
           row.description,
-          titleText ? 40 : 20,
+          gutterTextBandTopY + (titleText ? gutterTitleLineH : 0),
           rowIndex,
           heightWithProps,
         )
       : 0;
     const remarkExtra = rightGutterVisible
-      ? gutterTextExtraHeight(row.remark, 20, rowIndex, heightWithProps, remarkWrapCols)
+      ? gutterTextExtraHeight(row.remark, gutterTextBandTopY, rowIndex, heightWithProps, remarkWrapCols)
       : 0;
 
     return heightWithProps + Math.max(descExtra, remarkExtra);
@@ -2114,7 +2122,7 @@ export function Diagram({
             {titleText && (
               <text
                 x={12 + xPad}
-                y={yRow + 30}
+                y={yRow + gutterTextBaselineY}
                 fill={theme.title}
                 fontFamily="'Noto Sans JP',sans-serif"
                 fontSize="12"
@@ -2129,7 +2137,8 @@ export function Diagram({
                 r.description.trim(),
                 28
               );
-              const descY = titleText ? yRow + 50 : yRow + 30;
+              const descY =
+                yRow + gutterTextBaselineY + (titleText ? gutterTitleLineH : 0);
               const descX = 12 + xPad;
               return (
                 <text
@@ -2235,7 +2244,7 @@ export function Diagram({
               <text
                 key={`step-remark-${i}`}
                 x={rx}
-                y={yRow + 26}
+                y={yRow + gutterTextBaselineY}
                 fill={theme.laneText || theme.title}
                 opacity="0.85"
                 fontFamily="'Noto Sans JP',sans-serif"
