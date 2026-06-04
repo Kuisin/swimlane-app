@@ -5,11 +5,6 @@
 
 /role/
 
-<role_category>
-label: 区分;
-text-color: #444444;
-background-color: #f5f5f4;
-
 <role_system>
 label: システム;
 text-color: #3730a3;
@@ -83,9 +78,6 @@ text-color: #334155;
 hint: 金額・日付が読める画像またはPDF;
 
 /line/
-
-[role_category: 申請開始]
-skip;
 
 [role_applicant: 領収書を添付して申請] <block_apply>
 label: 申請入力;
