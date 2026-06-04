@@ -247,6 +247,7 @@ For headless or server use without Electron, see [Headless rendering](#headless-
 | **Edit** | GUI editor from `apps/web` — title, flow steps, branches, settings, templates |
 | **Save** | Explicit **Save** / Ctrl+S writes the active file back to disk; dirty `*` indicator |
 | **Preview** | Live React `Diagram` from `@kai-swimlane/core` |
+| **Panels** | Drag dividers to resize folder list, editor column, and step inspector; sizes persist in `localStorage` |
 | **Live reload** | `chokidar` refreshes non-dirty files when changed externally |
 | **Stack** | Electron 31, Vite + React renderer (reuses `apps/web/src` GUI components) |
 

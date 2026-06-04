@@ -12,3 +12,19 @@ body,
 body {
   margin: 0;
 }
+
+@media (min-width: 1280px) {
+  [data-resizable-folder] {
+    width: var(--panel-folder-width);
+    min-width: var(--panel-folder-width);
+    max-width: var(--panel-folder-width);
+  }
+}
+
+@media (min-width: 1024px) {
+  [data-resizable-editor] {
+    width: var(--panel-editor-width);
+    min-width: var(--panel-editor-width);
+    max-width: var(--panel-editor-width);
+  }
+}

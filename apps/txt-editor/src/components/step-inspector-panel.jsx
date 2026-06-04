@@ -10,7 +10,7 @@ import {
 } from "@web/lib/parse-error-policy";
 import { InspectorDraftPanel } from "@web/components/gui/inspector-draft-panel";
 
-export function StepInspectorPanel({ rowIndex, onDirtyChange }) {
+export function StepInspectorPanel({ rowIndex, onDirtyChange, height }) {
   const {
     activeDocumentId,
     src,
@@ -60,6 +60,15 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange }) {
     [activeDocumentId, src, updateDocumentSrc],
   );
 
+  const panelStyle =
+    height != null
+      ? { height, minHeight: height, maxHeight: height }
+      : undefined;
+  const panelClass =
+    height != null
+      ? "overflow-y-auto shrink-0 bg-stone-950/40"
+      : "max-h-72 overflow-y-auto shrink-0 bg-stone-950/40";
+
   if (rowIndex == null) {
     return (
       <p className="text-xs font-jp text-stone-500 px-3 py-4 border-t border-stone-700/60">
@@ -85,7 +94,10 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange }) {
   }
 
   return (
-    <div className="border-t border-stone-700/60 max-h-72 overflow-y-auto shrink-0 bg-stone-950/40">
+    <div
+      className={`border-t border-stone-700/60 ${panelClass}`}
+      style={panelStyle}
+    >
       <p className="px-3 py-1.5 text-[10px] font-jp text-stone-500 border-b border-stone-700/40">
         手順の詳細
       </p>

@@ -99,7 +99,7 @@ function TreeItems({ node, depth, collapsedFolders, onToggleFolder, activeId, on
   );
 }
 
-export function FolderSidebar({ fileIds, activeId, onSelect, dirtyIds, folderPath }) {
+export function FolderSidebar({ fileIds, activeId, onSelect, dirtyIds, folderPath, width }) {
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const tree = useMemo(() => buildTree(fileIds), [fileIds]);
 
@@ -115,7 +115,15 @@ export function FolderSidebar({ fileIds, activeId, onSelect, dirtyIds, folderPat
   const rootName = folderPath?.split(/[/\\]/).pop() || "Files";
 
   return (
-    <aside className="w-full xl:w-52 shrink-0 border-b xl:border-b-0 xl:border-r border-stone-300 bg-stone-50 flex flex-col min-h-0 max-h-[40vh] xl:max-h-none">
+    <aside
+      data-resizable-folder={width != null ? "" : undefined}
+      className="w-full shrink-0 border-b xl:border-b-0 xl:border-r border-stone-300 bg-stone-50 flex flex-col min-h-0 max-h-[40vh] xl:max-h-none"
+      style={
+        width != null
+          ? { "--panel-folder-width": `${width}px` }
+          : undefined
+      }
+    >
       <div className="px-3 py-2 border-b border-stone-300 shrink-0">
         <p className="text-[10px] font-jp text-stone-500 uppercase tracking-wide">Folder</p>
         <p className="text-xs font-medium text-stone-800 truncate" title={folderPath}>

@@ -8,9 +8,11 @@ import { OptionsModal } from "@web/components/editor/shell/options-modal";
 import { useFolder } from "./context/file-editor-provider";
 import { AppToolbar } from "./components/app-toolbar";
 import { FolderSidebar } from "./components/folder-sidebar";
+import { ResizeHandle } from "./components/resize-handle";
 import { StepInspectorPanel } from "./components/step-inspector-panel";
 import { TemplateModal } from "./components/template-modal";
 import { TemplateModalProvider } from "./shims/toolbar-template-actions";
+import { usePanelLayout } from "./hooks/use-panel-layout";
 
 const FONT_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -44,6 +46,7 @@ export function App() {
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
   const [templateKind, setTemplateKind] = useState(null);
   const [inspectorDirty, setInspectorDirty] = useState(false);
+  const { layout, beginResize } = usePanelLayout();
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
   const resolvedDiagramOptions = useMemo(
@@ -130,6 +133,12 @@ export function App() {
           onSelect={handleSelectFile}
           dirtyIds={dirtyIds}
           folderPath={folderPath}
+          width={layout.folderWidth}
+        />
+        <ResizeHandle
+          orientation="vertical"
+          className="hidden xl:block"
+          onMouseDown={(e) => beginResize("folder", e)}
         />
 
         <div className="flex-1 flex min-w-0 min-h-0 flex-col lg:flex-row">
@@ -160,7 +169,17 @@ export function App() {
             </div>
           </div>
 
-          <div className="w-full lg:max-w-[560px] lg:w-[42%] shrink-0 border-t lg:border-t-0 lg:border-l border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[320px] lg:min-h-0">
+          <ResizeHandle
+            orientation="vertical"
+            className="hidden lg:block"
+            onMouseDown={(e) => beginResize("editor", e)}
+          />
+
+          <div
+            data-resizable-editor=""
+            className="w-full shrink-0 border-t lg:border-t-0 lg:border-l border-stone-300 bg-stone-900 text-stone-100 flex flex-col min-h-[320px] lg:min-h-0"
+            style={{ "--panel-editor-width": `${layout.editorWidth}px` }}
+          >
             <div className="px-3 py-2 border-b border-stone-700/60 shrink-0">
               <p className="text-[10px] font-jp text-stone-500">編集中</p>
               <p className="text-xs font-mono text-stone-300 truncate" title={activeDocumentId}>
@@ -184,9 +203,16 @@ export function App() {
                   onEditRows={onEditRows}
                 />
               </div>
+              {selectedRowIndex != null && (
+                <ResizeHandle
+                  orientation="horizontal"
+                  onMouseDown={(e) => beginResize("inspector", e)}
+                />
+              )}
               <StepInspectorPanel
                 rowIndex={selectedRowIndex}
                 onDirtyChange={setInspectorDirty}
+                height={selectedRowIndex != null ? layout.inspectorHeight : undefined}
               />
             </div>
           </div>
