@@ -262,7 +262,7 @@ function serializeLineRows(rows) {
       } else {
         const label = (row.label || "").trim();
         if (/^else$/i.test(label)) {
-          out.push(indent(controlDepth, "else"));
+          out.push(indent(controlDepth, color ? `else than${color}` : "else"));
         } else {
           out.push(indent(controlDepth, `elseif (${label}) than${color}`));
         }

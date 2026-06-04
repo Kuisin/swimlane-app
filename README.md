@@ -1,6 +1,6 @@
 # Kai Swimlane
 
-A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm workspace monorepo so the web app, Electron txt viewer, and markdown fence renderers share one parser and diagram implementation.
+A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm workspace monorepo so the web app, Electron txt viewer/editor, and markdown fence renderers share one parser and diagram implementation.
 
 ## Repository layout
 
@@ -16,7 +16,8 @@ A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm
 │   └── cursor/kai-swimlane/  Cursor local plugin
 └── apps/
     ├── web/                  @kai-swimlane/web — Vite editor UI + dev LLM PNG API
-    └── txt-viewer/           Electron app — open a folder of `.txt` DSL files and preview SVG live
+    ├── txt-viewer/           Electron app — open a folder of `.txt` DSL files and preview SVG live
+    └── txt-editor/           Electron app — GUI editor for `.txt` DSL files on disk (save back to folder)
 ```
 
 Shared logic lives in **`@kai-swimlane/core`**. The **`kai-swimlane`** and **`kai-swimlane-parts`** packages are thin React layers on top of that core (used by the web app help/templates tab and reusable in other markdown UIs).
@@ -86,6 +87,37 @@ const { svg, errors } = textToSvg(content, { themeKey: "basic" });
 ```
 
 IPC bridge (`electron/preload.js` → `renderer/renderer.js`): `selectFolder`, `readTxtFiles`, `renderSvg`, `watchFolder`, `onFileChanged`.
+
+### Txt Editor (`apps/txt-editor`)
+
+Desktop Electron app for **GUI editing** of Kai Swimlane DSL files saved as `.txt`. Reuses the web app's GUI editor components (`GuiModePanel`, flow-step list, step inspector, template panels) via a Vite alias to `apps/web/src`. Open a folder tree of `.txt` files, edit in the GUI, and **Save** (or Ctrl+S) to write changes back to disk. Live diagram preview uses the React `Diagram` component from `@kai-swimlane/core`.
+
+```bash
+pnpm --filter txt-editor dev       # Vite dev server + Electron (hot reload)
+pnpm --filter txt-editor build     # production renderer bundle
+pnpm --filter txt-editor preview   # build then launch Electron
+pnpm --filter txt-editor start     # launch Electron (requires prior build)
+```
+
+Or from the app directory:
+
+```bash
+cd apps/txt-editor
+pnpm dev
+```
+
+**Usage:** **Open Folder** (or **Samples**) → select a `.txt` file in the sidebar tree → edit title, flow steps, branches, and options in the GUI panel → select a step for the inline step inspector → **Save** when the dirty indicator appears. External edits to non-active files are picked up via chokidar.
+
+**Package native installers:**
+
+```bash
+pnpm --filter txt-editor build:win   # Windows NSIS installer (x64)
+pnpm --filter txt-editor build:mac   # macOS .dmg (x64 + arm64)
+```
+
+Output lands under `apps/txt-editor/dist/` (renderer) and platform installers from electron-builder.
+
+IPC bridge (`electron/preload.js` → renderer): `selectFolder`, `readTxtFiles`, `writeTxtFile`, `watchFolder`, `onFileChanged`, `readBundledSamples`.
 
 ### Tests and lint
 
@@ -207,6 +239,32 @@ apps/txt-viewer/
 
 For headless or server use without Electron, see [Headless rendering](#headless-rendering-for-external-plugins) below.
 
+## Txt Editor (Electron)
+
+| Feature | Detail |
+|---------|--------|
+| **Input** | Any folder tree of `.txt` files (hidden dotfiles skipped) |
+| **Edit** | GUI editor from `apps/web` — title, flow steps, branches, settings, templates |
+| **Save** | Explicit **Save** / Ctrl+S writes the active file back to disk; dirty `*` indicator |
+| **Preview** | Live React `Diagram` from `@kai-swimlane/core` |
+| **Live reload** | `chokidar` refreshes non-dirty files when changed externally |
+| **Stack** | Electron 31, Vite + React renderer (reuses `apps/web/src` GUI components) |
+
+Source layout:
+
+```
+apps/txt-editor/
+  electron/
+    main.js       folder dialog, file read/write, chokidar
+    preload.js    contextBridge API exposed as window.api
+  src/
+    app.jsx                 main layout (sidebar + diagram + GUI panel)
+    context/file-editor-provider.jsx   disk-backed EditorContext
+    components/             folder sidebar, step inspector, template modal
+    shims/                  Electron replacements for browser-only web helpers
+  vite.config.js            aliases @web → apps/web/src, base ./ for file://
+```
+
 ## DSL quick reference
 
 Wrap documents in `@kai-swimlane` … `@end` (optional inside Markdown ` ```kai-swimlane ` fences).
@@ -236,7 +294,7 @@ label: Sales;
 [sales: Receive order]
 label: Intake;
 desc: Customer submits the order.;
-remark: Shown in the right column when any step has remark:;
+remark: Shown in the right column when show-right-gutter is true;
 
 @end
 ```

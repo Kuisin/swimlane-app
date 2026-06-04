@@ -1,0 +1,74 @@
+{
+  "name": "txt-editor",
+  "version": "1.0.0",
+  "description": "Desktop GUI editor for Kai Swimlane .txt DSL files",
+  "main": "electron/main.js",
+  "scripts": {
+    "predev": "node -e \"try{require('fs').unlinkSync('.dev-port')}catch(e){}\"",
+    "dev": "concurrently -k \"vite\" \"wait-on file:.dev-port && node scripts/launch-electron.mjs\"",
+    "build": "vite build",
+    "start": "electron .",
+    "preview": "vite build && electron .",
+    "build:mac": "vite build && electron-builder --mac",
+    "build:win": "vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.txteditor.app",
+    "productName": "TxtEditor",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../content",
+        "to": "content",
+        "filter": ["**/*.txt", "**/*.md"]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "@kai-swimlane/core": "workspace:*",
+    "chokidar": "^3.6.0",
+    "kai-swimlane": "workspace:*",
+    "kai-swimlane-parts": "workspace:*",
+    "lucide-react": "^1.11.0",
+    "pptxgenjs": "^3.12.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.4",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.1.2",
+    "electron": "^31.0.0",
+    "electron-builder": "^25.0.0",
+    "tailwindcss": "^4.2.4",
+    "vite": "^8.0.10",
+    "wait-on": "^8.0.3"
+  }
+}

@@ -389,7 +389,7 @@ right-title: 備考;
 right-subtitle: メモ;
 ```
 
-`remark:` を使うフロー例では `show-right-gutter: true` にし、少なくとも1ステップに `remark:` を付けると右カラムが表示されます。
+`show-right-gutter: true` にすると右カラム（見出しと各ステップの備考欄）が表示されます。`remark:` の有無にかかわらず欄は出ます。
 
 ## フロー制御
 

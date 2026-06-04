@@ -235,10 +235,7 @@ function renderDiagramSvg({
   const nodeW = 188;
   const xPad = 40;
   const leftGutter = showLeftGutter ? 300 : 0;
-  const hasRemarks = (rows || []).some(
-    (r) => r.kind === "step" && (r.remark || "").trim()
-  );
-  const rightGutterVisible = showRightGutter && hasRemarks;
+  const rightGutterVisible = showRightGutter;
   const rightGutter = rightGutterVisible ? 240 : 0;
   const DESC_WRAP_COLS = 28;
   const remarkWrapCols = Math.max(
@@ -1737,8 +1734,7 @@ function renderDiagramSvg({
       if (r.kind !== "step" || r.empty || !r.role) return null;
       const yRow = rowMeta[i]?.y;
       if (yRow == null) return null;
-      const remark = (r.remark || "").trim();
-      if (!remark) return null;
+      const remark = r.remark ?? "";
       const visualLines = wrapDescriptionToVisualLines(remark, remarkWrapCols);
       const rx = rightGutterX + 12;
       return /* @__PURE__ */ h(
@@ -1753,7 +1749,7 @@ function renderDiagramSvg({
           fontSize: "10",
           fontWeight: "400"
         },
-        visualLines.map((runs, li) => /* @__PURE__ */ h(
+        visualLines.length === 0 ? /* @__PURE__ */ h("tspan", { x: rx, dy: 0 }, "\u00a0") : visualLines.map((runs, li) => /* @__PURE__ */ h(
           "tspan",
           {
             key: li,

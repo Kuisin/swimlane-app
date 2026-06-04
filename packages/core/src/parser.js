@@ -484,7 +484,8 @@ export function parseDSL(src) {
       );
       continue;
     }
-    if (/^else$/i.test(u)) {
+    m = u.match(/^else(?:\s+than(?:\s+#([A-Za-z]+))?)?$/i);
+    if (m) {
       const top = stack[stack.length - 1];
       if (!top || top.type !== "if") {
         errors.push({ line, text, msg: "else without if" });
@@ -494,6 +495,7 @@ export function parseDSL(src) {
         {
           kind: "branchCase",
           label: "else",
+          branchColor: m[1] ? m[1].trim().toLowerCase() : null,
           id: top.id,
           depth: branchControlDepth(),
         },

@@ -111,7 +111,7 @@ right-subtitle: メモ;
 | キー | 意味 |
 |------|------|
 | `show-left-gutter` | 左カラム（段階番号・`label` / `desc`）を表示 |
-| `show-right-gutter` | 右カラム（各ステップの `remark`）を表示 |
+| `show-right-gutter` | 右カラム（各ステップの `remark` 欄）を表示。`remark` の有無は問わない |
 | `show-header` | ページヘッダーを表示 |
 | `show-footer` | ページフッターを表示 |
 | `show-description` | タイトル下の説明文を表示 |
@@ -123,7 +123,7 @@ right-subtitle: メモ;
 | `right-subtitle` | 右カラム副見出し（既定: 空） |
 
 - **左カラム**（`show-left-gutter`）: 段階番号・`label`・`desc` を表示。見出しは `left-title` / `left-subtitle`。
-- **右カラム**（`show-right-gutter`）: 各ステップの `remark` を表示。見出しは `right-title` / `right-subtitle`。`show-right-gutter` が真で、かついずれかのステップに `remark` があるときだけ表示されます。
+- **右カラム**（`show-right-gutter`）: 各ステップの `remark` を表示。見出しは `right-title` / `right-subtitle`。`show-right-gutter` が真のとき、ステップに `remark` がなくても右カラムと各行の備考欄が表示されます。
 - **ヘッダー・フッター**（`show-header` / `show-footer`）: `/page/` の `header-*` / `footer-*` を表示。各フラグが偽なら非表示。
 - **prop チップ**（`props:` で付ける `side: left` / `side: right` のドキュメント）は常に表示されます（表示／非表示オプションはありません）。
 - すべての表示フラグの既定は `true`。GUI ではタイトル欄右の「設定」から編集できます。
@@ -271,7 +271,7 @@ elseif (しない) than
 endif
 ```
 
-`if`〜`endif` で排他分岐。各ステップ行は `[roleId: 本文]` 形式。`than` の後ろに `#色名` を付けると条件ブロック色を指定できます。
+`if`〜`endif` で排他分岐。各ステップ行は `[roleId: 本文]` 形式。`than` の後ろに `#色名` を付けると条件ブロック色を指定できます（`else than #色名` も同様）。
 色指定がない場合は現在のテーマ既定色を使います。使える色：blue, green, red, orange, purple, gray, black
 
 分岐ケースの末尾に `[loop]` を置くと、そのケースは `endif` 合流へ進まず同じ `if` の条件ダイヤモンドへ戻る矢印を描きます（`if` の外では使えません）。直前のステップから矢印が出ます。ステップが無いケースではケース位置から戻ります。

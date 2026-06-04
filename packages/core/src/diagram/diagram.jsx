@@ -278,11 +278,8 @@ export function Diagram({
   // width when hidden, so the lanes reflow against the left padding.
   const leftGutter = showLeftGutter ? 300 : 0;
   // The right gutter shows each step's `remark` text under the right-title
-  // header. Content-driven (only when some step has a remark) and toggleable.
-  const hasRemarks = (rows || []).some(
-    (r) => r.kind === "step" && (r.remark || "").trim(),
-  );
-  const rightGutterVisible = showRightGutter && hasRemarks;
+  // header when `showRightGutter` is enabled (option-driven, not content-driven).
+  const rightGutterVisible = showRightGutter;
   const rightGutter = rightGutterVisible ? 240 : 0;
   // Wrap columns are tuned to the 300px description gutter. The remark gutter is
   // narrower (240px), so remark text wraps at proportionally fewer columns to
@@ -2178,7 +2175,7 @@ export function Diagram({
       )}
 
       {/* Right remark gutter: header (right-title / right-subtitle) + per-step
-          remark text. Present only when some step carries a remark. */}
+          remark text when showRightGutter is enabled. */}
       {rightGutterVisible && (
         <>
           <rect
@@ -2236,8 +2233,7 @@ export function Diagram({
             if (r.kind !== "step" || r.empty || !r.role) return null;
             const yRow = rowMeta[i]?.y;
             if (yRow == null) return null;
-            const remark = (r.remark || "").trim();
-            if (!remark) return null;
+            const remark = r.remark ?? "";
             const visualLines = wrapDescriptionToVisualLines(remark, remarkWrapCols);
             const rx = rightGutterX + 12;
             return (
@@ -2251,24 +2247,30 @@ export function Diagram({
                 fontSize="10"
                 fontWeight="400"
               >
-                {visualLines.map((runs, li) => (
-                  <tspan
-                    key={li}
-                    x={rx}
-                    dy={li === 0 ? 0 : descriptionLineHeight}
-                  >
-                    {runs.map((run, ri) => (
-                      <tspan
-                        key={ri}
-                        fontWeight={run.bold ? "600" : "400"}
-                        fontStyle={run.italic ? "italic" : "normal"}
-                        textDecoration={run.strike ? "line-through" : "none"}
-                      >
-                        {run.text}
-                      </tspan>
-                    ))}
+                {visualLines.length === 0 ? (
+                  <tspan x={rx} dy={0}>
+                    {"\u00a0"}
                   </tspan>
-                ))}
+                ) : (
+                  visualLines.map((runs, li) => (
+                    <tspan
+                      key={li}
+                      x={rx}
+                      dy={li === 0 ? 0 : descriptionLineHeight}
+                    >
+                      {runs.map((run, ri) => (
+                        <tspan
+                          key={ri}
+                          fontWeight={run.bold ? "600" : "400"}
+                          fontStyle={run.italic ? "italic" : "normal"}
+                          textDecoration={run.strike ? "line-through" : "none"}
+                        >
+                          {run.text}
+                        </tspan>
+                      ))}
+                    </tspan>
+                  ))
+                )}
               </text>
             );
           })}

@@ -147,4 +147,42 @@ describe("serializeDSL round-trip", () => {
     expect(second.errors).toEqual([]);
     expect(normalizeModel(second)).toEqual(normalizeModel(first));
   });
+
+  it("parses and serializes else than #color", () => {
+    const src = [
+      "@kai-swimlane",
+      "",
+      "/title/",
+      "t",
+      "",
+      "/role/",
+      "",
+      "<a>",
+      "label: A;",
+      "",
+      "/line/",
+      "",
+      "if (x) is (yes) than",
+      "  [a: ok]",
+      "else than #red",
+      "  [a: fallback]",
+      "endif",
+      "",
+      "@end",
+    ].join("\n");
+
+    const first = parseDSL(src);
+    expect(first.errors).toEqual([]);
+    const elseCase = first.rows.find(
+      (row) => row.kind === "branchCase" && /^else$/i.test(row.label || ""),
+    );
+    expect(elseCase?.branchColor).toBe("red");
+
+    const out = serializeDSL(first);
+    expect(out).toContain("else than #red");
+
+    const second = parseDSL(out);
+    expect(second.errors).toEqual([]);
+    expect(normalizeModel(second)).toEqual(normalizeModel(first));
+  });
 });

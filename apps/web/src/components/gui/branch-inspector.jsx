@@ -80,14 +80,21 @@ export function BranchInspector({
             type="checkbox"
             checked={isElse}
             onChange={(e) => {
-              if (e.target.checked) onPatch({ label: "else", branchColor: null });
+              if (e.target.checked) onPatch({ label: "else" });
               else onPatch({ label: "" });
             }}
             className="rounded border-stone-500"
           />
           else
         </label>
-        {!isElse && (
+        {isElse ? (
+          <BranchColorSelect
+            value={row.branchColor || ""}
+            onChange={(branchColor) =>
+              onPatch({ branchColor: branchColor || null })
+            }
+          />
+        ) : (
           <>
             <div>
               <label className="block text-[10px] text-stone-500 mb-1">
