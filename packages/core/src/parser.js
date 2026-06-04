@@ -257,10 +257,13 @@ export function parseDSL(src) {
     page[field] = value;
   }
 
-  const title = sections.title
-    .map((l) => l.text.trim())
-    .filter(Boolean)
-    .join(" ");
+  const titleLines = sections.title
+    .map((l) => l.text)
+    .filter((text) => text.trim().length > 0);
+  const title =
+    titleLines.length === 1
+      ? titleLines[0]
+      : titleLines.map((t) => t.trim()).join(" ");
 
   const roles = {};
   {

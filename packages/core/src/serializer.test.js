@@ -186,3 +186,30 @@ describe("serializeDSL round-trip", () => {
     expect(normalizeModel(second)).toEqual(normalizeModel(first));
   });
 });
+
+describe("title parsing", () => {
+  it("preserves trailing spaces on a single title line", () => {
+    const src = [
+      "@kai-swimlane",
+      "",
+      "/title/",
+      "My title ",
+      "",
+      "/role/",
+      "",
+      "<r>",
+      "label: R;",
+      "",
+      "/line/",
+      "",
+      "@end",
+    ].join("\n");
+
+    const model = parseDSL(src);
+    expect(model.title).toBe("My title ");
+
+    const out = serializeDSL(model);
+    const roundTrip = parseDSL(out);
+    expect(roundTrip.title).toBe("My title ");
+  });
+});
