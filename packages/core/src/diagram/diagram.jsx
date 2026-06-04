@@ -48,6 +48,7 @@ const BLOCK_SHAPE_WIDTH_FACTOR = {
   subroutine: 11,
   ellipse: 9,
   cloud: 11,
+  "arrow-down": 12,
 };
 function blockMaxTextCols(shape, hasIcon) {
   const factor = BLOCK_SHAPE_WIDTH_FACTOR[shape] ?? 1;

@@ -24,6 +24,21 @@ export function StepShape({ shape, cx, cy, w, h, fill, stroke }) {
       <polygon points={pts.map((p) => p.join(",")).join(" ")} {...common} />
     );
   }
+  if (shape === "arrow-down") {
+    const x = cx - w / 2,
+      y2 = cy - h / 2;
+    const shoulderY = y2 + h * 0.55;
+    const pts = [
+      [x, y2],
+      [x + w, y2],
+      [x + w, shoulderY],
+      [cx, y2 + h],
+      [x, shoulderY],
+    ];
+    return (
+      <polygon points={pts.map((p) => p.join(",")).join(" ")} {...common} />
+    );
+  }
   if (shape === "note") {
     const fold = 10;
     const x = cx - w / 2,

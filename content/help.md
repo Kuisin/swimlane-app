@@ -159,7 +159,7 @@ shape: hex;
 icon: #zap;
 ```
 
-再利用可能なステップのスタイル定義。shape: rect / rounded / hex / ellipse / cloud / note / subroutine。プロパティ行は `;` で終えます。
+再利用可能なステップのスタイル定義。shape: rect / rounded / hex / ellipse / cloud / note / subroutine / arrow-down（矢印：五方向・下向き）。プロパティ行は `;` で終えます。
 
 ## プロップ(再利用ドキュメント)
 

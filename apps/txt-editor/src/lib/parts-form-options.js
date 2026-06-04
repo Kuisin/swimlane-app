@@ -8,6 +8,7 @@ export const BLOCK_SHAPE_OPTIONS = [
   { value: "note", label: "note（付箋）" },
   { value: "cloud", label: "cloud" },
   { value: "ellipse", label: "ellipse" },
+  { value: "arrow-down", label: "arrow-down（矢印：五方向・下向き）" },
 ];
 
 export const PROP_SIDE_OPTIONS = [
