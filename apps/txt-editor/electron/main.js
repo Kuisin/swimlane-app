@@ -211,6 +211,17 @@ ipcMain.handle("write-txt-file", async (_, relPath, content) => {
   return { ok: true, mtime: fs.statSync(absPath).mtimeMs };
 });
 
+ipcMain.handle("create-txt-file", async (_, relPath, content) => {
+  const absPath = resolveTxtPath(relPath);
+  if (fs.existsSync(absPath)) {
+    throw new Error("File already exists");
+  }
+  const dir = path.dirname(absPath);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(absPath, content, "utf-8");
+  return { ok: true, mtime: fs.statSync(absPath).mtimeMs };
+});
+
 ipcMain.handle("get-opened-folder", async () => openedFolderPath);
 
 ipcMain.on("watch-folder", (_, folderPath) => {

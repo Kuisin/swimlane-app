@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld("api", {
   readBundledSamples: () => ipcRenderer.invoke("read-bundled-samples"),
   writeTxtFile: (relPath, content) =>
     ipcRenderer.invoke("write-txt-file", relPath, content),
+  createTxtFile: (relPath, content) =>
+    ipcRenderer.invoke("create-txt-file", relPath, content),
   getOpenedFolder: () => ipcRenderer.invoke("get-opened-folder"),
   watchFolder: (folderPath) => ipcRenderer.send("watch-folder", folderPath),
   stopWatch: () => ipcRenderer.send("stop-watch"),

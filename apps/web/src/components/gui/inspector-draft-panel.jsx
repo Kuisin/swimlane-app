@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useImperativeHandle, useMemo } from "react";
 
 import { useTemplateDraft } from "../../hooks/use-template-draft";
 
@@ -31,6 +31,8 @@ export function InspectorDraftPanel({
   onDirtyChange,
 
   editingDisabled = false,
+
+  flushRef,
 
 }) {
 
@@ -90,6 +92,38 @@ export function InspectorDraftPanel({
     commitSaved();
 
   }
+
+
+
+  useImperativeHandle(
+
+    flushRef,
+
+    () => ({
+
+      flush() {
+
+        if (readOnlyInspector || !isDirty || !draft) return null;
+
+        const nextSrc = onSave(draft, target.saveRowIndex);
+
+        commitSaved();
+
+        return nextSrc ?? null;
+
+      },
+
+      discard() {
+
+        reset();
+
+      },
+
+    }),
+
+    [readOnlyInspector, isDirty, draft, target.saveRowIndex],
+
+  );
 
 
 

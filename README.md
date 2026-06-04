@@ -246,6 +246,8 @@ For headless or server use without Electron, see [Headless rendering](#headless-
 | **Input** | Any folder tree of `.txt` files (hidden dotfiles skipped) |
 | **Edit** | GUI editor from `apps/web` — title, flow steps, branches, settings, templates |
 | **Save** | Explicit **Save** / Ctrl+S writes the active file back to disk; dirty `*` indicator |
+| **Blank files** | Empty `.txt` files open as the default DSL template (dirty until saved) |
+| **New file** | **新規 .txt** creates a templated `.txt` in the open folder |
 | **Preview** | Live React `Diagram` from `@kai-swimlane/core` |
 | **Panels** | Drag dividers to resize folder list, editor column, and step inspector; sizes persist in `localStorage` |
 | **Live reload** | `chokidar` refreshes non-dirty files when changed externally |

@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -12,21 +10,29 @@ import TEMPLATE_MD from "@kai-swimlane/content/template.md?raw";
 import DEFAULT_TAB_TEMPLATE from "@kai-swimlane/content/default-tab-template.txt?raw";
 import { parseDSL, THEMES } from "@kai-swimlane/core";
 import { EditorContext } from "@web/context/editor-context";
-
-const FolderContext = createContext(null);
+import {
+  dslContentFromTemplate,
+  isDocumentDirty,
+  normalizeFileContent,
+  normalizeNewTxtRelPath,
+  suggestNewTxtFileName,
+  syncDocumentFromDisk,
+} from "../lib/dsl-document";
+import { FolderContext } from "./folder-context";
 
 function createDocument(relPath, content) {
   const parts = relPath.split("/");
   const fileName = parts[parts.length - 1] || relPath;
   const displayName = fileName.replace(/^\d+[_\-\s]/, "").replace(/\.txt$/i, "");
-  const { errors } = parseDSL(content);
+  const normalized = normalizeFileContent(relPath, content);
   return {
     id: relPath,
     name: displayName,
-    src: content,
-    savedSrc: content,
-    // GUI-only desktop app: no text editor route — allow editing non-error rows immediately.
-    parseErrorPolicy: errors.length > 0 ? "continue" : null,
+    src: normalized.src,
+    savedSrc: normalized.savedSrc,
+    parseErrorPolicy: normalized.parseErrorPolicy,
+    initializedFromBlank: normalized.initializedFromBlank,
+    needsInitialDiskSave: normalized.needsInitialDiskSave ?? false,
     revision: 0,
   };
 }
@@ -56,16 +62,26 @@ export function FileEditorProvider({ children }) {
   const model = useMemo(() => parseDSL(src), [src]);
   const activeParseErrorPolicy = activeDocument?.parseErrorPolicy ?? null;
 
-  if (model.errors.length === 0 && documents.some((doc) => doc.parseErrorPolicy)) {
-    setDocuments((current) =>
-      current.map((doc) =>
+  useEffect(() => {
+    if (model.errors.length > 0) return;
+    setDocuments((current) => {
+      const hasPolicy = current.some((doc) => doc.parseErrorPolicy);
+      if (!hasPolicy) return current;
+      return current.map((doc) =>
         doc.parseErrorPolicy ? { ...doc, parseErrorPolicy: null } : doc,
-      ),
-    );
-  }
+      );
+    });
+  }, [model.errors.length, src]);
 
-  const hasUnsavedChanges = documents.some((doc) => doc.src !== doc.savedSrc);
+  const hasUnsavedChanges = isDocumentDirty(activeDocument);
+  const hasAnyUnsavedChanges = documents.some(isDocumentDirty);
+  const documentsRef = useRef(documents);
   const activeDocumentIdRef = useRef(activeDocumentId);
+  const lastSaveRef = useRef({ id: null, at: 0 });
+
+  useEffect(() => {
+    documentsRef.current = documents;
+  }, [documents]);
 
   useEffect(() => {
     activeDocumentIdRef.current = activeDocumentId;
@@ -111,16 +127,43 @@ export function FileEditorProvider({ children }) {
     );
   }
 
-  async function saveDocuments() {
-    if (!activeDocumentId || !activeDocument) return;
-    if (activeDocument.src === activeDocument.savedSrc) return;
-    await window.api.writeTxtFile(activeDocumentId, activeDocument.src);
-    setDocuments((current) =>
-      current.map((doc) =>
-        doc.id === activeDocumentId ? { ...doc, savedSrc: doc.src } : doc,
-      ),
-    );
-  }
+  const saveDocuments = useCallback(async (overrideSrc) => {
+    const documentId = activeDocumentIdRef.current;
+    if (!documentId) return;
+
+    const doc = documentsRef.current.find((d) => d.id === documentId);
+    const contentToWrite =
+      typeof overrideSrc === "string" ? overrideSrc : doc?.src;
+    if (!doc || contentToWrite == null) return;
+    if (
+      typeof overrideSrc !== "string" &&
+      !isDocumentDirty(doc)
+    ) {
+      return;
+    }
+    lastSaveRef.current = { id: documentId, at: Date.now() };
+
+    try {
+      await window.api.writeTxtFile(documentId, contentToWrite);
+      setDocuments((current) =>
+        current.map((d) =>
+          d.id === documentId
+            ? {
+                ...d,
+                savedSrc: contentToWrite,
+                needsInitialDiskSave: false,
+                initializedFromBlank: false,
+                parseErrorPolicy: null,
+              }
+            : d,
+        ),
+      );
+    } catch (err) {
+      window.alert(
+        err?.message || "ファイルを保存できませんでした。",
+      );
+    }
+  }, []);
 
   const loadFolder = useCallback(async (path, fileList) => {
     window.api.removeFileChangedListener();
@@ -151,28 +194,30 @@ export function FileEditorProvider({ children }) {
         }
 
         const currentActiveId = activeDocumentIdRef.current;
+        const recentlySaved =
+          lastSaveRef.current.id === name &&
+          Date.now() - lastSaveRef.current.at < 3000;
+
         setDocuments((current) => {
           const existing = current.find((doc) => doc.id === name);
-          if (
-            existing &&
-            existing.src !== existing.savedSrc &&
-            name === currentActiveId
-          ) {
+          if (!existing) {
+            return [...current, createDocument(name, content)];
+          }
+
+          const isDirty = isDocumentDirty(existing);
+
+          if (recentlySaved) {
             return current;
           }
-          if (existing) {
-            return current.map((doc) =>
-              doc.id === name
-                ? {
-                    ...doc,
-                    src: content,
-                    savedSrc: content,
-                    revision: (doc.revision ?? 0) + 1,
-                  }
-                : doc,
-            );
-          }
-          return [...current, createDocument(name, content)];
+
+          return current.map((doc) =>
+            doc.id === name
+              ? syncDocumentFromDisk(doc, content, {
+                  isDirty,
+                  skipStaleBlank: true,
+                })
+              : doc,
+          );
         });
 
         setOpenDocumentIds((current) =>
@@ -194,9 +239,42 @@ export function FileEditorProvider({ children }) {
     await loadFolder(path, files);
   }
 
+  async function createNewTxtFile() {
+    if (!folderPath) return;
+
+    const suggested = suggestNewTxtFileName(openDocumentIds);
+    const entered = window.prompt("新規 .txt ファイル名（フォルダ内の相対パス可）", suggested);
+    if (entered === null) return;
+
+    const relPath = normalizeNewTxtRelPath(entered);
+    if (!relPath) {
+      window.alert("有効なファイル名を入力してください（例: 新規-1.txt）");
+      return;
+    }
+    if (openDocumentIds.includes(relPath)) {
+      window.alert("同名のファイルが既にあります。");
+      return;
+    }
+
+    const content = dslContentFromTemplate(relPath, DEFAULT_TAB_TEMPLATE);
+    try {
+      await window.api.createTxtFile(relPath, content);
+    } catch (err) {
+      window.alert(err?.message || "ファイルを作成できませんでした。");
+      return;
+    }
+
+    const doc = createDocument(relPath, content);
+    setDocuments((current) => [...current, doc].sort((a, b) => a.id.localeCompare(b.id)));
+    setOpenDocumentIds((current) => [...current, relPath].sort());
+    setActiveDocumentIdState(relPath);
+  }
+
   function setActiveDocumentId(documentId) {
-    const doc = documents.find((d) => d.id === documentId);
-    if (doc && doc.src !== doc.savedSrc && documentId !== activeDocumentId) {
+    if (documentId === activeDocumentId) return;
+
+    const leaving = documents.find((d) => d.id === activeDocumentId);
+    if (leaving && isDocumentDirty(leaving)) {
       const ok = window.confirm(
         "未保存の変更があります。ファイルを切り替えますか？（変更は破棄されます）",
       );
@@ -238,6 +316,8 @@ export function FileEditorProvider({ children }) {
     activeParseErrorPolicy,
     setActiveDocumentParseErrorPolicy,
     hasUnsavedChanges,
+    hasAnyUnsavedChanges,
+    activeDocumentInitializedFromBlank: Boolean(activeDocument?.needsInitialDiskSave),
     updateActiveDocumentSrc,
     updateDocumentSrc,
     replaceActiveDocumentSrc,
@@ -256,6 +336,7 @@ export function FileEditorProvider({ children }) {
     openFolder,
     openSamples,
     loadFolder,
+    createNewTxtFile,
   };
 
   return (
@@ -264,13 +345,3 @@ export function FileEditorProvider({ children }) {
     </FolderContext.Provider>
   );
 }
-
-export function useFolder() {
-  const ctx = useContext(FolderContext);
-  if (!ctx) {
-    throw new Error("useFolder must be used within FileEditorProvider");
-  }
-  return ctx;
-}
-
-export { EditorContext };

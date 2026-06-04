@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
 import { useEditor } from "@web/hooks/use-editor";
 import { applyModelEdit, parseGuiModel } from "@web/lib/gui-model";
 import { GuiModePanel } from "@web/components/gui/panel";
 import { HelpModal } from "@web/components/editor/shell/help-modal";
 import { OptionsModal } from "@web/components/editor/shell/options-modal";
-import { useFolder } from "./context/file-editor-provider";
+import { useFolder } from "./context/folder-context";
 import { AppToolbar } from "./components/app-toolbar";
 import { FolderSidebar } from "./components/folder-sidebar";
 import { ResizeHandle } from "./components/resize-handle";
@@ -13,6 +13,7 @@ import { StepInspectorPanel } from "./components/step-inspector-panel";
 import { TemplateModal } from "./components/template-modal";
 import { TemplateModalProvider } from "./shims/toolbar-template-actions";
 import { usePanelLayout } from "./hooks/use-panel-layout";
+import { isDocumentDirty } from "./lib/dsl-document";
 
 const FONT_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -33,6 +34,7 @@ export function App() {
     src,
     model,
     hasUnsavedChanges,
+    activeDocumentInitializedFromBlank,
     updateActiveDocumentSrc,
     saveDocuments,
     showHelp,
@@ -46,7 +48,15 @@ export function App() {
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
   const [templateKind, setTemplateKind] = useState(null);
   const [inspectorDirty, setInspectorDirty] = useState(false);
+  const inspectorFlushRef = useRef(null);
   const { layout, beginResize } = usePanelLayout();
+
+  const handleSaveAll = useCallback(async () => {
+    const flushedSrc = inspectorFlushRef.current?.flush?.();
+    await saveDocuments(
+      typeof flushedSrc === "string" ? flushedSrc : undefined,
+    );
+  }, [saveDocuments]);
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
   const resolvedDiagramOptions = useMemo(
@@ -55,7 +65,7 @@ export function App() {
   );
 
   const dirtyIds = useMemo(
-    () => new Set(documents.filter((doc) => doc.src !== doc.savedSrc).map((doc) => doc.id)),
+    () => new Set(documents.filter(isDocumentDirty).map((doc) => doc.id)),
     [documents],
   );
 
@@ -71,16 +81,22 @@ export function App() {
 
   function handleSelectRow(index) {
     if (inspectorDirty) {
-      const ok = window.confirm("手順の詳細に未保存の変更があります。選択を変更しますか？");
+      const ok = window.confirm(
+        "手順の詳細に未保存の変更があります。適用して移動しますか？",
+      );
       if (!ok) return;
+      inspectorFlushRef.current?.flush?.();
     }
     setSelectedRowIndex(index);
   }
 
   function handleSelectFile(fileId) {
     if (inspectorDirty) {
-      const ok = window.confirm("手順の詳細に未保存の変更があります。ファイルを切り替えますか？");
+      const ok = window.confirm(
+        "手順の詳細に未保存の変更があります。適用してファイルを切り替えますか？",
+      );
       if (!ok) return;
+      inspectorFlushRef.current?.flush?.();
     }
     setSelectedRowIndex(null);
     setActiveDocumentId(fileId);
@@ -90,12 +106,12 @@ export function App() {
     function onKeyDown(event) {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
         event.preventDefault();
-        saveDocuments();
+        handleSaveAll();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [saveDocuments]);
+  }, [handleSaveAll]);
 
   useEffect(() => {
     setSelectedRowIndex(null);
@@ -105,7 +121,10 @@ export function App() {
     return (
       <div className="h-full w-full bg-stone-100 text-stone-900 flex flex-col">
         <style>{FONT_STYLE}</style>
-        <AppToolbar onShowHelp={() => setShowHelp(true)} />
+        <AppToolbar
+          onShowHelp={() => setShowHelp(true)}
+          onSave={handleSaveAll}
+        />
         <EmptyState onOpenFolder={openFolder} onOpenSamples={openSamples} />
         {showHelp && (
           <HelpModal
@@ -124,7 +143,11 @@ export function App() {
     <div className="h-full w-full bg-stone-100 text-stone-900 flex flex-col">
       <style>{FONT_STYLE}</style>
 
-      <AppToolbar onShowHelp={() => setShowHelp(true)} />
+      <AppToolbar
+        onShowHelp={() => setShowHelp(true)}
+        onSave={handleSaveAll}
+        hasUnsavedChanges={hasUnsavedChanges || inspectorDirty}
+      />
 
       <div className="flex-1 flex min-h-0 min-w-0 flex-col xl:flex-row">
         <FolderSidebar
@@ -186,6 +209,11 @@ export function App() {
                 {activeDocumentId}
                 {hasUnsavedChanges ? " *" : ""}
               </p>
+              {activeDocumentInitializedFromBlank && hasUnsavedChanges && (
+                <p className="mt-1.5 text-[10px] font-jp text-amber-300/90 leading-relaxed">
+                  空の .txt を DSL テンプレートで開きました。Ctrl+S でディスクに保存してください。
+                </p>
+              )}
             </div>
             <div className="flex flex-col min-h-0 flex-1">
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -196,7 +224,8 @@ export function App() {
                   themeBg={theme.bg}
                   showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
                   hasUnsavedChanges={hasUnsavedChanges}
-                  onSave={saveDocuments}
+                  onSave={handleSaveAll}
+                  hasUnsavedChanges={hasUnsavedChanges || inspectorDirty}
                   onTitleChange={handleTitleChange}
                   selectedRowIndex={selectedRowIndex}
                   onSelectRow={handleSelectRow}
@@ -212,6 +241,7 @@ export function App() {
               <StepInspectorPanel
                 rowIndex={selectedRowIndex}
                 onDirtyChange={setInspectorDirty}
+                flushRef={inspectorFlushRef}
                 height={selectedRowIndex != null ? layout.inspectorHeight : undefined}
               />
             </div>

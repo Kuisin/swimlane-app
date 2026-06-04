@@ -1,11 +1,13 @@
-import { BookOpen, ChevronDown, FolderOpen, Save } from "lucide-react";
+import { BookOpen, ChevronDown, FilePlus, FolderOpen, Save } from "lucide-react";
 import { THEMES } from "@kai-swimlane/core";
 import { useEditor } from "@web/hooks/use-editor";
-import { useFolder } from "../context/file-editor-provider";
+import { useFolder } from "../context/folder-context";
 
-export function AppToolbar({ onShowHelp }) {
-  const { folderPath, openFolder, openSamples } = useFolder();
+export function AppToolbar({ onShowHelp, onSave, hasUnsavedChanges: hasUnsavedOverride }) {
+  const { folderPath, openFolder, openSamples, createNewTxtFile } = useFolder();
   const { themeKey, setThemeKey, hasUnsavedChanges, saveDocuments } = useEditor();
+  const isUnsaved = hasUnsavedOverride ?? hasUnsavedChanges;
+  const save = onSave ?? saveDocuments;
 
   return (
     <header className="relative z-40 border-b border-stone-300 bg-stone-50 shrink-0">
@@ -27,6 +29,16 @@ export function AppToolbar({ onShowHelp }) {
           >
             <FolderOpen size={14} /> フォルダを開く
           </button>
+
+          {folderPath && (
+            <button
+              type="button"
+              onClick={createNewTxtFile}
+              className="flex items-center gap-1.5 text-xs font-jp px-3 py-2 border border-stone-300 rounded-sm hover:bg-stone-200 transition"
+            >
+              <FilePlus size={14} /> 新規 .txt
+            </button>
+          )}
 
           {!folderPath && (
             <button
@@ -50,15 +62,15 @@ export function AppToolbar({ onShowHelp }) {
 
           <button
             type="button"
-            onClick={saveDocuments}
-            disabled={!hasUnsavedChanges}
+            onClick={save}
+            disabled={!isUnsaved}
             className={`flex items-center gap-1.5 text-xs font-jp px-3 py-2 border rounded-sm transition ${
-              hasUnsavedChanges
+              isUnsaved
                 ? "border-amber-500 text-amber-800 bg-amber-50 hover:bg-amber-100"
                 : "border-stone-300 text-stone-500 cursor-default"
             }`}
           >
-            <Save size={14} /> {hasUnsavedChanges ? "保存*" : "保存"}
+            <Save size={14} /> {isUnsaved ? "保存*" : "保存"}
           </button>
         </div>
       </div>

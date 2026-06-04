@@ -10,7 +10,7 @@ import {
 } from "@web/lib/parse-error-policy";
 import { InspectorDraftPanel } from "@web/components/gui/inspector-draft-panel";
 
-export function StepInspectorPanel({ rowIndex, onDirtyChange, height }) {
+export function StepInspectorPanel({ rowIndex, onDirtyChange, height, flushRef }) {
   const {
     activeDocumentId,
     src,
@@ -41,13 +41,12 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange, height }) {
     (rowDraft, saveRowIndex) => {
       const idx =
         typeof saveRowIndex === "number" && saveRowIndex >= 0 ? saveRowIndex : rowIndex;
-      if (!activeDocumentId || idx == null || !Number.isFinite(idx)) return;
-      updateDocumentSrc(
-        activeDocumentId,
-        applyModelEdit(src, (draft) => {
-          Object.assign(draft.rows[idx], rowDraft);
-        }),
-      );
+      if (!activeDocumentId || idx == null || !Number.isFinite(idx)) return null;
+      const nextSrc = applyModelEdit(src, (draft) => {
+        Object.assign(draft.rows[idx], rowDraft);
+      });
+      updateDocumentSrc(activeDocumentId, nextSrc);
+      return nextSrc;
     },
     [activeDocumentId, rowIndex, src, updateDocumentSrc],
   );
@@ -111,6 +110,7 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange, height }) {
         onRowsPatch={applyRowsPatch}
         onDirtyChange={onDirtyChange}
         editingDisabled={editingDisabled}
+        flushRef={flushRef}
       />
     </div>
   );
