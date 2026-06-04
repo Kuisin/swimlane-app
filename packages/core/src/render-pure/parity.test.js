@@ -53,7 +53,7 @@ describe("render-pure parity", () => {
   const theme = THEMES.basic;
 
   it("matches React Diagram for sample.txt", () => {
-    const model = parseDSL(readFixture("apps/web/src/content/sample.txt"));
+    const model = parseDSL(readFixture("content/sample.txt"));
     const reactSvg = renderReactDiagram(model, theme);
     const pureSvg = renderDiagramSvg({
       model,
@@ -67,7 +67,7 @@ describe("render-pure parity", () => {
   });
 
   it("matches React Diagram for default-tab-template.txt", () => {
-    const model = parseDSL(readFixture("apps/web/src/content/default-tab-template.txt"));
+    const model = parseDSL(readFixture("content/default-tab-template.txt"));
     const reactSvg = renderReactDiagram(model, theme);
     const pureSvg = renderDiagramSvg({
       model,
@@ -82,7 +82,7 @@ describe("render-pure parity", () => {
 
   it("matches React Diagram for complex-test-example.txt (fork + merge)", () => {
     const model = parseDSL(
-      readFixture("apps/web/src/content/complex-test-example.txt"),
+      readFixture("content/complex-test-example.txt"),
     );
     const reactSvg = renderReactDiagram(model, theme);
     const pureSvg = renderDiagramSvg({

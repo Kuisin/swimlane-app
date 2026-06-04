@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorContext } from "./editor-context";
-import SAMPLE from "../content/sample.txt?raw";
-import HELP_MD from "../content/help.md?raw";
-import TEMPLATE_MD from "../content/template.md?raw";
-import DEFAULT_TAB_TEMPLATE from "../content/default-tab-template.txt?raw";
+import SAMPLE from "@kai-swimlane/content/sample.txt?raw";
+import HELP_MD from "@kai-swimlane/content/help.md?raw";
+import TEMPLATE_MD from "@kai-swimlane/content/template.md?raw";
+import DEFAULT_TAB_TEMPLATE from "@kai-swimlane/content/default-tab-template.txt?raw";
 import { parseDSL, THEMES } from "@kai-swimlane/core";
 import {
   STORAGE_KEY,

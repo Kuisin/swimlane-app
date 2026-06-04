@@ -31,11 +31,17 @@ function escapeHtml(str) {
 function openFolder() {
   window.api.selectFolder().then((folderPath) => {
     if (!folderPath) return
-    loadFolder(folderPath)
+    window.api.readTxtFiles(folderPath).then((fileList) => loadFolder(folderPath, fileList))
   })
 }
 
-async function loadFolder(folderPath) {
+function openSamples() {
+  window.api.readBundledSamples().then(({ folderPath, files }) => {
+    loadFolder(folderPath, files, { watch: false })
+  })
+}
+
+async function loadFolder(folderPath, fileList, { watch = true } = {}) {
   folderPathEl.textContent = folderPath
   const rootName = folderPath.split(/[/\\]/).pop() || folderPath
   sidebarTitleEl.textContent = rootName
@@ -43,7 +49,6 @@ async function loadFolder(folderPath) {
   window.api.removeFileChangedListener()
   window.api.stopWatch()
 
-  const fileList = await window.api.readTxtFiles(folderPath)
   files.clear()
   collapsedFolders.clear()
   selectedFile = null
@@ -68,6 +73,8 @@ async function loadFolder(folderPath) {
 
   renderFileList()
   selectFile([...files.keys()].sort()[0])
+
+  if (!watch) return
 
   window.api.watchFolder(folderPath)
   window.api.onFileChanged(async ({ name, content, eventType }) => {
@@ -242,3 +249,4 @@ btnToggleTxt.addEventListener('click', () => {
 
 document.getElementById('btn-open').addEventListener('click', openFolder)
 document.getElementById('btn-open-empty').addEventListener('click', openFolder)
+document.getElementById('btn-open-samples').addEventListener('click', openSamples)

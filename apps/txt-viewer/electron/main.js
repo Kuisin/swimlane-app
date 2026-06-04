@@ -7,6 +7,12 @@ const { pathToFileURL } = require('url')
 const APP_ROOT = path.join(__dirname, '..')
 const RENDERER_DIR = path.join(APP_ROOT, 'renderer')
 
+function getBundledContentDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'content')
+    : path.join(APP_ROOT, '../../content')
+}
+
 let mainWindow
 let watcher = null
 let coreModules = null
@@ -59,7 +65,7 @@ ipcMain.handle('select-folder', async () => {
 })
 
 // Recursively walk the folder and return all .txt files with relative paths.
-ipcMain.handle('read-txt-files', async (_, folderPath) => {
+function readTxtFilesFromDir(folderPath) {
   const results = []
 
   function walk(dir) {
@@ -89,6 +95,16 @@ ipcMain.handle('read-txt-files', async (_, folderPath) => {
 
   walk(folderPath)
   return results
+}
+
+ipcMain.handle('read-txt-files', async (_, folderPath) => readTxtFilesFromDir(folderPath))
+
+ipcMain.handle('read-bundled-samples', async () => {
+  const folderPath = getBundledContentDir()
+  return {
+    folderPath,
+    files: readTxtFilesFromDir(folderPath),
+  }
 })
 
 ipcMain.handle('render-svg', async (_, content, themeKey) => {

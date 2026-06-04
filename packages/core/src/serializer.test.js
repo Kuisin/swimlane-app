@@ -12,7 +12,7 @@ const repoRoot = path.resolve(
 
 function loadFixture(name) {
   return readFileSync(
-    path.join(repoRoot, "apps/web/src/content", name),
+    path.join(repoRoot, "content", name),
     "utf8"
   );
 }

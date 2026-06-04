@@ -18,6 +18,13 @@
       "renderer/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "../../content",
+        "to": "content",
+        "filter": ["**/*.txt"]
+      }
+    ],
     "mac": {
       "target": [
         {

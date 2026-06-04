@@ -179,7 +179,7 @@ The Vite app (`apps/web`) provides two modes (toolbar links):
 
 Shared features: multi-tab documents (browser `localStorage`), **Syntax** dialog (`help.md` + `template.md` catalog), theme picker (basic / washi / ink / mono), export **SVG** / **PNG** / `.txt` DSL, unsaved-change guard on reload. GUI adds **Templates** popups (roles, blocks, props) and a **step inspector** popup for the selected step. On parse errors, GUI offers **fix in text editor** or **continue** (only rows tied to error lines stay locked).
 
-Sample DSL: [`apps/web/src/content/complex-test-example.txt`](apps/web/src/content/complex-test-example.txt).
+Sample DSL: [`content/complex-test-example.txt`](content/complex-test-example.txt).
 
 ## Txt Viewer (Electron)
 
@@ -254,7 +254,7 @@ remark: Shown in the right column when any step has remark:;
 | `section (name) #color` … `end-section` | Visual box around steps; main flow continues through them. |
 | `branch (name) #color` … `end-branch` | Side path off the main flow; last step merges to the block after `end-branch` (or the next gateway). |
 
-`/option/` flags include gutters, header/footer/description visibility, `show-step-block-captions`, and `merge-at-previous-block` (join gateways at the previous step). See [`apps/web/src/content/help.md`](apps/web/src/content/help.md) for the full syntax guide (Japanese).
+`/option/` flags include gutters, header/footer/description visibility, `show-step-block-captions`, and `merge-at-previous-block` (join gateways at the previous step). See [`content/help.md`](content/help.md) for the full syntax guide (Japanese).
 
 ## Headless rendering (for external plugins)
 
