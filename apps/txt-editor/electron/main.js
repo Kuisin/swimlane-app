@@ -205,13 +205,23 @@ ipcMain.handle("read-bundled-samples", async () => {
   };
 });
 
+function assertWritableFolder() {
+  const bundled = path.resolve(getBundledContentDir());
+  const opened = openedFolderPath ? path.resolve(openedFolderPath) : null;
+  if (opened && opened === bundled) {
+    throw new Error("サンプルは閲覧専用です。フォルダを開いて編集してください。");
+  }
+}
+
 ipcMain.handle("write-txt-file", async (_, relPath, content) => {
+  assertWritableFolder();
   const absPath = resolveTxtPath(relPath);
   fs.writeFileSync(absPath, content, "utf-8");
   return { ok: true, mtime: fs.statSync(absPath).mtimeMs };
 });
 
 ipcMain.handle("create-txt-file", async (_, relPath, content) => {
+  assertWritableFolder();
   const absPath = resolveTxtPath(relPath);
   if (fs.existsSync(absPath)) {
     throw new Error("File already exists");

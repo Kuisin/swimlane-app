@@ -4,7 +4,7 @@ import {
   BlocksTemplatePanel,
   PropsTemplatePanel,
   RolesTemplatePanel,
-} from "@web/components/gui/templates/panels";
+} from "./gui/templates/panels";
 
 const KIND_CONFIG = {
   roles: { title: "役割", Panel: RolesTemplatePanel },

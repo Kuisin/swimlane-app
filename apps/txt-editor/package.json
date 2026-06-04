@@ -7,6 +7,7 @@
     "predev": "node -e \"try{require('fs').unlinkSync('.dev-port')}catch(e){}\"",
     "dev": "concurrently -k \"vite\" \"wait-on file:.dev-port && node scripts/launch-electron.mjs\"",
     "build": "vite build",
+    "test": "vitest run",
     "start": "electron .",
     "preview": "vite build && electron .",
     "build:mac": "vite build && electron-builder --mac",
@@ -68,6 +69,7 @@
     "electron": "^31.0.0",
     "electron-builder": "^25.0.0",
     "tailwindcss": "^4.2.4",
+    "vitest": "^3.2.4",
     "vite": "^8.0.10",
     "wait-on": "^8.0.3"
   }

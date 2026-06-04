@@ -9,7 +9,7 @@ import HELP_MD from "@kai-swimlane/content/help.md?raw";
 import TEMPLATE_MD from "@kai-swimlane/content/template.md?raw";
 import DEFAULT_TAB_TEMPLATE from "@kai-swimlane/content/default-tab-template.txt?raw";
 import { parseDSL, THEMES } from "@kai-swimlane/core";
-import { EditorContext } from "@web/context/editor-context";
+import { EditorContext } from "./editor-context";
 import {
   dslContentFromTemplate,
   isDocumentDirty,
@@ -18,6 +18,7 @@ import {
   suggestNewTxtFileName,
   syncDocumentFromDisk,
 } from "../lib/dsl-document";
+import { useAppDialog } from "./app-dialog-provider";
 import { FolderContext } from "./folder-context";
 
 function createDocument(relPath, content) {
@@ -40,11 +41,13 @@ function createDocument(relPath, content) {
 function noop() {}
 
 export function FileEditorProvider({ children }) {
+  const { alert, confirm, prompt } = useAppDialog();
   const [documents, setDocuments] = useState([]);
   const [openDocumentIds, setOpenDocumentIds] = useState([]);
   const [activeDocumentId, setActiveDocumentIdState] = useState(null);
   const [themeKey, setThemeKey] = useState("basic");
   const [folderPath, setFolderPath] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showFileList, setShowFileList] = useState(false);
@@ -88,7 +91,7 @@ export function FileEditorProvider({ children }) {
   }, [activeDocumentId]);
 
   function setActiveDocumentParseErrorPolicy(policy) {
-    if (!activeDocumentId) return;
+    if (isReadOnly || !activeDocumentId) return;
     setDocuments((current) =>
       current.map((doc) =>
         doc.id === activeDocumentId ? { ...doc, parseErrorPolicy: policy } : doc,
@@ -97,6 +100,7 @@ export function FileEditorProvider({ children }) {
   }
 
   function updateDocumentSrc(documentId, nextSrc) {
+    if (isReadOnly) return;
     setDocuments((current) =>
       current.map((doc) =>
         doc.id === documentId
@@ -128,6 +132,7 @@ export function FileEditorProvider({ children }) {
   }
 
   const saveDocuments = useCallback(async (overrideSrc) => {
+    if (isReadOnly) return;
     const documentId = activeDocumentIdRef.current;
     if (!documentId) return;
 
@@ -159,13 +164,11 @@ export function FileEditorProvider({ children }) {
         ),
       );
     } catch (err) {
-      window.alert(
-        err?.message || "ファイルを保存できませんでした。",
-      );
+      await alert(err?.message || "ファイルを保存できませんでした。");
     }
-  }, []);
+  }, [isReadOnly, alert]);
 
-  const loadFolder = useCallback(async (path, fileList) => {
+  const loadFolder = useCallback(async (path, fileList, { readOnly = false } = {}) => {
     window.api.removeFileChangedListener();
     window.api.stopWatch();
 
@@ -173,12 +176,13 @@ export function FileEditorProvider({ children }) {
     const ids = docs.map((doc) => doc.id).sort();
 
     setFolderPath(path);
+    setIsReadOnly(readOnly);
     setDocuments(docs);
     setOpenDocumentIds(ids);
     setActiveDocumentIdState(ids[0] ?? null);
     setIsHydrated(true);
 
-    if (ids.length > 0) {
+    if (ids.length > 0 && !readOnly) {
       window.api.watchFolder(path);
       window.api.onFileChanged(({ name, content, eventType }) => {
         if (eventType === "unlink") {
@@ -236,23 +240,26 @@ export function FileEditorProvider({ children }) {
 
   async function openSamples() {
     const { folderPath: path, files } = await window.api.readBundledSamples();
-    await loadFolder(path, files);
+    await loadFolder(path, files, { readOnly: true });
   }
 
   async function createNewTxtFile() {
-    if (!folderPath) return;
+    if (!folderPath || isReadOnly) return;
 
     const suggested = suggestNewTxtFileName(openDocumentIds);
-    const entered = window.prompt("新規 .txt ファイル名（フォルダ内の相対パス可）", suggested);
+    const entered = await prompt(
+      "新規 .txt ファイル名（フォルダ内の相対パス可）",
+      suggested,
+    );
     if (entered === null) return;
 
     const relPath = normalizeNewTxtRelPath(entered);
     if (!relPath) {
-      window.alert("有効なファイル名を入力してください（例: 新規-1.txt）");
+      await alert("有効なファイル名を入力してください（例: 新規-1.txt）");
       return;
     }
     if (openDocumentIds.includes(relPath)) {
-      window.alert("同名のファイルが既にあります。");
+      await alert("同名のファイルが既にあります。");
       return;
     }
 
@@ -260,7 +267,7 @@ export function FileEditorProvider({ children }) {
     try {
       await window.api.createTxtFile(relPath, content);
     } catch (err) {
-      window.alert(err?.message || "ファイルを作成できませんでした。");
+      await alert(err?.message || "ファイルを作成できませんでした。");
       return;
     }
 
@@ -270,12 +277,12 @@ export function FileEditorProvider({ children }) {
     setActiveDocumentIdState(relPath);
   }
 
-  function setActiveDocumentId(documentId) {
+  async function setActiveDocumentId(documentId) {
     if (documentId === activeDocumentId) return;
 
     const leaving = documents.find((d) => d.id === activeDocumentId);
     if (leaving && isDocumentDirty(leaving)) {
-      const ok = window.confirm(
+      const ok = await confirm(
         "未保存の変更があります。ファイルを切り替えますか？（変更は破棄されます）",
       );
       if (!ok) return;
@@ -311,6 +318,7 @@ export function FileEditorProvider({ children }) {
     showOptions,
     setShowOptions,
     isHydrated,
+    isReadOnly,
     src,
     model,
     activeParseErrorPolicy,
@@ -333,6 +341,7 @@ export function FileEditorProvider({ children }) {
 
   const folderValue = {
     folderPath,
+    isReadOnly,
     openFolder,
     openSamples,
     loadFolder,

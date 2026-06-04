@@ -4,13 +4,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { devPortPlugin } from "./scripts/dev-port-plugin.js";
-import { txtEditorShimsPlugin } from "./scripts/txt-editor-shims-plugin.js";
 
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(rootDir, "../..");
 
 export default defineConfig({
-  plugins: [txtEditorShimsPlugin(), react(), tailwindcss(), devPortPlugin()],
+  plugins: [react(), tailwindcss(), devPortPlugin()],
   base: "./",
   build: {
     outDir: "dist",
@@ -26,7 +25,6 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {
-      "@web": path.join(repoRoot, "apps/web/src"),
       "@kai-swimlane/content": path.join(repoRoot, "content"),
       "@kai-swimlane/core/render-pure": path.join(
         repoRoot,

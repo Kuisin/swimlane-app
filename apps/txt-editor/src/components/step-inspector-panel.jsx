@@ -1,14 +1,14 @@
 import { useCallback, useMemo } from "react";
 import { parseDSL } from "@kai-swimlane/core";
-import { useEditor } from "@web/hooks/use-editor";
-import { applyModelEdit, parseGuiModel } from "@web/lib/gui-model";
+import { useEditor } from "../hooks/use-editor";
+import { applyModelEdit, parseGuiModel } from "../lib/gui-model";
 import {
   buildLockedGuiRowIndices,
   canUseGuiEditing,
   isGuiRowEditingLocked,
   mustChooseParseErrorPolicy,
-} from "@web/lib/parse-error-policy";
-import { InspectorDraftPanel } from "@web/components/gui/inspector-draft-panel";
+} from "../lib/parse-error-policy";
+import { InspectorDraftPanel } from "./gui/inspector-draft-panel";
 
 export function StepInspectorPanel({ rowIndex, onDirtyChange, height, flushRef }) {
   const {
@@ -18,6 +18,7 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange, height, flushRef }
     updateDocumentSrc,
     activeParseErrorPolicy,
     isHydrated,
+    isReadOnly,
   } = useEditor();
 
   const guiModel = useMemo(() => parseGuiModel(src), [src]);
@@ -29,6 +30,7 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange, height, flushRef }
 
   const needsChoice = mustChooseParseErrorPolicy(model.errors, activeParseErrorPolicy);
   const editingDisabled =
+    isReadOnly ||
     !canUseGuiEditing(model.errors, activeParseErrorPolicy) ||
     (rowIndex != null &&
       Number.isFinite(rowIndex) &&
@@ -71,7 +73,9 @@ export function StepInspectorPanel({ rowIndex, onDirtyChange, height, flushRef }
   if (rowIndex == null) {
     return (
       <p className="text-xs font-jp text-stone-500 px-3 py-4 border-t border-stone-700/60">
-        手順を選択すると詳細を編集できます
+        {isReadOnly
+          ? "手順を選択すると詳細を表示できます"
+          : "手順を選択すると詳細を編集できます"}
       </p>
     );
   }

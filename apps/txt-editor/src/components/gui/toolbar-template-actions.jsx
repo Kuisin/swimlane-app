@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import { ChevronDown } from "lucide-react";
-import { useEditor } from "@web/hooks/use-editor";
-import { getModelCounts } from "@web/components/editor/model-counts";
+import { useEditor } from "../../hooks/use-editor";
+import { getModelCounts } from "../editor/model-counts";
 
 const TemplateModalContext = createContext(null);
 
@@ -19,11 +19,13 @@ const TEMPLATE_MENU = [
   { kind: "props", label: "プロップ" },
 ];
 
-/** Replaces @web toolbar-template-actions for Electron (inline modal instead of popup). */
+/** Electron: inline template modal instead of browser popup. */
 export function ToolbarTemplateActions() {
   const onOpenTemplate = useContext(TemplateModalContext);
-  const { model } = useEditor();
+  const { model, isReadOnly } = useEditor();
   const counts = getModelCounts(model);
+
+  if (isReadOnly) return null;
 
   return (
     <details className="relative">

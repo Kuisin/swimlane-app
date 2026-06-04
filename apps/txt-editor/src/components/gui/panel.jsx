@@ -1,0 +1,111 @@
+import { useMemo } from "react";
+import { Settings } from "lucide-react";
+import { EditorActionBar } from "../editor/action-bar";
+import { EditorErrorList } from "../editor/error-list";
+import { ParseErrorPrompt } from "../editor/parse-error-prompt";
+import { getModelCounts } from "../editor/model-counts";
+import { useEditor } from "../../hooks/use-editor";
+import {
+  buildLockedGuiRowIndices,
+  canUseGuiEditing,
+  mustChooseParseErrorPolicy,
+} from "../../lib/parse-error-policy";
+import { FlowStepList } from "./flow-step-list";
+
+const titleInputClass =
+  "w-full min-w-0 rounded-sm border border-stone-600 bg-stone-800 px-2 py-1.5 text-sm font-jp text-stone-100 focus:outline-none focus:ring-1 focus:ring-stone-500";
+
+export function GuiModePanel({
+  src,
+  model,
+  guiModel,
+  themeBg,
+  showStepBlockCaptions,
+  hasUnsavedChanges,
+  onSave,
+  onTitleChange,
+  selectedRowIndex,
+  onSelectRow,
+  onEditRows,
+}) {
+  const {
+    activeParseErrorPolicy,
+    setActiveDocumentParseErrorPolicy,
+    setShowOptions,
+    isReadOnly,
+  } = useEditor();
+
+  const errors = model.errors;
+  const needsChoice =
+    !isReadOnly && mustChooseParseErrorPolicy(errors, activeParseErrorPolicy);
+  const guiEditingEnabled =
+    !isReadOnly && canUseGuiEditing(errors, activeParseErrorPolicy);
+  const lockedRowIndices = useMemo(
+    () => buildLockedGuiRowIndices(guiModel.rows, errors),
+    [guiModel.rows, errors],
+  );
+
+  return (
+    <div className="flex flex-col min-h-0 h-full">
+      <EditorActionBar
+        modelType="gui"
+        src={src}
+        modelTitle={model.title}
+        themeBg={themeBg}
+        showStepBlockCaptions={showStepBlockCaptions}
+        counts={getModelCounts(guiModel)}
+        hasUnsavedChanges={hasUnsavedChanges}
+        onSave={onSave}
+        saveDisabled={isReadOnly}
+      />
+      {needsChoice && errors.length > 0 && (
+        <ParseErrorPrompt
+          errors={errors}
+          onChooseFix={() => setActiveDocumentParseErrorPolicy("fix")}
+          onChooseContinue={() =>
+            setActiveDocumentParseErrorPolicy("continue")
+          }
+        />
+      )}
+      {guiEditingEnabled && lockedRowIndices.size > 0 && (
+        <p className="shrink-0 px-3 py-1.5 text-[10px] font-jp text-stone-400 border-b border-stone-700/60 bg-stone-900/80">
+          グレー表示のブロックは構文エラー行のため編集できません。他のブロックは編集できます。
+        </p>
+      )}
+      <div className="px-3 sm:px-4 py-2 border-b border-stone-700/60 shrink-0">
+        <label className="block text-[10px] font-jp text-stone-500 mb-1">
+          タイトル
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={model.title}
+            onChange={(event) => onTitleChange(event.target.value)}
+            disabled={!guiEditingEnabled}
+            className={`${titleInputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowOptions(true)}
+            disabled={isReadOnly}
+            title="ページ設定・図オプション"
+            className="shrink-0 flex items-center gap-1 rounded-sm border border-stone-600 px-2 py-1.5 text-xs font-jp text-stone-200 hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Settings size={14} /> 設定
+          </button>
+        </div>
+      </div>
+      <FlowStepList
+        rows={guiModel.rows}
+        selectedRowIndex={selectedRowIndex}
+        onSelectRow={onSelectRow}
+        onEditRows={onEditRows}
+        lanes={guiModel.lanes}
+        editingDisabled={!guiEditingEnabled}
+        lockedRowIndices={lockedRowIndices}
+      />
+      {!needsChoice && <EditorErrorList errors={errors} />}
+    </div>
+  );
+}
+

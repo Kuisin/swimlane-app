@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Diagram, resolveDiagramOptions } from "@kai-swimlane/core";
-import { useEditor } from "@web/hooks/use-editor";
-import { applyModelEdit, parseGuiModel } from "@web/lib/gui-model";
-import { GuiModePanel } from "@web/components/gui/panel";
-import { HelpModal } from "@web/components/editor/shell/help-modal";
-import { OptionsModal } from "@web/components/editor/shell/options-modal";
+import { useEditor } from "./hooks/use-editor";
+import { applyModelEdit, parseGuiModel } from "./lib/gui-model";
+import { GuiModePanel } from "./components/gui/panel";
+import { HelpModal } from "./components/editor/shell/help-modal";
+import { OptionsModal } from "./components/editor/shell/options-modal";
 import { useFolder } from "./context/folder-context";
 import { AppToolbar } from "./components/app-toolbar";
 import { FolderSidebar } from "./components/folder-sidebar";
 import { ResizeHandle } from "./components/resize-handle";
 import { StepInspectorPanel } from "./components/step-inspector-panel";
 import { TemplateModal } from "./components/template-modal";
-import { TemplateModalProvider } from "./shims/toolbar-template-actions";
+import { TemplateModalProvider } from "./components/gui/toolbar-template-actions";
 import { usePanelLayout } from "./hooks/use-panel-layout";
 import { isDocumentDirty } from "./lib/dsl-document";
 
@@ -23,7 +23,7 @@ const FONT_STYLE = `
 `;
 
 export function App() {
-  const { folderPath, openFolder, openSamples } = useFolder();
+  const { folderPath, openFolder, openSamples, isReadOnly } = useFolder();
   const {
     documents,
     openDocumentIds,
@@ -70,6 +70,7 @@ export function App() {
   );
 
   function onEditRows(editFn) {
+    if (isReadOnly) return;
     updateActiveDocumentSrc(applyModelEdit(src, editFn));
   }
 
@@ -103,6 +104,7 @@ export function App() {
   }
 
   useEffect(() => {
+    if (isReadOnly) return;
     function onKeyDown(event) {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
         event.preventDefault();
@@ -111,7 +113,7 @@ export function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleSaveAll]);
+  }, [handleSaveAll, isReadOnly]);
 
   useEffect(() => {
     setSelectedRowIndex(null);
@@ -147,7 +149,14 @@ export function App() {
         onShowHelp={() => setShowHelp(true)}
         onSave={handleSaveAll}
         hasUnsavedChanges={hasUnsavedChanges || inspectorDirty}
+        saveDisabled={isReadOnly}
       />
+
+      {isReadOnly && (
+        <p className="shrink-0 px-4 py-2 text-xs font-jp text-stone-600 bg-amber-50 border-b border-amber-200">
+          サンプルは閲覧専用です。編集するには「フォルダ」から自分の .txt フォルダを開いてください。
+        </p>
+      )}
 
       <div className="flex-1 flex min-h-0 min-w-0 flex-col xl:flex-row">
         <FolderSidebar
@@ -204,7 +213,9 @@ export function App() {
             style={{ "--panel-editor-width": `${layout.editorWidth}px` }}
           >
             <div className="px-3 py-2 border-b border-stone-700/60 shrink-0">
-              <p className="text-[10px] font-jp text-stone-500">編集中</p>
+              <p className="text-[10px] font-jp text-stone-500">
+                {isReadOnly ? "閲覧中" : "編集中"}
+              </p>
               <p className="text-xs font-mono text-stone-300 truncate" title={activeDocumentId}>
                 {activeDocumentId}
                 {hasUnsavedChanges ? " *" : ""}
@@ -223,9 +234,8 @@ export function App() {
                   guiModel={guiModel}
                   themeBg={theme.bg}
                   showStepBlockCaptions={resolvedDiagramOptions.showStepBlockCaptions}
-                  hasUnsavedChanges={hasUnsavedChanges}
-                  onSave={handleSaveAll}
                   hasUnsavedChanges={hasUnsavedChanges || inspectorDirty}
+                  onSave={handleSaveAll}
                   onTitleChange={handleTitleChange}
                   selectedRowIndex={selectedRowIndex}
                   onSelectRow={handleSelectRow}
@@ -250,9 +260,12 @@ export function App() {
       </div>
 
       <OptionsModal
-        open={showOptions}
+        open={showOptions && !isReadOnly}
         model={guiModel}
-        onApply={(editFn) => updateActiveDocumentSrc(applyModelEdit(src, editFn))}
+        onApply={(editFn) => {
+          if (isReadOnly) return;
+          updateActiveDocumentSrc(applyModelEdit(src, editFn));
+        }}
         onClose={() => setShowOptions(false)}
       />
 
@@ -265,7 +278,7 @@ export function App() {
         />
       )}
 
-      {templateKind && (
+      {templateKind && !isReadOnly && (
         <TemplateModal kind={templateKind} onClose={() => setTemplateKind(null)} />
       )}
     </div>

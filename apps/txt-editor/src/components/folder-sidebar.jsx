@@ -102,7 +102,7 @@ function TreeItems({ node, depth, collapsedFolders, onToggleFolder, activeId, on
 }
 
 export function FolderSidebar({ fileIds, activeId, onSelect, dirtyIds, folderPath, width }) {
-  const { createNewTxtFile } = useFolder();
+  const { createNewTxtFile, isReadOnly } = useFolder();
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const tree = useMemo(() => buildTree(fileIds), [fileIds]);
 
@@ -129,19 +129,23 @@ export function FolderSidebar({ fileIds, activeId, onSelect, dirtyIds, folderPat
     >
       <div className="px-3 py-2 border-b border-stone-300 shrink-0 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-jp text-stone-500 uppercase tracking-wide">Folder</p>
+          <p className="text-[10px] font-jp text-stone-500 uppercase tracking-wide">
+            {isReadOnly ? "Samples" : "Folder"}
+          </p>
           <p className="text-xs font-medium text-stone-800 truncate" title={folderPath}>
-            {rootName}
+            {isReadOnly ? "サンプル（閲覧専用）" : rootName}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={createNewTxtFile}
-          title="新規 .txt ファイル"
-          className="shrink-0 p-1.5 rounded-sm border border-stone-300 text-stone-600 hover:bg-stone-200 transition"
-        >
-          <FilePlus size={14} />
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            onClick={createNewTxtFile}
+            title="新規 .txt ファイル"
+            className="shrink-0 p-1.5 rounded-sm border border-stone-300 text-stone-600 hover:bg-stone-200 transition"
+          >
+            <FilePlus size={14} />
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto py-1 min-h-0 flex flex-col">
         {fileIds.length === 0 ? (
