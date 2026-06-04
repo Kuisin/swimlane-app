@@ -16,11 +16,9 @@ const files = new Map()
 // Folder relative paths that are collapsed (all others are expanded)
 const collapsedFolders = new Set()
 
-let selectedFile    = null  // relative path of selected file
+let selectedFile    = null
 let txtVisible      = false
 let currentThemeKey = 'basic'
-
-// ─── Rendering helpers ────────────────────────────────────────────────────────
 
 function renderSvg(content) {
   return window.api.renderSvg(content, currentThemeKey)
@@ -29,8 +27,6 @@ function renderSvg(content) {
 function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
-
-// ─── Folder / file open ───────────────────────────────────────────────────────
 
 function openFolder() {
   window.api.selectFolder().then((folderPath) => {
@@ -41,8 +37,7 @@ function openFolder() {
 
 async function loadFolder(folderPath) {
   folderPathEl.textContent = folderPath
-  // Show root folder name in sidebar header
-  const rootName = folderPath.split('/').pop() || folderPath
+  const rootName = folderPath.split(/[/\\]/).pop() || folderPath
   sidebarTitleEl.textContent = rootName
 
   window.api.removeFileChangedListener()
@@ -60,7 +55,6 @@ async function loadFolder(folderPath) {
     return
   }
 
-  // Render all SVGs in parallel
   await Promise.all(
     fileList.map(async (f) => {
       const { svg, error } = await renderSvg(f.content)
@@ -107,10 +101,6 @@ function showEmptyState(msg) {
   svgViewEl.classList.add('hidden')
 }
 
-// ─── Tree building ────────────────────────────────────────────────────────────
-
-// Turns a sorted list of relative paths into a nested tree.
-// Each node: { name, path, folders: {}, files: [] }
 function buildTree(relPaths) {
   const root = { name: '', path: '', folders: {}, files: [] }
   for (const relPath of relPaths) {
@@ -129,8 +119,6 @@ function buildTree(relPaths) {
   return root
 }
 
-// ─── Sidebar rendering ────────────────────────────────────────────────────────
-
 function renderFileList() {
   fileListEl.innerHTML = ''
   const sorted = [...files.keys()].sort()
@@ -138,17 +126,14 @@ function renderFileList() {
   appendTreeItems(fileListEl, tree, 0)
 }
 
-// Recursively appends folder and file <li> elements to parentEl.
-// All items go into the same flat <ul>; depth controls visual indent only.
 function appendTreeItems(parentEl, node, depth) {
-  const BASE   = 10          // left edge padding (px)
-  const STRIDE = 14          // additional indent per depth level (px)
-  const FILE_EXTRA = 18      // extra indent for files vs their parent folder row
+  const BASE = 10
+  const STRIDE = 14
+  const FILE_EXTRA = 18
 
   const folderLeft = BASE + depth * STRIDE
   const fileLeft   = folderLeft + FILE_EXTRA
 
-  // Folders first, sorted alphabetically
   for (const folderName of Object.keys(node.folders).sort()) {
     const folder      = node.folders[folderName]
     const isCollapsed = collapsedFolders.has(folder.path)
@@ -175,7 +160,6 @@ function appendTreeItems(parentEl, node, depth) {
     }
   }
 
-  // Files, sorted alphabetically
   for (const relPath of node.files.slice().sort()) {
     const parts       = relPath.split('/')
     const fileName    = parts[parts.length - 1]
@@ -200,8 +184,6 @@ function toggleFolder(folderPath) {
   }
   renderFileList()
 }
-
-// ─── File selection & view ────────────────────────────────────────────────────
 
 function selectFile(relPath) {
   selectedFile = relPath
@@ -246,8 +228,6 @@ async function rerenderAllFiles() {
   )
   if (selectedFile) renderSvgView(selectedFile)
 }
-
-// ─── Event listeners ─────────────────────────────────────────────────────────
 
 themeSelectEl.addEventListener('change', () => {
   currentThemeKey = themeSelectEl.value

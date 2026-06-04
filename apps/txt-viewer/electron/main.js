@@ -4,6 +4,9 @@ const fs = require('fs')
 const chokidar = require('chokidar')
 const { pathToFileURL } = require('url')
 
+const APP_ROOT = path.join(__dirname, '..')
+const RENDERER_DIR = path.join(APP_ROOT, 'renderer')
+
 let mainWindow
 let watcher = null
 let coreModules = null
@@ -11,7 +14,9 @@ let coreModules = null
 async function getCoreModules() {
   if (coreModules) return coreModules
   const renderPureMod = await import(
-    pathToFileURL(path.join(__dirname, '../../packages/core/src/render-pure/index.js')).href
+    pathToFileURL(
+      path.join(APP_ROOT, '../../packages/core/src/render-pure/index.js')
+    ).href
   )
   coreModules = { textToSvg: renderPureMod.textToSvg }
   return coreModules
@@ -31,7 +36,7 @@ function createWindow() {
     },
   })
 
-  mainWindow.loadFile('index.html')
+  mainWindow.loadFile(path.join(RENDERER_DIR, 'index.html'))
 }
 
 app.whenReady().then(() => {
@@ -59,9 +64,13 @@ ipcMain.handle('read-txt-files', async (_, folderPath) => {
 
   function walk(dir) {
     let entries
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue          // skip hidden
+      if (entry.name.startsWith('.')) continue
       const fullPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
         walk(fullPath)
@@ -95,10 +104,13 @@ ipcMain.handle('render-svg', async (_, content, themeKey) => {
 
 // Watch the entire folder tree for .txt changes; emit relative paths.
 ipcMain.on('watch-folder', (_, folderPath) => {
-  if (watcher) { watcher.close(); watcher = null }
+  if (watcher) {
+    watcher.close()
+    watcher = null
+  }
 
   watcher = chokidar.watch(folderPath, {
-    ignored: /(^|[/\\])\../,   // ignore dotfiles / dotfolders
+    ignored: /(^|[/\\])\../,
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
   })
@@ -109,17 +121,22 @@ ipcMain.on('watch-folder', (_, folderPath) => {
     const relPath = path.relative(folderPath, filePath).split(path.sep).join('/')
     let content = null
     if (eventType !== 'unlink') {
-      try { content = fs.readFileSync(filePath, 'utf-8') } catch {}
+      try {
+        content = fs.readFileSync(filePath, 'utf-8')
+      } catch {}
     }
     mainWindow.webContents.send('file-changed', { name: relPath, content, eventType })
   }
 
   watcher
-    .on('add',    (fp) => notify(fp, 'add'))
+    .on('add', (fp) => notify(fp, 'add'))
     .on('change', (fp) => notify(fp, 'change'))
     .on('unlink', (fp) => notify(fp, 'unlink'))
 })
 
 ipcMain.on('stop-watch', () => {
-  if (watcher) { watcher.close(); watcher = null }
+  if (watcher) {
+    watcher.close()
+    watcher = null
+  }
 })

@@ -80,12 +80,12 @@ Output lands under `apps/txt-viewer/dist/`.
 The main process loads the headless renderer directly from the monorepo core package:
 
 ```js
-// apps/txt-viewer/main.js — same pipeline as the web editor export path
+// apps/txt-viewer/electron/main.js — same pipeline as the web editor export path
 import { textToSvg } from "../../packages/core/src/render-pure/index.js";
 const { svg, errors } = textToSvg(content, { themeKey: "basic" });
 ```
 
-IPC bridge (`preload.js` → `renderer.js`): `selectFolder`, `readTxtFiles`, `renderSvg`, `watchFolder`, `onFileChanged`.
+IPC bridge (`electron/preload.js` → `renderer/renderer.js`): `selectFolder`, `readTxtFiles`, `renderSvg`, `watchFolder`, `onFileChanged`.
 
 ### Tests and lint
 
@@ -195,12 +195,14 @@ Source layout:
 
 ```
 apps/txt-viewer/
-  main.js       Electron main — folder dialog, file I/O, chokidar, SVG IPC
-  preload.js    contextBridge API exposed as window.api
-  renderer.js   sidebar tree, SVG pane, theme + TXT toggle
-  index.html    shell markup
-  styles.css    layout and typography
-  drive.mjs     optional Playwright helper for automated UI checks (local paths)
+  electron/
+    main.js       Electron main — folder dialog, file I/O, chokidar, SVG IPC
+    preload.js    contextBridge API exposed as window.api
+  renderer/
+    index.html    shell markup
+    renderer.js   sidebar tree, SVG pane, theme + TXT toggle
+    styles.css    layout and typography
+  drive.mjs       optional Playwright helper for automated UI checks (local paths)
 ```
 
 For headless or server use without Electron, see [Headless rendering](#headless-rendering-for-external-plugins) below.
