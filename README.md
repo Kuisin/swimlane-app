@@ -1,6 +1,6 @@
 # Kai Swimlane
 
-A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm workspace monorepo so the web app and markdown fence renderers share one parser and diagram implementation.
+A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm workspace monorepo so the web app, Electron txt viewer, and markdown fence renderers share one parser and diagram implementation.
 
 ## Repository layout
 
@@ -16,17 +16,89 @@ A DSL-based swimlane diagram editor built with React + Vite, organized as a pnpm
 │   └── cursor/kai-swimlane/  Cursor local plugin
 └── apps/
     ├── web/                  @kai-swimlane/web — Vite editor UI + dev LLM PNG API
-    └── txt-viewer/           Electron app — watch a `.txt` DSL file and preview SVG (optional)
+    └── txt-viewer/           Electron app — open a folder of `.txt` DSL files and preview SVG live
 ```
 
 Shared logic lives in **`@kai-swimlane/core`**. The **`kai-swimlane`** and **`kai-swimlane-parts`** packages are thin React layers on top of that core (used by the web app help/templates tab and reusable in other markdown UIs).
+
+## Prerequisites
+
+- **Node.js 18+** (ESM / ES2022; Node 20+ recommended for extension packaging)
+- **pnpm 9+** ([install](https://pnpm.io/installation); the repo pins **pnpm@9.15.4** via `packageManager` in [`package.json`](package.json))
+
+From the repository root, install all workspace dependencies once:
+
+```bash
+pnpm install
+```
+
+## Run
+
+### Web editor (`apps/web`)
+
+```bash
+pnpm run dev          # Vite dev server (text + GUI editor, dev LLM PNG API)
+pnpm run build        # production build
+pnpm run preview      # serve the production build locally
+```
+
+The editor is published under the Vite base path **`/swimlane-app/`**:
+
+- **Text editor:** `https://kuisin.github.io/swimlane-app/`
+- **GUI editor:** `https://kuisin.github.io/swimlane-app/gui`
+
+Deep links to `/gui` work on GitHub Pages via `apps/web/public/404.html` (SPA fallback).
+
+### Txt Viewer (`apps/txt-viewer`)
+
+Desktop Electron app for **live preview** of Kai Swimlane DSL files saved as `.txt`. Pick a folder (including nested subfolders); every `.txt` file is parsed and rendered to SVG via `@kai-swimlane/core/render-pure`. Edits on disk are picked up automatically (chokidar file watch).
+
+```bash
+pnpm --filter txt-viewer start    # launch the app
+pnpm --filter txt-viewer dev      # same as start (electron . --dev)
+```
+
+Or from the app directory:
+
+```bash
+cd apps/txt-viewer
+pnpm start
+```
+
+**Usage:** **Open Folder** → choose a directory containing `.txt` swimlane DSL files → select a file in the sidebar tree → switch theme (basic / washi / ink / mono) → optional **Show TXT** side panel for raw source.
+
+**Package native installers** (requires platform-specific Electron Builder tooling):
+
+```bash
+pnpm --filter txt-viewer build:mac   # macOS .dmg (x64 + arm64)
+pnpm --filter txt-viewer build:win   # Windows NSIS installer (x64)
+pnpm --filter txt-viewer build:all   # both platforms (on a machine that supports each target)
+```
+
+Output lands under `apps/txt-viewer/dist/`.
+
+The main process loads the headless renderer directly from the monorepo core package:
+
+```js
+// apps/txt-viewer/main.js — same pipeline as the web editor export path
+import { textToSvg } from "../../packages/core/src/render-pure/index.js";
+const { svg, errors } = textToSvg(content, { themeKey: "basic" });
+```
+
+IPC bridge (`preload.js` → `renderer.js`): `selectFolder`, `readTxtFiles`, `renderSvg`, `watchFolder`, `onFileChanged`.
+
+### Tests and lint
+
+```bash
+pnpm test             # @kai-swimlane/core vitest suite
+pnpm run lint         # web app ESLint
+```
 
 ## IDE plugin (VS Code / Cursor)
 
 Build a shareable `.vsix` and install it in VS Code or Cursor:
 
 ```bash
-pnpm install
 pnpm run package:extension
 ```
 
@@ -41,29 +113,6 @@ pnpm run install:cursor-plugin
 See [plugins/cursor/kai-swimlane/README.md](plugins/cursor/kai-swimlane/README.md).
 
 **CI:** pushing a tag `v*` runs [.github/workflows/extension-release.yml](.github/workflows/extension-release.yml), bundles the `.vsix` into `plugins/cursor/kai-swimlane/vscode/`, and attaches the standalone VSIX plus Cursor plugin zip to GitHub Releases.
-
-## Run
-
-From the repository root:
-
-```bash
-pnpm install
-pnpm run dev
-```
-
-Build and preview:
-
-```bash
-pnpm run build
-pnpm --filter @kai-swimlane/web preview
-```
-
-The editor is published under the Vite base path **`/swimlane-app/`**:
-
-- **Text editor:** `https://kuisin.github.io/swimlane-app/`
-- **GUI editor:** `https://kuisin.github.io/swimlane-app/gui`
-
-Deep links to `/gui` work on GitHub Pages via `apps/web/public/404.html` (SPA fallback).
 
 ## Markdown fence plugins
 
@@ -131,6 +180,30 @@ The Vite app (`apps/web`) provides two modes (toolbar links):
 Shared features: multi-tab documents (browser `localStorage`), **Syntax** dialog (`help.md` + `template.md` catalog), theme picker (basic / washi / ink / mono), export **SVG** / **PNG** / `.txt` DSL, unsaved-change guard on reload. GUI adds **Templates** popups (roles, blocks, props) and a **step inspector** popup for the selected step. On parse errors, GUI offers **fix in text editor** or **continue** (only rows tied to error lines stay locked).
 
 Sample DSL: [`apps/web/src/content/complex-test-example.txt`](apps/web/src/content/complex-test-example.txt).
+
+## Txt Viewer (Electron)
+
+| Feature | Detail |
+|---------|--------|
+| **Input** | Any folder tree of `.txt` files (hidden dotfiles skipped) |
+| **Preview** | SVG via `textToSvg` from `@kai-swimlane/core/render-pure` |
+| **Live reload** | `chokidar` watches add / change / delete under the opened folder |
+| **UI** | Collapsible folder tree sidebar, theme picker, optional raw DSL panel |
+| **Stack** | Electron 31, plain HTML/CSS/JS renderer (no React in the shell) |
+
+Source layout:
+
+```
+apps/txt-viewer/
+  main.js       Electron main — folder dialog, file I/O, chokidar, SVG IPC
+  preload.js    contextBridge API exposed as window.api
+  renderer.js   sidebar tree, SVG pane, theme + TXT toggle
+  index.html    shell markup
+  styles.css    layout and typography
+  drive.mjs     optional Playwright helper for automated UI checks (local paths)
+```
+
+For headless or server use without Electron, see [Headless rendering](#headless-rendering-for-external-plugins) below.
 
 ## DSL quick reference
 
